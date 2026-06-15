@@ -135,7 +135,7 @@ Wallets, DAO tools, and DeFi apps can integrate Privara's SDK to support privacy
 
 ### Milestone 1: Privara Core Protocol + Testnet Router
 
-Target: 6-8 weeks
+Target: 4 weeks
 
 Deliverables:
 
@@ -147,7 +147,7 @@ Deliverables:
 
 ### Milestone 2: SDK + Relayer + Developer Integration Layer
 
-Target: 6-8 weeks after Milestone 1
+Target: 4 weeks after Milestone 1
 
 Deliverables:
 
@@ -161,7 +161,7 @@ Deliverables:
 
 Privara's first phase is successful if it produces:
 
-- 100 or more successful testnet intent executions, or
+- 25 or more successful testnet intent executions, or
 - one external wallet, DAO tool, or protocol integration demonstrating usage
 
 Additional signs of success:
@@ -177,8 +177,6 @@ Privara is in early grant and protocol design stage. The current focus is the SI
 
 ## Repository Layout
 
-Planned structure:
-
 ```text
 contracts/      Clarity contracts
 sdk/            TypeScript SDK
@@ -191,4 +189,3 @@ tests/          Contract and integration tests
 ## License
 
 MIT license planned.
-

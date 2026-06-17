@@ -1,0 +1,19 @@
+{
+  "name": "@privara/sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Privara SIP-010 privacy payment intents",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@stacks/network": "^6.17.0",
+    "@stacks/transactions": "^6.17.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

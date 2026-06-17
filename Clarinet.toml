@@ -1,0 +1,30 @@
+[project]
+name = "privara"
+description = "Privacy-preserving SIP-010 payment infrastructure for Stacks"
+authors = []
+telemetry = false
+cache_dir = "./.cache"
+
+[contracts.sip010-ft-trait]
+path = "contracts/traits/sip010-ft-trait.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.privara-router]
+path = "contracts/privara-router.clar"
+clarity_version = 4
+epoch = "latest"
+
+[contracts.privara-registry]
+path = "contracts/privara-registry.clar"
+clarity_version = 4
+epoch = "latest"
+
+[repl.analysis]
+passes = ["check_checker"]
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false

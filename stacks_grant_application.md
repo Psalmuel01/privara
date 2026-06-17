@@ -1,492 +1,329 @@
-# Grant Application - Stacks Ecosystem Fund
+# 🙍‍♂️ STEP 1 — Applicant Identity
 
-**RFP Reference:** Shielded Transactions (Privacy) - Confidential SIP-010 asset transactions, including intent-based protocols  
-**Project Title:** Privara - Privacy-Preserving SIP-010 Payment Infrastructure for Bitcoin-Native Finance  
-**Applicant:** Samuel Dahunsi - github.com/psalmuel01  
-**Requested Duration:** 5 months  
-**Category:** Privacy Infrastructure / Protocol Primitive  
-**Status:** Revised technical framing after feasibility review
+## **Legal name**
+
+Samuel Dahunsi
 
 ---
 
-## 1. Executive Summary
+# 🧾 STEP 2 — Project
 
-Privara is a privacy infrastructure project for SIP-010 assets on Stacks. It explores and implements the strongest practical privacy layer that can be built with Clarity today: a payment-intent and shielded-note toolkit that reduces wallet-graph leakage, supports private note delivery, and prototypes stronger shielded pools with explicit trust assumptions.
+## **Project name**
 
-The key design choice is honesty about what Stacks can and cannot support today:
-
-- **Feasible today:** private note delivery, fresh-address payment flows, relayer-submitted settlement, signed payment authorization, relayer registries, metadata-reduction UX, SDKs, and protocol adapters that make SIP-010 flows less publicly linkable.
-- **Partially feasible with explicit trust assumptions:** coordinator- or relayer-attested shielded withdrawals where an offchain verifier checks private note validity and the onchain contract verifies the verifier's signature.
-- **Not feasible today in a fully trustless way without onchain ZK verification or equivalent private membership proofs:** arbitrary SIP-010 transfers where the contract hides both the amount and recipient, or Tornado-style unlinkable pools where withdrawals prove membership without revealing which deposit created the note.
-
-Privara v1 therefore focuses on a realistic productizable primitive: **privacy-preserving SIP-010 payment tooling plus an attested shielded-note prototype**. It improves payment privacy by separating long-term wallets from recipient-facing settlement, supporting encrypted payment instructions, routing settlement through relayers, encouraging fresh-address workflows, and giving protocols a standard integration surface for privacy-aware deposits, payouts, and treasury movement.
-
-This is not a port of Tornado Cash, Aztec, or an Ethereum design. It is a Stacks-native protocol shaped around Clarity's current execution model, SIP-010 assets, sBTC growth, and the Stacks RFP request for shielded/confidential SIP-010 transactions.
+Privara
 
 ---
 
-## 2. What Exactly Are We Building?
+## **Primary category**
 
-Privara v1 is a set of contracts, SDKs, and relayer software for privacy-preserving SIP-010 payment flows. The first version should not pretend to be a fully trustless shielded pool. It should deliver useful privacy tooling now while making the trust and privacy boundaries explicit.
-
-### Core User Flow
-
-1. A user selects a SIP-010 asset, recipient mode, relayer, and optional denomination bucket.
-2. The frontend generates a private payment intent offchain:
-   - asset
-   - amount or denomination
-   - recipient or fresh withdrawal address
-   - relayer fee
-   - salt
-   - expiry
-3. The user funds a router, integrating protocol, or attested pool depending on the selected flow.
-4. The recipient or relayer receives only the execution data needed for that flow.
-5. The relayer submits the settlement transaction and receives a fee.
-6. For the attested-pool prototype, a verifier/coordinator validates private note state offchain and signs a withdrawal authorization.
-7. The onchain contract verifies signatures, enforces replay protection, and executes SIP-010 settlement.
-
-### Optional Research Prototype: Attested Shielded Pool
-
-A fully trustless shielded pool is not feasible in Clarity today without private membership proofs. However, an attested pool can be prototyped with explicit trust assumptions:
-
-1. User deposits into a pool and creates a private note.
-2. A registered verifier/coordinator checks note validity offchain.
-3. The coordinator signs a withdrawal authorization that includes a nullifier, recipient, fee, and expiry.
-4. The contract verifies the coordinator signature and nullifier uniqueness.
-5. The contract transfers the SIP-010 amount.
-
-This gives the chain less information than a direct transfer, but it introduces verifier trust. The coordinator must not be marketed as trustless. It is a stepping stone and research artifact, not the main security claim.
-
-### Why A Trustless Pool Needs More Than Commitments
-
-A commitment and nullifier are not enough by themselves. The contract must know that the withdrawal corresponds to a real unspent deposit. If the user reveals the note secret to prove that relationship, observers can recompute the commitment and link the withdrawal to the deposit. If the user does not reveal it, the contract needs a private proof of membership, normally a ZK proof or another cryptographic primitive that Clarity does not currently make practical.
-
-That is the key feasibility boundary.
-
-### Practical v1 Tracks
-
-Privara should be proposed as two connected tracks:
-
-**Track A: Non-custodial privacy tooling**
-
-- encrypted payment notes
-- fresh-address and wallet-hygiene flows
-- relayer-submitted settlement where possible
-- adapter patterns for wallets, payroll tools, DAO payouts, and DeFi protocols
-- clear privacy scoring that warns users when a flow remains linkable
-
-This track is feasible and useful, but it provides metadata reduction rather than full shielded transfer privacy.
-
-**Track B: Attested or blind-signed shielded-note prototype**
-
-- fixed-denomination deposits
-- offchain verifier, coordinator, or federation
-- nullifier/replay protection onchain
-- settlement or redemption authorization verified by Clarity signatures
-- explicit documentation of trust assumptions
-
-This track is the real research contribution. If a blind-signature construction compatible with Clarity signature verification is practical, it can reduce coordinator linkage. If not, the prototype remains an attested design with clear verifier trust.
-
-### What Privara v1 Provides
-
-| Property | Realistic v1 Guarantee |
-|---|---|
-| Sender-recipient linkage | Reduced through encrypted notes, relayers, fresh addresses, delayed settlement, and optional denomination buckets |
-| Deposit amount | Public unless routed through an integrating protocol with its own abstraction |
-| Settlement amount | Public to the chain for normal SIP-010 settlement |
-| Recipient address | Public at final settlement unless the recipient uses a fresh address |
-| Sender address | Hidden from the settlement transaction when a relayer submits it |
-| Replay protection | Enforced onchain with nonces, intent hashes, expiries, and optional nullifiers |
-| Relayer custody | None. Relayers submit authorized transactions but cannot redirect funds |
-| Protocol integration | Possible through router, note, relayer, and adapter interfaces |
-
-### What Privara v1 Does Not Claim
-
-Privara v1 does **not** claim fully confidential arbitrary SIP-010 settlement where amount and recipient are invisible to the chain. In Clarity today, if a contract transfers SIP-010 tokens to a recipient, the contract must know the recipient and amount at execution time, and those values are normally exposed through transaction arguments, state changes, and token events.
-
-Privara v1 also does **not** claim a fully trustless Tornado-style pool. A trustless unlinkable pool requires the withdrawal to prove membership in the deposit set without revealing which commitment it spends. That requires ZK proofs, ring signatures, blind-signature infrastructure, or another private membership mechanism. Clarity's currently exposed primitives are enough for signatures and hashes, but not enough for that full trustless construction.
-
-Privara v1 is therefore best described as:
-
-> A privacy-preserving SIP-010 payment toolkit that reduces public linkage, supports private note delivery and relayer settlement, and includes a clearly scoped research prototype for stronger shielded notes.
-
-This is still valuable. Practical financial privacy often starts with reducing the obvious wallet graph: separating funding wallets from recipient-facing wallets, avoiding direct sender-recipient transfers, using relayers, supporting private payment instructions, and making safer privacy defaults available to wallets and protocols.
+Privacy
 
 ---
 
-## 3. Why This Use Case Makes Sense
+## **Secondary category**
 
-Stacks is becoming a Bitcoin-native financial layer. As sBTC and SIP-010 assets grow, transparent payments become a real limitation.
+Developer Tools & Infrastructure
+---
 
-Users and institutions may not want the public to see:
+## **Repo**
 
-- treasury movements between operational wallets
-- payroll or contractor payouts
-- position funding before using a DeFi protocol
-- fund rebalancing
-- OTC settlement preparation
-- recurring payments
-- donations or grants
-- transfers between personal wallets
+[Github](https://github.com/Psalmuel01/privara)
+---
 
-The point is not to make illicit activity easier. The point is that public financial rails expose too much by default. Privacy is normal in traditional finance. A Bitcoin-native financial ecosystem needs privacy primitives if it wants serious users, businesses, and institutions.
+## **Project Description**
 
-Privara gives Stacks a credible first privacy layer that can be built now.
+Privara is a SIP-010 privacy execution layer for Stacks that enables intent-based transfers with reduced wallet traceability. It introduces a router-based settlement system where users sign encrypted payment intents that can be executed by relayers, separating transaction authorization from onchain settlement.
+
+Today, SIP-010 transfers on Stacks are fully transparent, exposing wallet relationships, treasury flows, and payment patterns. Privara addresses this by introducing:
+
+- intent-based payment authorization
+- relayer-submitted settlement transactions
+- encrypted offchain payment instructions
+- fresh-address routing for recipients
+- a reusable SDK for integrating privacy-aware transfers into wallets and DeFi apps
+
+The grant funds the development of a working testnet protocol including Clarity smart contracts, a TypeScript SDK, and a reference relayer service that demonstrates privacy-preserving SIP-010 transfers in real applications such as DAO payouts and wallet-to-wallet payments. This gives Stacks useful privacy today and a migration path to stronger ZK proofs verification later, when supported.
 
 ---
 
-## 4. Why It Matters For Stacks
+# 👥 STEP 3 — Audience and ecosystem fit
 
-The Stacks RFP explicitly calls for shielded/confidential SIP-010 asset transactions and mentions intent-based protocols. Privara addresses that request directly.
+## **Primary audience**
 
-### Ecosystem Impact
+Stacks users who need payment privacy, wallet teams, DAO treasury operators, DeFi protocols integrating deposits/payouts, and developers building privacy-aware applications.
+---
 
-**More meaningful onchain activity:** Privara creates a new transaction category: encrypted payment intents, relayer settlement, fresh-address flows, attested note redemption, and protocol-integrated privacy flows.
+## **Audience segmentation**
 
-**More useful sBTC:** sBTC becomes more institution-friendly when holders have a privacy-aware transfer and treasury-management option.
-
-**Reusable infrastructure:** Instead of every DeFi team inventing privacy tooling, Privara provides shared contracts, SDKs, and integration guides.
-
-**New relayer fee market:** Relayers can earn fees for settlement execution, creating a small but real service economy around privacy-preserving payments.
-
-**Better developer experience:** Protocols get adapter patterns for encrypted payouts, fresh-address deposits, relayer settlement, and future shielded-note flows.
-
-**Foundation for future ZK privacy:** If Stacks later supports efficient proof verification or another viable private membership primitive, Privara's intent, note, relayer, and adapter architecture can evolve toward stronger hidden-amount and hidden-recipient designs.
+- Individual users: people who want wallet-graph privacy when transferring SIP-010 assets
+- Wallet developers who want to offer "private transfer" as a native SIP-010 action
+- DAO treasuries managing payroll and contributor payouts
+- DeFi protocols handling deposits, withdrawals, and liquidity flows
+- Relayer operators providing execution services
+- Builders integrating privacy-preserving payment flows into apps
 
 ---
 
-## 5. Feasibility Review
+## **Why Stacks?**
 
-### What Clarity Supports Today
+Privara is built specifically for Stacks because SIP-010 token transfers are fully transparent at the application layer, creating a gap for privacy-aware financial workflows.
 
-Clarity supports the core building blocks needed for v1 payment privacy tooling:
+Stacks also has:
 
-- maps for commitments, nullifiers, nonces, and replay protection
-- SIP-010 contract calls
-- `sha256` hashing
-- `secp256k1-verify` for signature authorization
-- `secp256r1-verify` introduced in Clarity 4, useful for future passkey experiments but currently requiring care because of documented message-hash behavior
-- `contract-hash?` introduced in Clarity 4 for checking deployed contract code hashes
+* Clarity smart contracts with deterministic execution
+* growing sBTC ecosystem enabling Bitcoin-denominated financial activity
+* intent-based execution patterns emerging across DeFi tooling
 
-These are enough to build replay-protected payment intents, private note delivery tooling, relayer settlement, and an explicitly trusted/attested shielded-note prototype.
-
-### What Clarity Does Not Give Us Yet
-
-Clarity does not currently provide the practical onchain ZK proof verification environment needed for full hidden-amount, hidden-recipient arbitrary transfers. Without that, the contract cannot safely transfer assets without learning and exposing the transfer amount and recipient.
-
-It also does not give us a practical trustless private membership proof for a classic shielded pool. This matters because a commitment alone does not prove that a hidden withdrawal is valid. The contract needs either:
-
-- public transfer data, which weakens confidentiality, or
-- a trusted/attested verifier, which introduces trust assumptions, or
-- a zero-knowledge/private membership proof, which Clarity does not currently make practical for this use case.
-
-### Revised Technical Claim
-
-The fundable and technically credible claim is:
-
-> Privara v1 brings privacy-preserving payment tooling to SIP-010 assets on Stacks, reducing wallet-graph leakage today while documenting and prototyping the path to stronger shielded notes later.
-
-That claim is achievable.
+Privara uses these primitives to introduce a privacy execution layer that sits between user intent and SIP-010 settlement. This cannot be ported directly from other ecosystems because it depends on Clarity-based authorization verification and SIP-010 token standards.
 
 ---
 
-## 6. Architecture
+## **Maintenance plan**
 
-### 6.1 Contracts
+The project will be maintained by myself with ongoing updates post-grant. The codebase will be open source with:
 
-**`privara-router`**
+- monthly versioned releases during development
+- public issue tracking on GitHub
+- documentation updates for SDK and contract integration
+- support for early integrators (wallets and DAO tools) during testnet phase
 
-The main settlement contract for authorized SIP-010 payment intents where a router flow is appropriate.
-
-Responsibilities:
-
-- verify user intent signatures
-- enforce nonces and expiries
-- execute SIP-010 transfers
-- pay relayer fee where applicable
-- emit minimal events
-
-Core functions:
-
-```clarity
-(define-public (settle-intent
-  (intent-hash (buff 32))
-  (asset <sip010-trait>)
-  (amount uint)
-  (recipient principal)
-  (relayer principal)
-  (relayer-fee uint)
-  (user-sig (buff 65))
-  (expiry uint)))
-```
-
-The exact signature format will be finalized during milestone 1. The important property is that a relayer can execute an authorized intent but cannot change the recipient, amount, fee, or expiry.
-
-**`privara-registry`**
-
-A relayer registry.
-
-Responsibilities:
-
-- register relayer public keys
-- optionally require STX stake
-- track relayer metadata
-- allow users to choose relayers based on fee and availability
-
-Slashing should be conservative in v1. It is difficult to prove many forms of relayer misbehavior onchain. The first version should prioritize registration, reputation, and optional staking over aggressive slashing claims.
-
-**`privara-attested-pool`**
-
-An optional research prototype for fixed-denomination pool redemptions with a registered verifier/coordinator.
-
-Responsibilities:
-
-- accept pool deposits
-- store commitments
-- verify coordinator redemption signatures
-- enforce nullifier uniqueness
-- make trust assumptions explicit
-
-This contract is useful for experimentation, but the grant should not make it a trustless claim unless the private membership problem is solved.
-
-**`privara-sip010-adapter`**
-
-An integration interface and example adapter for other protocols.
-
-Use cases:
-
-- DeFi protocols accepting relayer-settled deposits
-- protocols routing user payouts through privacy-preserving intents
-- DAO payroll tools funding encrypted payment notes
-- wallets exposing "private transfer" as a SIP-010 action
-
-### 6.2 SDK
-
-The TypeScript SDK handles offchain note operations:
-
-- generate note secrets
-- encode note data
-- compute intent hashes
-- compute nonces and optional nullifiers
-- encrypt note payloads for recipients
-- create settlement authorization messages
-- integrate with wallets and relayers
-- support fresh-address workflows
-
-### 6.3 Relayer
-
-The relayer is a non-custodial transaction submitter.
-
-Responsibilities:
-
-- receive settlement requests offchain
-- validate user authorization
-- submit settlement transactions
-- receive a fee from the settled asset or a separate fee flow
-
-The relayer should not be required for protocol correctness. Users should have a self-settle path if relayers are unavailable, though using it may reveal more metadata.
+Maintenance will focus on stability updates, relayer improvements, and ecosystem integration support.
+After enough traction, I'll pursue follow-on funding for mainnet deployment, protocol integrations and further iterations.
 
 ---
 
-## 7. Privacy Model
+## **Ecosystem fit**
 
-Privara's v1 privacy comes from four mechanisms:
+Privara directly aligns with the Privacy focus area in this cycle. It advances Bitcoin-native finance by helping Stacks users and protocols reduce direct wallet-to-wallet traceability in payments/treasury flows, and creates a foundation for stronger privacy as Clarity evolves. 
 
-1. **Intent separation:** the funding action and final settlement can be split into different steps and wallets.
-2. **Relayer execution:** the settlement transaction does not need to be submitted by the sender.
-3. **Fresh-address support:** recipients can withdraw or receive to addresses not publicly tied to their long-term wallet.
-4. **Private note delivery:** payment instructions can be encrypted offchain instead of posted as public transaction metadata.
+The protocol provides a reusable infrastructure that any Stacks builder can integrate for SIP-010 transfers, rather than a single-application product. This multiplies the ecosystem impact beyond Privara's own users. As sBTC TVL grows toward $1B (currently ~$200M), the absence of any privacy layer becomes increasingly limiting for the class of users Bitcoin DeFi needs to attract.
 
-For the optional attested-pool prototype, privacy also depends on the coordinator/verifier not linking deposits and withdrawals or leaking private note information.
-
-### Public Information
-
-The following remains public in v1:
-
-- deposit transaction
-- asset
-- settlement transaction
-- settlement amount
-- settlement recipient unless the user uses a fresh address
-- settlement timing
-- relayer address
-
-### Private Or Partially Private Information
-
-The following is protected:
-
-- direct sender-to-recipient transaction path
-- private payment instructions
-- who authorized the relayer, if the offchain channel is private
-- sender identity at settlement time when a relayer submits the transaction
-
-### Metadata Risks
-
-Small flows have weak privacy. If a user funds an intent and settles immediately for a unique amount, observers may infer the relationship. Timing analysis can also reveal likely links.
-
-Mitigations:
-
-- minimum delay recommendations
-- UI warnings when a flow has weak privacy
-- optional denomination buckets to standardize amounts
-- relayer submission by default
-- fresh-address generation
-- optional batching in later versions
+Privara also establishes the architectural foundation for stronger ZK-based privacy on Stacks when Clarity gains pairing operations, meaning this grant funds infrastructure that compounds in value as the runtime evolves.
 
 ---
 
-## 8. Use Cases
+# ⚠️ STEP 4 — Risk and prior history
 
-### Private Wallet-To-Wallet Transfer
+## **Referral source**
 
-A user creates a private payment intent for 0.1 sBTC and sends encrypted claim details to a recipient. The recipient or relayer settles to a fresh address. Observers see settlement, but not a normal sender-submitted transfer from the user's long-term wallet to the recipient's long-term wallet.
-
-### Treasury Operations
-
-A project treasury prepares several private payout intents for operational wallets. Public observers may see settlements, but the workflow avoids publishing the full treasury-to-operator wallet graph in one obvious path.
-
-### Payroll And Contractor Payouts
-
-A DAO or company can create private payout instructions for contributors. Contributors receive through relayers or fresh addresses, reducing direct wallet graph exposure.
-
-### DeFi Position Preparation
-
-A user routes funds into a fresh wallet before entering a DeFi position. The protocol interaction is still public, but the user's original funding wallet is less directly linked.
-
-### Integrator Flow
-
-A Stacks DeFi protocol integrates the Privara SDK so users can create relayer-routed deposits or receive payouts without exposing as much wallet linkage.
+Stacks Endowment announcement tweet
 
 ---
 
-## 9. First Milestone
+## **Risk disclosure**
 
-### Month 1-2: Core Protocol And Spec
+Main risks:
 
-Deliverables:
+- Clarity runtime constraints: Clarity lacks onchain ZK proof verification. Privara v1 is explicitly designed around this, using commitment hashing and signature-based authorization rather than ZK proofs. This is documented in the protocol spec as a non-goal, not an oversight.
 
-- `privara-router` Clarity contract for SIP-010 intent settlement
-- intent hash and nonce tracking
-- expiry enforcement
-- settlement authorization
-- basic relayer fee handling
-- Clarinet test suite for settlement, replay rejection, invalid authorization, expiry, and fee accounting
-- written protocol spec with threat model, privacy guarantees, and non-goals
-- testnet deployment
-
-### Month 3-4: SDK, Relayer, And Multi-Pool Support
-
-Deliverables:
-
-- TypeScript SDK for encrypted notes, intent hashes, nonces, and settlement messages
-- relayer reference implementation
-- optional denomination-bucket UX
-- attested-pool research prototype with explicit trust assumptions
-- testnet integration with at least one SIP-010 token, ideally including sBTC testnet flows where available
-- latency and fee benchmark report
-
-### Month 5: Frontend, Integrations, And Launch Readiness
-
-Deliverables:
-
-- React/Next.js app for creating intents, encrypted note delivery, and relayer settlement
-- fresh-address workflow
-- relayer selection
-- passkey experiment or documented passkey feasibility report
-- integration guide for Stacks wallets and DeFi protocols
-- community demo and developer walkthrough
-- mainnet readiness checklist
-
-Mainnet deployment should happen only if the security review and testnet results justify it. Otherwise, the milestone should end with audited testnet contracts and a clear mainnet launch plan.
+- Relayer liveness: if all relayers go offline, users can self-settle using their own key, though this reveals more metadata. Mitigation: the registry supports multiple competing relayers; the self-settle path is included in v1.
 
 ---
 
-## 10. What Success Looks Like
+## **Prior grants**
 
-**Technical success**
-
-- no replay or unauthorized-settlement bugs in testnet or mainnet deployment
-- independent review confirms the intent authorization model
-- reproducible contract deployments
-- clear docs that do not overstate privacy
-
-**Adoption success**
-
-- at least one wallet, DAO tool, or DeFi protocol integrates the SDK or adapter
-- at least two SIP-010 assets supported on testnet
-- at least one sBTC-focused demo flow
-
-**Usage success**
-
-- 100+ successful testnet intents and settlements
-- 25+ unique testnet users
-- measurable reduction in direct sender-recipient wallet linkage in demo flows
-- relayer successfully processes most settlements during testnet
-
-**Ecosystem success**
-
-- Stacks builders can reuse the privacy primitive instead of starting from scratch
-- the project creates a credible foundation for future ZK-based or private-membership privacy on Stacks
+Stacks Ascent 2025 for Stackpay MVP
 
 ---
 
-## 11. Would Stacks Fund This?
+## **Prior Stacks work**
 
-There is no guarantee, but this is a credible grant direction if framed correctly.
-
-The proposal is likely stronger than a generic trading bot because:
-
-- it directly matches an open RFP
-- it creates infrastructure rather than only an app
-- it is Stacks-specific
-- it helps sBTC and SIP-010 assets become more usable
-- it has measurable deliverables
-- it can be built incrementally
-
-The biggest funding risk is overclaiming. A reviewer may reject a proposal that says "fully hidden amount and recipient" if the mechanism cannot support that onchain. The stronger approach is to say:
-
-> We are building the first feasible privacy-preserving SIP-010 payment infrastructure on Stacks: relayer settlement, private note delivery, fresh-address workflows, SDKs, integration paths, and an explicitly scoped research prototype for stronger shielded pools. This gives Stacks useful privacy today and a migration path to stronger ZK or private-membership privacy later.
-
-That is specific, technically credible, and aligned with the RFP.
+StackPay: a Bitcoin-native SIP-010 payments gateway on Stacks, production Clarity contracts, Bitcoin settlement logic, and full-stack integration. This is my primary prior Stacks work and demonstrates direct familiarity with Clarity's execution model, SIP-010 token standard, and Stacks transaction lifecycle.
 
 ---
 
-## 12. Open Questions To Resolve Before Submission
+# 💰 STEP 5 — Track and qualification
 
-1. Which first asset should be supported: sBTC, a stablecoin, or a test SIP-010 token?
-2. Should v1 support arbitrary amounts, denomination buckets, or both?
-3. Should v1 charge relayer fees inside the settled asset or via a separate STX fee?
-4. Should Privara support recipient-encrypted notes in v1, or keep note delivery out of scope?
-5. Is an attested-pool prototype worth including, or should v1 stay focused on non-custodial intent routing?
-6. Should mainnet deployment be promised in month 5, or should the proposal promise testnet plus mainnet-readiness?
-7. What compliance-conscious features are appropriate, such as optional view keys or selective disclosure exports?
+## Grant track
+
+Getting Started track
 
 ---
 
-## 13. Why Me
+## **Requested amount, USD**
 
-I have built directly in the intersection of privacy, cryptography, and decentralized protocols:
-
-**VeilMarkets on Aleo:** designed and shipped a 7-contract private prediction market on Leo/snarkVM, including FPMM design, collateral separation, consume-pattern authorization, and frontend integration with Shield Wallet.
-
-**Iris Id:** worked on commitment-based identity proofs with selective disclosure.
-
-**StackPay:** built Bitcoin-native payment infrastructure on Stacks and shipped production Clarity contracts.
-
-**Security auditing:** found critical and high-severity issues in DeFi systems, including decimal scaling, nonce, reservation, and redemption-queue bugs.
-
-**Mathematics background:** comfortable with the formal reasoning behind commitments, nullifiers, soundness, and protocol threat models.
-
-Privara sits at the intersection of the systems I have already been building: Stacks, privacy, cryptographic commitments, and production protocol engineering.
+7,500
 
 ---
 
-## 14. Final Positioning
+# 🧠 STEP 6 — Track-specific context
 
-Privara should not be pitched as magic private transfers or a fully trustless mixer. It should be pitched as the first practical privacy infrastructure layer for SIP-010 payment flows on Stacks.
+## **What are you proposing to explore or build?**
 
-The crisp version:
+A privacy-preserving SIP-010 payment intent system for Stacks. Core deliverables: 
 
-> Privara brings privacy-preserving intent routing, relayer settlement, private note delivery, and reusable privacy tooling to SIP-010 assets. It gives Stacks users better wallet-graph privacy today, gives protocols an integration path, and lays the groundwork for stronger ZK or private-membership confidentiality as the Clarity runtime evolves.
+1. A privara-router Clarity contract for relayer-settled payment intents with signature verification, nonce tracking, and expiry enforcement
+2. TypeScript SDK for generating intent hashes, encrypted notes, and settlement messages
+3. A reference relayer implementation for non-custodial transaction submission;
+4. React demo app for creating intents and managing fresh-address workflows
+5. Testnet deployment with working sBTC or SIP-010 flows.
 
-That is feasible. That is useful. That is fundable.
+---
+
+## **What user or ecosystem problem motivates the project?**
+
+All SIP-010 transactions are fully transparent and expose complete wallet graphs, treasury flows, and payment patterns. This limits the usability of Stacks for DAOs, DeFi protocols, and institutions that require basic financial privacy for operational security and user protection.
+
+As sBTC adoption grows, the need for privacy-preserving payment flows will increase, yet Stacks currently lacks native privacy infrastructure for SIP-010 assets.
+
+---
+
+## **Why is Stacks the right environment for this work?**
+
+Stacks ecosystem possesses the ideal combination of market demand, asset liquidity, and runtime primitives to make Privara a reality. The Foundation’s open RFP explicitly highlights the need for shielded SIP-010 asset transactions and intent-based architectures. Concurrently, sBTC provides a secure, Bitcoin-native settlement asset with a rapidly expanding TVL, yet it lacks any form of privacy layer. By leveraging Clarity’s native sha256, secp256k1-verify, and contract-code-hash builtins, we can engineer and deploy a robust V1 immediately.
+
+While networks like Ethereum have established mature privacy layers via Tornado Cash, Aztec, and Privacy Pools, Stacks remains entirely unserved. With production smart contracts, scaling liquidity, and an active DeFi community, Stacks is uniquely positioned for this infrastructure, making this the right moment to build its premier privacy engine.
+
+---
+
+## **What have you already validated, prototyped, or learned?**
+
+I conducted a comprehensive technical feasibility assessment of privacy-preserving asset transfers on Stacks to ensure the proposed architecture aligns with the capabilities and constraints of Clarity. Key conclusions from that review include:
+
+- Clarity's existing primitives, including `sha256`, `secp256k1-verify`, and `contract-code-hash`, are sufficient to support commitment hashing, relayer authorization, registry verification, and replay protection.
+- Clarity does not currently support BN254 pairing operations or equivalent cryptographic primitives required for on-chain zero-knowledge proof verification. Rather than treating this as a limitation to work around, the protocol architecture is intentionally designed around these constraints.
+- There is currently no established shielded SIP-010 asset transfer protocol on Stacks, leaving a significant opportunity to introduce privacy-preserving transaction infrastructure within the ecosystem.
+- The proposed v1 architecture, including intent-based routing, signature-based authorization, relayer settlement, commitment verification, and replay protection, maps directly onto Clarity's available primitives and can be implemented without requiring protocol-level changes.
+
+As a result, the proposed design is not speculative. It is based on a validated assessment of what can be built securely and realistically on Stacks today, while preserving a clear upgrade path for stronger privacy guarantees as the ecosystem's cryptographic capabilities evolve.
+
+---
+
+## **Who will do the work and what experience do they bring?**
+
+I will lead the design and implementation of the system end-to-end.
+
+I have prior experience building privacy and crypto-native systems, including VeilMarkets (a private prediction market on Aleo), StackPay (a Bitcoin-native payments system on Stacks), and Iris ID (commitment-based identity proofs). Across these projects, I worked directly with primitives relevant to this grant - commitment schemes, nullifiers, intent-style execution flows, and cryptographic identity constructs.
+
+In addition to product building, I have conducted security reviews and audits of DeFi systems, identifying critical vulnerabilities and protocol-level risks. I also have a mathematics background (BSc.) with emphasis on formal reasoning in cryptographic protocols, particularly around commitments, privacy-preserving state transitions, and adversarial threat modeling.
+
+I believe this combination of privacy-system engineering experience and smart contract development on Stacks positions me to implement Privara as a production-grade intent and relayer-based privacy layer for SIP-010 assets.
+
+---
+
+## **What is the smallest useful outcome this grant should produce?**
+
+The smallest useful outcome is a working `privara-router` contract deployed on testnet that can verify signed payment intents, enforce nonce and expiry protections, execute SIP-010 token settlement, and distribute relayer fees.
+
+Accompanying this would be a minimal end-to-end demonstration showing a user creating a signed intent and a relayer successfully settling that intent on-chain.
+
+This represents the core protocol primitive and the minimum viable proof that intent-based private payments can function on Stacks. All other deliverables, including the SDK, relayer infrastructure, developer tooling, and user-facing interfaces, are built on top of this foundation.
+
+---
+
+## **What evidence will show the concept is worth continuing?**
+
+- 25+ successful end-to-end testnet intents processed by the relayer
+- At least one Stacks wallet or DeFi protocol expresses interest in SDK integration
+- Public demo video showing the full user flow from intent creation to relayer settlement
+- Protocol spec reviewed and discussed publicly in the Stacks community forum
+- Documented security and threat model review that confirms the verification and authorization mechanism is sound.
+
+---
+
+## **What dependencies or risks could affect delivery?**
+
+While the project is intentionally scoped to minimize delivery risk, the following dependencies and considerations have been identified:
+
+- Clarity Runtime and Current Protocol Capabilities
+Privara is designed around the primitives available in Clarity today and does not depend on future language upgrades or protocol changes. Core functionality, including commitment hashing, signature verification, relayer authorization, and replay protection, can be implemented using existing Clarity capabilities. Future additions to Clarity may enable stronger privacy guarantees, but they are not required for v1 delivery.
+
+- sBTC and SIP-010 Asset Availability
+The primary demonstration asset will be sBTC on testnet. While sBTC testnet infrastructure has been stable, the protocol architecture is asset-agnostic and can operate with any SIP-010 token. This provides a straightforward fallback path if testnet conditions change during development.
+
+- Relayer Infrastructure
+The relayer is an off-chain component and represents the primary operational dependency within the v1 architecture. To reduce risk, the grant scope includes a reference relayer implementation with documented APIs and deployment instructions, allowing independent operators to run compatible relayers.
+
+- Security and Privacy Assumptions
+Because Clarity does not currently support on-chain zero-knowledge proof verification, v1 focuses on privacy through intent abstraction, commitment schemes, and relayer-mediated settlement rather than fully shielded transfers. This is a deliberate design choice, not a technical blocker, but it does define the privacy guarantees achievable in the initial release.
+
+- Scope Management
+The grant scope is intentionally conservative. Deliverables are limited to testnet smart contracts, SDK tooling, a reference relayer, protocol specifications, documentation, and developer resources. Mainnet deployment, production infrastructure, and advanced privacy extensions are explicitly outside the scope of this grant, significantly reducing execution risk and increasing confidence in successful delivery.
+
+---
+
+## **What support from the Stacks ecosystem would help?**
+
+- Technical review of the protocol specification from the Stacks developer ecosystem, particularly around intent hash design, signature verification flows, and correct usage of secp256k1-verify in Clarity contracts
+- Introductions to one or two wallet or DeFi protocol teams for early-stage integration feedback and validation of the SDK and intent lifecycle
+- Community visibility to help recruit early relayer operators willing to run the reference implementation on testnet and provide operational feedback under real conditions
+- Direct introductions to wallet teams such as Leather and Xverse for integration discussions, testing support, and potential adoption of intent-based SIP-010 flows in wallet UX
+
+---
+
+## **How will you share progress or learnings publicly?**
+
+- A public GitHub repository from day one, containing all smart contracts, SDK code, tests, and the reference relayer implementation in open source form
+- Regular milestone updates posted on the Stacks forums, including deployed testnet addresses, progress summaries, and transparent notes on what worked and what didn’t
+- A milestone demo video showing the full end-to-end flow from intent creation to relayer execution and settlement on testnet
+- A standalone protocol specification document outlining architecture, intent model, privacy assumptions, threat model, and non-goals in a review-friendly format
+- Public developer documentation for the SDK and contracts to support early experimentation and integration by wallets and protocols
+
+---
+
+## **What happens after the grant if the work succeeds?**
+
+If the grant is successful, Privara will transition from a prototype into a reusable privacy execution layer for SIP-010 and sBTC flows.
+
+Post-grant work will focus on expanding wallet and DeFi integrations, enabling DAO treasury usage, and strengthening the relayer architecture toward a more decentralized network. As the system matures, it can be extended to support stronger privacy primitives as Clarity and the broader Stacks ecosystem evolves.
+
+The next phase would include preparing for mainnet deployment with a formal security audit, pursuing additional ecosystem funding or builder grants for deeper protocol integrations, and evolving the relayer system into a multi-operator network. Parallel efforts would focus on wallet and protocol partnerships for SDK adoption, along with continued open-source maintenance and ecosystem support.
+
+---
+
+## **Any other context reviewers should consider?**
+
+Privara is intentionally scoped as a practical privacy layer rather than a fully trustless mixer. It focuses on shipping usable privacy improvements within current Clarity constraints while establishing a clear upgrade path toward stronger cryptographic privacy in future Stacks improvements.
+
+---
+
+# ✅ STEP 7 - Compliance Readiness
+
+# 🧱 STEP 8 — Milestones
+
+## **Milestone 1**
+
+**Name:** Privara Core Protocol + Testnet Router
+
+**Target date:** August 14th, 2026
+
+**Description:**
+Build and deploy the core Privara SIP-010 intent router on Stacks testnet, enabling signed payment intents and relayer-executed settlement with nonce-based replay protection and expiry enforcement.
+
+**Success criteria:**
+
+1. privara-router Clarity contract deployed on testnet with settle-intent function, nonce map, expiry enforcement, secp256k1-verify relayer auth, and SIP-010 transfer execution
+2. privara-registry Clarity contract deployed with relayer registration, optional STX staking, and public key mapping for authorization
+3. Clarinet test suite passing (valid settlement, replay rejection, invalid signature rejection, expired intent rejection, fee accounting correctness)
+4. Protocol specification published (threat model, privacy guarantees, non-goals, upgrade path toward stronger cryptographic privacy)
+5. Public GitHub repository with working end-to-end contract demo
+6. Testnet deployment publicly verifiable with contract addresses
+
+**Payment percent:** 50%
+
+---
+
+## **Milestone 2**
+
+**Name:** SDK + Relayer + Developer Integration Layer
+
+**Target date:** September 14th, 2026
+
+**Description:**
+Deliver full developer tooling and execution layer enabling wallets, DAOs, and DeFi protocols to create and execute private payment intents via a non-custodial relayer network on Stacks.
+
+**Success criteria:**
+
+1. TypeScript SDK published to npm (createIntent, hashIntent, encryptNote, generateNonce, buildSettlementMsg, wallet adapter helpers)
+2. Reference relayer implementation open-sourced (listens for intents, validates and executes settlements, non-custodial submission, fee collection)
+3. React demo application showing intent creation, signing, relayer execution, and settlement confirmation
+4. Developer documentation (SDK guide, integration guide, relayer architecture overview)
+5. Public demo video (3–5 min) showing full lifecycle: intent → relayer → settlement
+6. Stacks forum post with milestone update, learnings, and ecosystem feedback
+
+**Payment percent:** 50%
+
+**Final adoption metric:**
+
+≥25 successful end-to-end testnet intent executions
+≥1 external wallet or protocol integration actively demonstrating usage on Stacks

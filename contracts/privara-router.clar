@@ -139,3 +139,6 @@
     )
   )
 )
+
+;; --- Withdraw --- or self settlement of funds back to the user's wallet.
+;; Implement withdraw function with proper checks and balance updates.

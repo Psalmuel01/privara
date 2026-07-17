@@ -65,14 +65,24 @@ plan:
   - id: 0
     transactions:
     - transaction-type: emulated-contract-publish
-      contract-name: privara-registry
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/privara-registry.clar
-      clarity-version: 4
-    - transaction-type: emulated-contract-publish
       contract-name: sip010-ft-trait
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/traits/sip010-ft-trait.clar
+      clarity-version: 4
+    - transaction-type: emulated-contract-publish
+      contract-name: allowance-experiment
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/allowance-experiment.clar
+      clarity-version: 4
+    - transaction-type: emulated-contract-publish
+      contract-name: mock-token
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/mock-token.clar
+      clarity-version: 4
+    - transaction-type: emulated-contract-publish
+      contract-name: privara-registry
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/privara-registry.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
       contract-name: privara-router

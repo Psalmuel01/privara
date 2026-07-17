@@ -34,15 +34,29 @@ Instead, Privara focuses on reduced traceability, relayer execution, encrypted n
 
 ## Core Flow
 
-1. A user creates a SIP-010 payment intent offchain.
-2. The intent includes the asset, amount, recipient or fresh address, relayer fee, nonce, and expiry.
-3. The user signs the intent.
+1. A user deposits SIP-010 tokens into the router contract.
+2. The user creates a payment intent offchain: asset, amount, recipient or fresh address, relayer fee, nonce, and expiry.
+3. The user signs the intent as SIP-018 structured data (compatible with Leather and Xverse structured-message signing).
 4. A relayer receives the authorized settlement request.
-5. The relayer submits the settlement transaction on Stacks testnet.
-6. The Clarity router verifies authorization, nonce, expiry, and replay protection.
-7. The router executes the SIP-010 transfer and pays the relayer fee where applicable.
+5. The relayer submits the settlement transaction on Stacks.
+6. The Clarity router recovers the signer from the signature, then verifies authorization, nonce, expiry, and replay protection.
+7. The router executes the SIP-010 transfer from the user's deposit and pays the relayer fee where applicable.
+
+If no relayer will act, the user can always call `withdraw` to reclaim their deposit directly — settlement never depends on a single relayer's cooperation.
 
 This separates user authorization from settlement submission. The chain still sees the settlement, but the transfer no longer appears as a direct sender-submitted wallet-to-wallet payment.
+
+### Signing and authorization
+
+Intents are signed following [SIP-018 structured data signing](https://github.com/stacksgov/sips/blob/main/sips/sip-018/sip-018-signed-structured-data.md). The signed digest is:
+
+```
+sha256(0x534950303138 || domain-hash || structured-data-hash)
+```
+
+where `domain-hash = sha256(to-consensus-buff? { name: "privara", version: "1", chain-id })` and `structured-data-hash = sha256(to-consensus-buff? <intent tuple>)`. Binding `chain-id` into the domain means a signature made for testnet can never be replayed on mainnet, and vice versa.
+
+The router recovers the signer's principal from the signature using `secp256k1-recover?` + `principal-of?`, rather than requiring the caller to supply a public key. A Stacks address is a hash of the public key, so a relayer cannot derive it from the user's address; recovery removes that out-of-band burden and shrinks the settlement calldata.
 
 ## Architecture
 
@@ -54,11 +68,15 @@ The main SIP-010 intent settlement contract.
 
 Responsibilities:
 
-- verify signed payment intents
+- hold user deposits per asset
+- recover the signer from a SIP-018 signature and verify signed payment intents
 - enforce nonces and expiries
-- prevent replayed settlements
-- execute SIP-010 transfers
+- prevent replayed settlements (keyed on the full signed digest)
+- execute SIP-010 transfers under a scoped `with-ft` allowance
 - support relayer fee payment
+- allow users to withdraw unspent deposits at any time
+
+The router whitelists a single settlement asset (sBTC). Every router-initiated transfer runs inside an `as-contract?` block bounded by a `(with-ft ...)` allowance for that asset and the exact amount, so the contract can never move more than the settlement authorizes. The whitelisted principal is the only line that changes per network (`.mock-token` in tests, testnet sBTC, mainnet sBTC).
 
 `privara-registry`
 
@@ -173,12 +191,29 @@ Additional signs of success:
 
 ## Current Status
 
-Privara is in early grant and protocol design stage. The current focus is the SIP-010 intent router, relayer execution flow, SDK interface, and testnet demo.
+Milestone 1 core protocol is implemented and passing tests on Clarinet simnet:
+
+- `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth), withdraw, scoped `with-ft` allowances, replay/nonce/expiry protection, and event emission.
+- `privara-registry` — relayer registration, lookup, endpoint update, and deactivation.
+- `mock-token` — a SIP-010 token used as the whitelisted asset in tests and demos.
+- Full contract test suite (settlement happy path, replay, expiry, invalid/tampered signature, nonce, funds, fee edges, whitelist rejection, deposit/withdraw, registry, and SDK↔contract digest parity).
+
+Next: testnet deployment, minimal SDK signing helpers, demo scripts, and the protocol specification.
+
+## Build and Test
+
+Requires [Clarinet](https://github.com/hirosystems/clarinet) and Node.js.
+
+```bash
+npm install        # install test dependencies
+clarinet check     # type-check all contracts
+npm test           # run the Clarinet/Vitest contract test suite
+```
 
 ## Repository Layout
 
 ```text
-contracts/      Clarity contracts
+contracts/      Clarity contracts (router, registry, mock-token, sip010 trait)
 sdk/            TypeScript SDK
 relayer/        Reference relayer service
 app/            Demo application

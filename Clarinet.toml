@@ -20,6 +20,11 @@ path = "contracts/mock-token.clar"
 clarity_version = 4
 epoch = "latest"
 
+[contracts.other-token]
+path = "contracts/other-token.clar"
+clarity_version = 4
+epoch = "latest"
+
 [contracts.privara-registry]
 path = "contracts/privara-registry.clar"
 clarity_version = 4
@@ -27,11 +32,6 @@ epoch = "latest"
 
 [contracts.sip018-spike]
 path = "contracts/sip018-spike.clar"
-clarity_version = 4
-epoch = "latest"
-
-[contracts.allowance-experiment]
-path = "contracts/allowance-experiment.clar"
 clarity_version = 4
 epoch = "latest"
 

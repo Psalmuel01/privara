@@ -70,14 +70,14 @@ plan:
       path: contracts/traits/sip010-ft-trait.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
-      contract-name: allowance-experiment
-      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/allowance-experiment.clar
-      clarity-version: 4
-    - transaction-type: emulated-contract-publish
       contract-name: mock-token
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/mock-token.clar
+      clarity-version: 4
+    - transaction-type: emulated-contract-publish
+      contract-name: other-token
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/other-token.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
       contract-name: privara-registry

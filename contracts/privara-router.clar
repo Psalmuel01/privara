@@ -19,6 +19,22 @@
 ;; stable for the SDK and existing test references.
 (define-constant ERR_INVALID_ASSET      (err u107))
 (define-constant ERR_HASH_FAILED        (err u108))
+(define-constant ERR_ASSET_NOT_WHITELISTED (err u109))
+
+;; --- Whitelisted asset (per-network variant) ---
+;; A scoped (with-ft ...) allowance requires the token's contract principal AND
+;; its internal define-fungible-token name as literals, neither of which the
+;; SIP-010 trait exposes. So the router whitelists a single known asset and holds
+;; its allowance in a literal. R1 simnet experiment confirmed: a (define-constant)
+;; principal is accepted in with-ft, and a literal referencing a principal absent
+;; on the deploy network still checks clean, so this one constant is the only line
+;; that changes per network.
+;;   simnet/test : .mock-token          (this file, as committed)
+;;   testnet     : 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token
+;;   mainnet     : 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
+;; SBTC_ASSET_NAME is the internal ft name: "mock" for mock-token, "sbtc-token" for sBTC.
+(define-constant SBTC .mock-token)
+(define-constant SBTC_ASSET_NAME "mock")
 
 ;; --- SIP-018 structured-data signing domain ---
 ;; Intents are signed as SIP-018 structured data so browser wallets (Leather,
@@ -106,6 +122,10 @@
     ;; Verify the asset contract actually exists on-chain (also clears check_checker
     ;; warning on the trait parameter by using it in an asserts! path).
     (asserts! (is-ok (contract-hash? asset-contract)) ERR_INVALID_ASSET)
+    ;; Whitelist at the door: only the whitelisted asset may be deposited. Without
+    ;; this, a user could deposit a non-whitelisted token that withdraw/settle (both
+    ;; whitelist-gated) would then refuse to move, trapping the funds permanently.
+    (asserts! (is-whitelisted asset-contract) ERR_ASSET_NOT_WHITELISTED)
     (asserts! (> amount u0) ERR_AMOUNT_TOO_LOW)
     (try! (contract-call? asset transfer amount tx-sender .privara-router none))
     (map-set deposits { user: tx-sender, asset: asset-contract } (+ current amount))
@@ -117,6 +137,51 @@
       balance: (+ current amount),
     })
     (ok amount)
+  )
+)
+
+;; --- Scoped asset movement (private) ---
+;; These helpers hold the literal (with-ft SBTC SBTC_ASSET_NAME ...) allowance so
+;; every router-initiated transfer is bounded to the whitelisted asset and a fixed
+;; amount. Callers must first assert the incoming trait asset is the whitelisted one
+;; (is-whitelisted below); otherwise the trait `asset` and the literal SBTC allowance
+;; would name different tokens and the as-contract? boundary would roll back (err u128).
+;; R1 confirmed a <sip010-trait> can be passed into a private fn holding a literal with-ft.
+
+(define-read-only (is-whitelisted (asset-contract principal))
+  (is-eq asset-contract SBTC)
+)
+
+;; Moves the settlement: net-amount to recipient, plus relayer-fee to relayer when
+;; non-zero. One allowance of `amount` (= net + fee) caps the total outflow.
+(define-private (settle-transfer
+  (asset       <sip010-trait>)
+  (amount      uint)
+  (net-amount  uint)
+  (recipient   principal)
+  (relayer-fee uint)
+  (relayer     principal))
+  (as-contract? ((with-ft SBTC SBTC_ASSET_NAME amount))
+    (begin
+      (try! (contract-call? asset transfer net-amount tx-sender recipient none))
+      (if (> relayer-fee u0)
+        (try! (contract-call? asset transfer relayer-fee tx-sender relayer none))
+        true
+      )
+    )
+  )
+)
+
+;; Moves `amount` of the whitelisted asset back to `owner` on withdraw.
+(define-private (withdraw-transfer
+  (asset  <sip010-trait>)
+  (amount uint)
+  (owner  principal))
+  (as-contract? ((with-ft SBTC SBTC_ASSET_NAME amount))
+    (begin
+      (try! (contract-call? asset transfer amount tx-sender owner none))
+      true
+    )
   )
 )
 
@@ -133,9 +198,8 @@
 ;; recovered signer so a forged signature fails crisply with ERR_INVALID_SIG
 ;; instead of being misreported downstream as ERR_INSUFFICIENT_FUNDS.
 ;;
-;; with-all-assets-unsafe is used here during prototyping. Production should declare
-;; specific (with-ft asset amount) allowances once it is confirmed that the allowance
-;; list accepts a dynamic (trait-parameter) contract principal on the Clarity 4 runtime.
+;; Asset movement goes through settle-transfer, which holds a scoped (with-ft ...)
+;; allowance for the whitelisted asset only (no with-all-assets-unsafe).
 (define-public (settle-intent
   (asset       <sip010-trait>)
   (amount      uint)
@@ -153,6 +217,10 @@
     (digest         (message-digest data-hash))
   )
     ;; Checks that do not depend on the user's identity come first.
+    ;; Whitelist first: settle-transfer's allowance names SBTC literally, so a
+    ;; non-whitelisted asset must be rejected here with a clear code rather than
+    ;; rolled back later as an opaque allowance violation (u128).
+    (asserts! (is-whitelisted asset-contract)  ERR_ASSET_NOT_WHITELISTED)
     (asserts! (not (is-intent-settled digest)) ERR_INTENT_USED)
     (asserts! (< stacks-block-height expiry)   ERR_INTENT_EXPIRED)
     ;; Strict: the user must receive something. Also guards the net-amount
@@ -178,15 +246,14 @@
       (map-set user-nonces user (+ expected-nonce u1))
       (map-set deposits { user: user, asset: asset-contract } (- user-balance amount))
 
-      (try! (as-contract? ((with-all-assets-unsafe))
-        (begin
-          (try! (contract-call? asset transfer net-amount tx-sender recipient none))
-          (if (> relayer-fee u0)
-            (try! (contract-call? asset transfer relayer-fee tx-sender relayer none))
-            true
-          )
-        )
-      ))
+      ;; Scoped allowance via settle-transfer: the router may move at most `amount`
+      ;; of the whitelisted SBTC asset (net to recipient + fee to relayer) and nothing
+      ;; else. The is-whitelisted assert above guarantees `asset` IS SBTC, so the trait
+      ;; object and the literal allowance inside settle-transfer name the same token.
+      ;; recipient/relayer are part of the signature-verified intent tuple (the digest
+      ;; recovered to `user`), so they are authorized despite being caller-supplied.
+      ;; #[allow(unchecked_data)]
+      (try! (settle-transfer asset amount net-amount recipient relayer-fee relayer))
       (print {
         event:       "settle-intent",
         intent-hash: digest,
@@ -214,18 +281,16 @@
     (asset-contract (contract-of asset))
     (user-balance   (get-deposit owner asset-contract))
   )
-    (asserts! (is-ok (contract-hash? asset-contract)) ERR_INVALID_ASSET)
+    ;; Whitelist first: withdraw-transfer's allowance names SBTC literally, so a
+    ;; non-whitelisted asset must be rejected here rather than rolled back as u128.
+    (asserts! (is-whitelisted asset-contract) ERR_ASSET_NOT_WHITELISTED)
     (asserts! (> amount u0)            ERR_AMOUNT_TOO_LOW)
     (asserts! (>= user-balance amount) ERR_INSUFFICIENT_FUNDS)
 
     ;; Debit before the external transfer (checks-effects-interactions).
     (map-set deposits { user: owner, asset: asset-contract } (- user-balance amount))
-    ;; Inside as-contract?, tx-sender is the router, so funds move router -> owner.
-    (try! (as-contract? ((with-all-assets-unsafe))
-      (begin
-        (try! (contract-call? asset transfer amount tx-sender owner none))
-        true
-      )))
+    ;; Scoped allowance via withdraw-transfer: bounded to `amount` of SBTC only.
+    (try! (withdraw-transfer asset amount owner))
     (print {
       event:  "withdraw",
       user:   owner,

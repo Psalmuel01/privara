@@ -6,3 +6,9 @@ dist/
 sdk/dist/
 coverage/
 costs/
+
+# Deployer secrets — real mnemonics live here locally, never committed.
+# Devnet.toml is the public throwaway clarinet mnemonic, so it stays tracked.
+# Commit the *.example templates instead.
+settings/Testnet.toml
+settings/Mainnet.toml

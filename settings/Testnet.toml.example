@@ -1,0 +1,10 @@
+[network]
+name = "testnet"
+stacks_node_rpc_address = "https://api.testnet.hiro.so"
+deployment_fee_rate = 10
+
+# Copy this file to settings/Testnet.toml (gitignored) and paste the mnemonic of a
+# FRESH testnet-only wallet. Never reuse a mainnet key here. Fund it from the Hiro
+# testnet faucet: https://explorer.hiro.so/sandbox/faucet?chain=testnet
+[accounts.deployer]
+mnemonic = "<YOUR PRIVATE TESTNET MNEMONIC HERE>"

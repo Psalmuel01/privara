@@ -292,7 +292,7 @@ describe("privara-router deposit + withdraw", () => {
   });
 });
 
-describe("privara-router asset whitelist (ERR_ASSET_NOT_WHITELISTED u109)", () => {
+describe("privara-router asset whitelist (ERR_ASSET_NOT_WHITELISTED u108)", () => {
   const otherToken = () => `${deployer()}.other-token`;
 
   it("rejects a deposit of a non-whitelisted asset", () => {
@@ -308,7 +308,7 @@ describe("privara-router asset whitelist (ERR_ASSET_NOT_WHITELISTED u109)", () =
       [Cl.principal(otherToken()), Cl.uint(DEPOSIT)],
       user()
     );
-    expect(result).toBeErr(Cl.uint(109));
+    expect(result).toBeErr(Cl.uint(108));
   });
 
   it("rejects a withdraw of a non-whitelisted asset", () => {
@@ -318,7 +318,7 @@ describe("privara-router asset whitelist (ERR_ASSET_NOT_WHITELISTED u109)", () =
       [Cl.principal(otherToken()), Cl.uint(1n)],
       user()
     );
-    expect(result).toBeErr(Cl.uint(109));
+    expect(result).toBeErr(Cl.uint(108));
   });
 
   it("rejects settling an intent denominated in a non-whitelisted asset", () => {
@@ -354,7 +354,7 @@ describe("privara-router asset whitelist (ERR_ASSET_NOT_WHITELISTED u109)", () =
       ],
       relayer()
     );
-    expect(result).toBeErr(Cl.uint(109));
+    expect(result).toBeErr(Cl.uint(108));
   });
 });
 

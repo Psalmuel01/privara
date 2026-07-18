@@ -1,7 +1,7 @@
 ;; other-token.clar
 ;; A second SIP-010 token used ONLY as a test fixture: it is a valid, deployed
 ;; SIP-010 asset that is NOT the router's whitelisted SBTC, so it exercises the
-;; ERR_ASSET_NOT_WHITELISTED (u109) rejection path in deposit/settle/withdraw.
+;; ERR_ASSET_NOT_WHITELISTED (u108) rejection path in deposit/settle/withdraw.
 ;; Never registered on testnet/mainnet deployments.
 
 (impl-trait .sip010-ft-trait.sip010-ft-trait)

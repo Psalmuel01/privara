@@ -42,7 +42,7 @@
 ;; --- Public ---
 
 (define-public (register
-  (pubkey   (buff 33))
+  (pubkey   (buff 33)) ;; why pubkey?
   (fee-rate uint)
   (endpoint (string-utf8 128)))
   (begin
@@ -64,7 +64,7 @@
   )
 )
 
-(define-public (update-endpoint (endpoint (string-utf8 128)))
+(define-public (update-  (endpoint (string-utf8 128)))
   (let ((entry (unwrap! (map-get? relayers tx-sender) ERR_NOT_REGISTERED)))
     (map-set relayers tx-sender (merge entry { endpoint: endpoint }))
     (ok true)

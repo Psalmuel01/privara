@@ -206,6 +206,10 @@ Milestone 1 core protocol and minimal SDK helpers are implemented. All 35 tests 
 - `deposit.ts`, `create-intent.ts` (signs offline, prints JSON), `settle.ts` (relayer broadcasts), `status.ts`.
 - Network-configurable via env vars; see [scripts/README.md](scripts/README.md).
 
+**Docs:**
+- [docs/protocol-spec.md](docs/protocol-spec.md) — intent model, SIP-018 digest construction, auth flow, privacy assumptions, threat model.
+- [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
+
 **Next:** testnet deployment and live end-to-end demonstration.
 
 ## Build and Test
@@ -223,10 +227,11 @@ npm test           # run the Clarinet/Vitest contract test suite
 ```text
 contracts/      Clarity contracts (router, registry, mock-token, sip010 trait)
 sdk/            TypeScript SDK
+scripts/        End-to-end demo scripts (deposit, create-intent, settle, status)
 relayer/        Reference relayer service
 app/            Demo application
-docs/           Protocol specs and integration docs
-tests/          Contract and integration tests
+docs/           Protocol spec, deployments, privacy model, architecture
+tests/          Contract and SDK tests
 ```
 
 ## License

@@ -1,14 +1,14 @@
 # Demo App
 
-Demo application workspace for Privara.
+Demo application workspace for Privara. Not yet implemented — this is the M2 deliverable.
 
 Planned flows:
 
-- create a SIP-010 payment intent
-- submit settlement through a relayer
-- demonstrate fresh-address recipient routing
-- show transaction status
-- simulate DAO payout usage
+- wallet-to-wallet SIP-010 intent creation and signing
+- relayer-submitted settlement with status tracking
+- fresh-address recipient routing
+- simulated DAO payout flow
+- transaction explorer integration
 
-No application code has been added yet.
-
+For M1, the end-to-end flow is demonstrated via the CLI scripts in `scripts/`.
+See [scripts/README.md](../scripts/README.md).

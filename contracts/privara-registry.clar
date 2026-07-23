@@ -42,7 +42,7 @@
 ;; --- Public ---
 
 (define-public (register
-  (pubkey   (buff 33)) ;; why pubkey?
+  (pubkey   (buff 33))
   (fee-rate uint)
   (endpoint (string-utf8 128)))
   (begin

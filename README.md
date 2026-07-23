@@ -101,15 +101,13 @@ Responsibilities:
 
 ### TypeScript SDK
 
-The SDK will provide:
+The M1 SDK core (`sdk/`) provides:
 
-- intent creation
-- intent hashing
-- nonce and expiry helpers
-- signature generation and verification helpers
-- encrypted note payload support
-- relayer request formatting
-- wallet and protocol integration utilities
+- `createIntent` / `signIntent(intent, privateKey, network)` — SIP-018 structured-data signing; produces the 65-byte RSV signature `settle-intent` accepts
+- `hashIntent` / `domainHash` / `messageDigest` — offline digest helpers, no RPC needed to sign
+- `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent`
+
+M2 will add encrypted note payload support (`encryptNote` / `decryptNote` via ECIES), nonce/expiry helpers that fetch live chain state, and wallet integration utilities (Leather, Xverse structured-message signing).
 
 ### Reference Relayer
 
@@ -191,14 +189,24 @@ Additional signs of success:
 
 ## Current Status
 
-Milestone 1 core protocol is implemented and passing tests on Clarinet simnet:
+Milestone 1 core protocol and minimal SDK helpers are implemented. All 40 tests pass on Clarinet simnet, 6 contracts clean.
 
-- `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth), withdraw, scoped `with-ft` allowances, replay/nonce/expiry protection, and event emission.
-- `privara-registry` — relayer registration, lookup, endpoint update, and deactivation.
-- `mock-token` — a SIP-010 token used as the whitelisted asset in tests and demos.
-- Full contract test suite (settlement happy path, replay, expiry, invalid/tampered signature, nonce, funds, fee edges, whitelist rejection, deposit/withdraw, registry, and SDK↔contract digest parity).
+**Contracts (simnet, Clarity 4):**
+- `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth via `secp256k1-recover?` + `principal-of?`), withdraw, scoped `with-ft` allowances, replay/nonce/expiry protection, and event emission.
+- `privara-registry` — relayer registration (pubkey, fee rate, endpoint), lookup, endpoint update, and deactivation.
+- `mock-token` — minimal SIP-010 token used as the whitelisted asset in simnet tests.
 
-Next: testnet deployment, minimal SDK signing helpers, demo scripts, and the protocol specification.
+**TypeScript SDK (`sdk/`):**
+- Real SIP-018 `hashIntent`, `domainHash`, `messageDigest` — computed offline, no RPC needed to sign.
+- `signIntent(intent, privateKey, network)` — produces the 65-byte RSV signature `settle-intent` accepts.
+- `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent`.
+- SDK↔contract digest parity proven by test (byte-for-byte match on `hash-intent`, `get-domain-hash`, `message-digest`).
+
+**Demo scripts (`scripts/`):**
+- `deposit.ts`, `create-intent.ts` (signs offline, prints JSON), `settle.ts` (relayer broadcasts), `status.ts`.
+- Network-configurable via env vars; see [scripts/README.md](scripts/README.md).
+
+**Next:** testnet deployment and live end-to-end demonstration.
 
 ## Build and Test
 

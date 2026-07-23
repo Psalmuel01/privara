@@ -12,3 +12,7 @@ costs/
 # Commit the *.example templates instead.
 settings/Testnet.toml
 settings/Mainnet.toml
+
+# test coverage / cost report artifacts
+costs-reports.json
+lcov.info

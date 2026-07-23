@@ -189,7 +189,7 @@ Additional signs of success:
 
 ## Current Status
 
-Milestone 1 core protocol and minimal SDK helpers are implemented. All 40 tests pass on Clarinet simnet, 6 contracts clean.
+Milestone 1 core protocol and minimal SDK helpers are implemented. All 35 tests pass on Clarinet simnet, 5 contracts clean.
 
 **Contracts (simnet, Clarity 4):**
 - `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth via `secp256k1-recover?` + `principal-of?`), withdraw, scoped `with-ft` allowances, replay/nonce/expiry protection, and event emission.

@@ -29,12 +29,6 @@ changes per network (`.mock-token` here; testnet/mainnet sBTC addresses in comme
 Second SIP-010 fixture used exclusively to exercise the whitelist-rejection path in
 tests (`ERR_ASSET_NOT_WHITELISTED u108`).
 
-`sip018-spike`
-
-Throwaway spike contract that proved the SIP-018 digest construction and
-`secp256k1-recover?` byte-compatibility before the router rework. Kept as a digest
-regression guard until the router test fully subsumes it.
-
 `sip010-ft-trait`
 
 Standard SIP-010 fungible token trait. Imported by the router and token contracts.
@@ -42,6 +36,6 @@ Standard SIP-010 fungible token trait. Imported by the router and token contract
 ## Running checks
 
 ```bash
-clarinet check   # type-check all 6 contracts (0 warnings expected)
-npm test         # run the full Clarinet/Vitest suite (40 tests)
+clarinet check   # type-check all 5 contracts (0 warnings expected)
+npm test         # run the full Clarinet/Vitest suite (35 tests)
 ```

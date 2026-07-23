@@ -53,7 +53,7 @@ interface Intent {
 }
 
 // Mirror the contract's intent tuple exactly (field set + order). serializeCVBytes
-// matches to-consensus-buff? byte-for-byte (proven in the sip018 spike).
+// matches to-consensus-buff? byte-for-byte.
 function intentCV(i: Intent) {
   return Cl.tuple({
     asset: Cl.principal(mockToken()),

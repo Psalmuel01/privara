@@ -1,7 +1,10 @@
 ;; privara-registry.clar
 ;; Relayer registration and discovery.
 ;; Relayers register their pubkey, fee rate, and API endpoint.
-;; The router uses this to validate registered relayers.
+;; Discovery only: wallets and the SDK read this to find relayers and their
+;; endpoints; the pubkey supports M2 encrypted-note key agreement. The router
+;; does NOT consult the registry -- settlement authorizes off the signed intent's
+;; relayer principal, not registry membership.
 
 ;; --- Error codes ---
 

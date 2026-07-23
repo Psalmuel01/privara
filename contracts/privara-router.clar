@@ -32,7 +32,6 @@
 ;; Intents are signed as SIP-018 structured data so browser wallets (Leather,
 ;; Xverse) can sign them natively in M2. The digest binds chain-id, so a
 ;; signature made for testnet can never be replayed on mainnet (and vice versa).
-;; Verified byte-for-byte against the TypeScript SDK in the SIP-018 spike.
 (define-constant STRUCTURED_DATA_PREFIX 0x534950303138) ;; ascii "SIP018"
 
 (define-constant MESSAGE_DOMAIN_HASH

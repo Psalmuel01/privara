@@ -2,11 +2,11 @@
 
 Clarinet/Vitest contract and SDK test suite. Run with `npm test` from the repo root.
 
-**40 tests across 4 files, all green.**
+**35 tests across 3 files, all green.**
 
 ## Test files
 
-`privara-router.test.ts` — 27 tests covering the full router surface:
+`privara-router.test.ts` — 18 tests covering the full router surface:
 - Happy path: deposit → sign intent (real secp256k1 sig) → relayer settles →
   recipient credited `amount - fee`, relayer credited `fee`, deposit debited, nonce bumped.
 - Replay: settling the same intent twice → `ERR_INTENT_USED (u100)`.
@@ -31,9 +31,6 @@ Clarinet/Vitest contract and SDK test suite. Run with `npm test` from the repo r
 - SDK `messageDigest` equals the contract's `message-digest` read-only.
 - An SDK-signed intent settles end-to-end on simnet.
 - The digest signed offline matches what the contract records as settled.
-
-`sip018-spike.test.ts` — 5 tests (regression guard for the SIP-018 digest
-construction; kept until the router test fully subsumes it).
 
 ## Signing in tests
 

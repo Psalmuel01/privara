@@ -1,27 +1,49 @@
+import {
+  signMessageHashRsv,
+  getAddressFromPrivateKey,
+} from "@stacks/transactions";
+import { bytesToHex, hexToBytes } from "@stacks/common";
 import type { Intent, SignedIntent } from "./types";
-import { hashIntent } from "./crypto";
+import { hashIntent, messageDigest, type Network } from "./crypto";
 
 export function createIntent(params: Intent): Intent {
   return { ...params };
 }
 
-// Signs an intent using the caller's secp256k1 private key.
-// The resulting SignedIntent is what the relayer submits to settle-intent.
-// TODO: replace placeholder stubs with @noble/secp256k1 sign() call
-export async function signIntent(
+// Signs an intent with the caller's secp256k1 private key, producing the SIP-018
+// digest and the 65-byte RSV signature the router's settle-intent accepts.
+//
+// The contract recovers the signer from the signature and asserts it equals the
+// `user` principal, so we derive and record that principal here from the same key.
+export function signIntent(
   intent: Intent,
-  _privateKey: Uint8Array
-): Promise<SignedIntent> {
-  const intentHash = await hashIntent(intent);
+  privateKey: string,
+  network: Network
+): SignedIntent {
+  const intentHash = hashIntent(intent);
+  const digest = messageDigest(intent, network);
 
-  // placeholder — replace with real secp256k1 signing
-  const userPubkey = new Uint8Array(33);
-  const userSig = new Uint8Array(65);
+  // signMessageHashRsv emits the 65-byte RSV layout (recovery byte last) that
+  // Clarity's secp256k1-recover? expects, so no byte reordering is needed.
+  const sigHex = signMessageHashRsv({
+    messageHash: bytesToHex(digest),
+    privateKey,
+  });
 
-  return { ...intent, intentHash, userPubkey, userSig };
+  const stacksNetwork = network === "mainnet" ? "mainnet" : "testnet";
+  const user = getAddressFromPrivateKey(privateKey, stacksNetwork);
+
+  return {
+    ...intent,
+    user,
+    intentHash,
+    digest,
+    userSig: hexToBytes(sigHex),
+  };
 }
 
-// Formats a SignedIntent into the argument list expected by settle-intent.
+// Formats a SignedIntent into the positional argument list expected by settle-intent:
+//   (asset amount recipient relayer relayer-fee nonce expiry user user-sig)
 export function buildSettlementArgs(si: SignedIntent) {
   return {
     asset: si.asset,
@@ -31,7 +53,7 @@ export function buildSettlementArgs(si: SignedIntent) {
     relayerFee: si.relayerFee,
     nonce: si.nonce,
     expiry: si.expiry,
-    userPubkey: si.userPubkey,
+    user: si.user,
     userSig: si.userSig,
   };
 }

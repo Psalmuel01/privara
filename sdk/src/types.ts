@@ -9,9 +9,10 @@ export interface Intent {
 }
 
 export interface SignedIntent extends Intent {
-  intentHash: Uint8Array;  // sha256 output, 32 bytes
-  userPubkey: Uint8Array;  // compressed secp256k1 public key, 33 bytes
-  userSig: Uint8Array;     // recoverable secp256k1 signature, 65 bytes
+  user: string;            // signer principal; the contract asserts it equals the recovered signer
+  intentHash: Uint8Array;  // sha256 of the consensus-serialized intent tuple, 32 bytes (contract hash-intent)
+  digest: Uint8Array;      // full SIP-018 digest actually signed, 32 bytes
+  userSig: Uint8Array;     // recoverable secp256k1 signature (RSV, recovery byte last), 65 bytes
 }
 
 export interface SettlementRequest {

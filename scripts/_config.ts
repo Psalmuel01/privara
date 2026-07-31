@@ -80,3 +80,16 @@ export function splitPrincipal(principal: string): [string, string] {
   if (dot === -1) throw new Error(`not a contract principal: ${principal}`);
   return [principal.slice(0, dot), principal.slice(dot + 1)];
 }
+
+// Reads an intent envelope from a file path or "-" (stdin), tolerating a leading
+// `npm run` banner. Piping `npm run create-intent ... > intent.json` (without
+// --silent) prepends npm's "> pkg@ver\n> tsx ...\n" lines to the file; we strip
+// anything before the first "{" so a stray banner never corrupts the pipeline.
+import { readFileSync } from "node:fs";
+
+export function readEnvelope<T>(path: string): T {
+  const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
+  const start = raw.indexOf("{");
+  if (start === -1) throw new Error(`no JSON object found in ${path}`);
+  return JSON.parse(raw.slice(start)) as T;
+}

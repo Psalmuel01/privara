@@ -5,7 +5,6 @@
 // Reports is-intent-settled for the intent's digest, plus the user's current
 // on-chain nonce and remaining deposit for the intent's asset.
 
-import { readFileSync } from "node:fs";
 import {
   fetchCallReadOnlyFunction,
   principalCV,
@@ -18,17 +17,13 @@ import {
   coreAddress,
   explorerTxUrl,
   networkName,
+  readEnvelope,
 } from "./_config";
 
 interface Envelope {
   asset: string;
   user: string;
   digest: string;
-}
-
-function readEnvelope(path: string): Envelope {
-  const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
-  return JSON.parse(raw) as Envelope;
 }
 
 async function readOnly(functionName: string, functionArgs: any[], sender: string) {
@@ -46,7 +41,7 @@ async function readOnly(functionName: string, functionArgs: any[], sender: strin
 async function main() {
   const path = process.argv[2];
   if (!path) throw new Error("usage: status.ts <intent.json | ->");
-  const e = readEnvelope(path);
+  const e = readEnvelope<Envelope>(path);
 
   const settled = await readOnly(
     "is-intent-settled",

@@ -38,7 +38,9 @@ prints private keys — only ever use a fresh testnet-only mnemonic.
 ## Flow
 
 ```sh
-export PRIVARA_CORE_ADDRESS=ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+# The address that deployed the contracts (account 0 / "deployer" from gen-wallets).
+# Scripts build contract IDs as ${PRIVARA_CORE_ADDRESS}.privara-router, etc.
+export PRIVARA_CORE_ADDRESS=ST...YOUR_DEPLOYER_ADDRESS
 
 # 0. (mock-token dry run only) mint the mintable test asset to the user.
 #    Skip this on the real sBTC demo — the user holds real sBTC instead.

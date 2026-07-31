@@ -1,0 +1,46 @@
+---
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: sip010-ft-trait
+            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            cost: 4390
+            path: contracts/traits/sip010-ft-trait.clar
+            anchor-block-only: true
+            clarity-version: 4
+        - contract-publish:
+            contract-name: mock-token
+            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            cost: 19180
+            path: contracts/mock-token.clar
+            anchor-block-only: true
+            clarity-version: 4
+        - contract-publish:
+            contract-name: other-token
+            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            cost: 13500
+            path: contracts/other-token.clar
+            anchor-block-only: true
+            clarity-version: 4
+        - contract-publish:
+            contract-name: privara-registry
+            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            cost: 24540
+            path: contracts/privara-registry.clar
+            anchor-block-only: true
+            clarity-version: 4
+        - contract-publish:
+            contract-name: privara-router
+            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            cost: 93380
+            path: contracts/privara-router.clar
+            anchor-block-only: true
+            clarity-version: 4
+      epoch: "3.3"

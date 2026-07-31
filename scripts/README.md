@@ -17,10 +17,32 @@ No secret is ever committed — every key and address comes from the environment
 
 Run with `tsx` (installed as a dev dependency) or the npm aliases below.
 
+## Wallets
+
+The demo uses three testnet accounts. Derive all three from a single fresh mnemonic:
+
+```sh
+# generates a new mnemonic and prints deployer/user/relayer addresses + hex keys
+npm run gen-wallets
+```
+
+- **deployer** (account 0) — publishes the contracts; its mnemonic goes in
+  `settings/Testnet.toml`.
+- **user** (account 1) — deposits and signs intents; export as `USER_KEY`.
+- **relayer** (account 2) — broadcasts settlement; export as `RELAYER_KEY`.
+
+Fund all three with testnet STX from the
+[Hiro faucet](https://explorer.hiro.so/sandbox/faucet?chain=testnet). `gen-wallets`
+prints private keys — only ever use a fresh testnet-only mnemonic.
+
 ## Flow
 
 ```sh
 export PRIVARA_CORE_ADDRESS=ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT
+
+# 0. (mock-token dry run only) mint the mintable test asset to the user.
+#    Skip this on the real sBTC demo — the user holds real sBTC instead.
+USER_KEY=$USER_HEX npm run mint -- 1000000
 
 # 1. User deposits tokens into the router.
 USER_KEY=$USER_HEX npm run deposit -- 1000000

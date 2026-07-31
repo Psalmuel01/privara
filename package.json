@@ -9,6 +9,8 @@
     "test:report": "vitest run -- --coverage --costs",
     "test:watch": "chokidar \"tests/**/*.ts\" \"contracts/**/*.clar\" -c \"npm run test:report\"",
     "typecheck": "tsc --noEmit -p tsconfig.scripts.json",
+    "gen-wallets": "tsx scripts/gen-wallets.ts",
+    "mint": "tsx scripts/mint.ts",
     "deposit": "tsx scripts/deposit.ts",
     "create-intent": "tsx scripts/create-intent.ts",
     "settle": "tsx scripts/settle.ts",
@@ -18,6 +20,7 @@
   "dependencies": {
     "@stacks/clarinet-sdk": "^3.9.0",
     "@stacks/transactions": "^7.2.0",
+    "@stacks/wallet-sdk": "^7.6.0",
     "chokidar-cli": "^3.0.0",
     "vitest": "^4.0.7",
     "vitest-environment-clarinet": "^3.0.0"

@@ -39,7 +39,12 @@ Expected responsibilities:
 - submit transactions
 - report settlement status
 
-### Attested Pool Prototype
+### Attested Pool Prototype — post-grant research (NOT a Milestone 1 deliverable)
+
+> **Scope note.** The attested pool is a *post-grant research track*, not part of the
+> Milestone 1 grant scope. Nothing in this section is built, deployed, or claimed as an
+> M1 deliverable. It is recorded here only to document the intended direction beyond the
+> current grant.
 
 The attested pool is a research track for stronger shielded-note flows under explicit trust assumptions.
 

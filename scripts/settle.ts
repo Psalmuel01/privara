@@ -6,7 +6,6 @@
 // Or pipe create-intent.ts straight in:
 //   ... create-intent.ts ... | RELAYER_KEY=<hex> npx tsx scripts/settle.ts -
 
-import { readFileSync } from "node:fs";
 import {
   makeContractCall,
   broadcastTransaction,
@@ -23,6 +22,7 @@ import {
   networkName,
   requireKey,
   stacksNetwork,
+  readEnvelope,
 } from "./_config";
 
 interface Envelope {
@@ -37,16 +37,45 @@ interface Envelope {
   userSig: string;
 }
 
-function readEnvelope(path: string): Envelope {
-  const raw = path === "-" ? readFileSync(0, "utf8") : readFileSync(path, "utf8");
-  return JSON.parse(raw) as Envelope;
+interface TxStatus {
+  tx_status: string;
+  tx_result?: { repr?: string };
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Poll the tx until it leaves the mempool, then report success vs abort.
+// A broadcast only means the mempool accepted the tx; the contract's replay,
+// expiry, and signature guards abort at mining time, which we surface here.
+async function pollResult(txid: string): Promise<boolean> {
+  const base = stacksNetwork().client.baseUrl;
+  const deadline = Date.now() + 5 * 60_000; // give the miner up to 5 minutes
+  while (Date.now() < deadline) {
+    const res = await fetch(`${base}/extended/v1/tx/${txid}`);
+    if (res.ok) {
+      const tx = (await res.json()) as TxStatus;
+      if (tx.tx_status !== "pending") {
+        if (tx.tx_status === "success") {
+          console.log("\n✔ success");
+          return true;
+        }
+        const reason = tx.tx_result?.repr ?? "";
+        console.log(`\n✘ ${tx.tx_status} ${reason}`.trimEnd());
+        return false;
+      }
+    }
+    process.stderr.write(".");
+    await sleep(5_000);
+  }
+  console.log("\n? still pending after 5 min -- check the explorer");
+  return false;
 }
 
 async function main() {
   const path = process.argv[2];
   if (!path) throw new Error("usage: settle.ts <intent.json | ->");
 
-  const e = readEnvelope(path);
+  const e = readEnvelope<Envelope>(path);
   const senderKey = requireKey("RELAYER_KEY");
   const relayerAddr = getAddressFromPrivateKey(senderKey, networkName());
 
@@ -73,7 +102,6 @@ async function main() {
       uintCV(BigInt(e.relayerFee)),
       uintCV(BigInt(e.nonce)),
       uintCV(BigInt(e.expiry)),
-      principalCV(e.user),
       bufferCV(hexToBytes(e.userSig)),
     ],
     senderKey,
@@ -87,6 +115,9 @@ async function main() {
   }
   console.log(`\nBroadcast: ${res.txid}`);
   console.log(explorerTxUrl(res.txid));
+
+  const ok = await pollResult(res.txid);
+  if (!ok) process.exit(1);
 }
 
 main().catch((e) => {

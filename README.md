@@ -88,11 +88,13 @@ Responsibilities:
 - expose relayer availability and fee information
 - support future staking or reputation mechanisms
 
-`privara-attested-pool`
+`privara-attested-pool` *(post-grant research — not a Milestone 1 deliverable)*
 
-An optional research prototype for fixed-denomination shielded-note redemption with explicit trust assumptions.
+An optional research prototype for fixed-denomination shielded-note redemption with
+explicit trust assumptions. This contract is **not built or deployed in Milestone 1**;
+it is documented here only to sketch the direction beyond the current grant.
 
-Responsibilities:
+Responsibilities (future):
 
 - store commitments
 - verify coordinator or federation signatures
@@ -203,14 +205,18 @@ Milestone 1 core protocol and minimal SDK helpers are implemented. All 35 tests 
 - SDK↔contract digest parity proven by test (byte-for-byte match on `hash-intent`, `get-domain-hash`, `message-digest`).
 
 **Demo scripts (`scripts/`):**
-- `deposit.ts`, `create-intent.ts` (signs offline, prints JSON), `settle.ts` (relayer broadcasts), `status.ts`.
+- `deposit.ts`, `create-intent.ts` (signs offline, prints JSON), `settle.ts` (relayer broadcasts, polls for the mined result), `status.ts`, `register-relayer.ts` (registers a relayer in `privara-registry`).
 - Network-configurable via env vars; see [scripts/README.md](scripts/README.md).
 
 **Docs:**
 - [docs/protocol-spec.md](docs/protocol-spec.md) — intent model, SIP-018 digest construction, auth flow, privacy assumptions, threat model.
 - [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
 
-**Next:** testnet deployment and live end-to-end demonstration.
+**Next:** Stage 1 testnet dry run (mock-token) validated the end-to-end flow — a signed
+intent settled and a replay was rejected on-chain. Stage 2 is now deploying from a fresh
+deployer (`ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN`) with the whitelisted asset set to
+real testnet sBTC, then re-running deposit → settle → expiry-rejection with real sBTC. See
+[docs/deployments.md](docs/deployments.md).
 
 ## Build and Test
 

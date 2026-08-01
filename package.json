@@ -14,7 +14,9 @@
     "deposit": "tsx scripts/deposit.ts",
     "create-intent": "tsx scripts/create-intent.ts",
     "settle": "tsx scripts/settle.ts",
-    "status": "tsx scripts/status.ts"
+    "status": "tsx scripts/status.ts",
+    "register-relayer": "tsx scripts/register-relayer.ts",
+    "shakeout": "tsx scripts/shakeout.ts"
   },
   "license": "MIT",
   "dependencies": {

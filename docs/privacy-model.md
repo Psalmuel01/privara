@@ -6,6 +6,9 @@ Privara v1 focuses on reduced wallet traceability rather than full cryptographic
 
 - separates payment authorization from transaction submission
 - allows relayers to submit settlement transactions
+- keeps the authorizing principal out of plaintext calldata — `settle-intent` takes
+  no `user` argument and emits none in its print event; the payer is recovered from
+  the signature inside the contract
 - supports encrypted offchain payment instructions
 - encourages fresh-address recipient flows
 - gives wallets and protocols reusable privacy-aware payment tooling

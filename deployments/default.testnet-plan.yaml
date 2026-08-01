@@ -10,36 +10,36 @@ plan:
       transactions:
         - contract-publish:
             contract-name: sip010-ft-trait
-            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
             cost: 4390
             path: contracts/traits/sip010-ft-trait.clar
             anchor-block-only: true
             clarity-version: 4
         - contract-publish:
             contract-name: mock-token
-            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
             cost: 19180
             path: contracts/mock-token.clar
             anchor-block-only: true
             clarity-version: 4
         - contract-publish:
             contract-name: other-token
-            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
             cost: 13500
             path: contracts/other-token.clar
             anchor-block-only: true
             clarity-version: 4
         - contract-publish:
             contract-name: privara-registry
-            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+            expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
             cost: 24540
             path: contracts/privara-registry.clar
             anchor-block-only: true
             clarity-version: 4
         - contract-publish:
             contract-name: privara-router
-            expected-sender: STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
-            cost: 93380
+            expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
+            cost: 102210
             path: contracts/privara-router.clar
             anchor-block-only: true
             clarity-version: 4

@@ -18,6 +18,8 @@
 (define-constant ERR_ASSET_NOT_WHITELISTED (err u108))
 ;; as-contract? asset guard rejected a transfer; unreachable given is-whitelisted.
 (define-constant ERR_ASSET_GUARD        (err u109))
+;; Signature recovered a well-formed principal that never deposited to the router.
+(define-constant ERR_NO_DEPOSIT         (err u110))
 
 ;; --- Whitelisted asset (per-network variant) ---
 ;; The only settlement asset the router will accept. The (with-ft SBTC "*" ...)
@@ -26,7 +28,7 @@
 ;;   simnet/test : .mock-token
 ;;   testnet     : 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token
 ;;   mainnet     : 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
-(define-constant SBTC .mock-token)
+(define-constant SBTC 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token)
 
 ;; --- SIP-018 structured-data signing domain ---
 ;; Intents are signed as SIP-018 structured data so browser wallets (Leather,
@@ -136,11 +138,17 @@
 ;; Called by a relayer to execute a user-signed payment intent, after verifying the
 ;; signature, nonce, expiry, and replay protection.
 ;;
-;; Authorization recovers the signer from the signature (secp256k1-recover? +
-;; principal-of?) rather than verifying against a caller-supplied pubkey: a Stacks
-;; address is a hash of the pubkey, so the relayer can't supply it anyway. The caller
-;; names `user`; we assert it equals the recovered signer, so a forgery fails with
-;; ERR_INVALID_SIG rather than being misreported as ERR_INSUFFICIENT_FUNDS.
+;; The payer is NOT a caller-supplied argument. We recover it from the signature
+;; (secp256k1-recover? + principal-of?) and use the recovered principal as the payer
+;; for nonce, deposit, and settlement. This keeps the user's principal out of the
+;; call args entirely -- it is only obtainable by re-running the recovery on the
+;; signature, never handed to the chain in plaintext.
+;;
+;; Trade-off: with no supplied `user` to assert against, a forged or garbage
+;; signature simply recovers to some principal that never deposited and fails
+;; ERR_NO_DEPOSIT rather than ERR_INVALID_SIG. ERR_INSUFFICIENT_FUNDS is reserved
+;; for a genuine depositor who is short. Only a well-formed signature over this exact
+;; intent, by a principal with a funded deposit, can settle.
 (define-public (settle-intent
   (asset       <sip010-trait>)
   (amount      uint)
@@ -149,7 +157,6 @@
   (relayer-fee uint)
   (nonce       uint)
   (expiry      uint)
-  (user        principal)
   (user-sig    (buff 65)))
 
   (let (
@@ -167,13 +174,18 @@
 
     (let (
       (recovered-pubkey (unwrap! (secp256k1-recover? digest user-sig) ERR_INVALID_SIG))
-      (recovered-signer (unwrap! (principal-of? recovered-pubkey)      ERR_INVALID_SIG))
+      (user             (unwrap! (principal-of? recovered-pubkey)     ERR_INVALID_SIG))
       (net-amount       (- amount relayer-fee))
       (expected-nonce   (get-nonce user))
       (user-balance     (get-deposit user asset-contract))
     )
-      (asserts! (is-eq recovered-signer user) ERR_INVALID_SIG)
       (asserts! (is-eq nonce expected-nonce)  ERR_NONCE_MISMATCH)
+      ;; Distinguish "recovered a stranger with no account here" from "a real
+      ;; depositor who is simply short" -- the debuggability the removed user-arg
+      ;; assert used to give. A forged/wrong-key/tampered signature recovers some
+      ;; principal that never deposited, so it lands on ERR_NO_DEPOSIT (u110);
+      ;; ERR_INSUFFICIENT_FUNDS (u104) is reserved for a genuine depositor.
+      (asserts! (> user-balance u0)           ERR_NO_DEPOSIT)
       (asserts! (>= user-balance amount)      ERR_INSUFFICIENT_FUNDS)
 
       (map-set settled-intents digest true)
@@ -198,7 +210,6 @@
       (print {
         event:       "settle-intent",
         intent-hash: digest,
-        user:        user,
         recipient:   recipient,
         relayer:     relayer,
         asset:       asset-contract,

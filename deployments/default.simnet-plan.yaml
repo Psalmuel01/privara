@@ -89,4 +89,4 @@ plan:
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/privara-router.clar
       clarity-version: 4
-    epoch: '3.4'
+    epoch: '3.3'

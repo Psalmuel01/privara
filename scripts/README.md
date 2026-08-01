@@ -51,7 +51,8 @@ USER_KEY=$USER_HEX npm run deposit -- 1000000
 
 # 2. User signs an intent OFFLINE. Prints a JSON envelope to stdout.
 #    args: <recipient> <relayer> <amount> <relayerFee> [expiryBlocks]
-USER_KEY=$USER_HEX npm run create-intent -- \
+#    Use --silent so npm's own "> pkg@ver" banner does not land in the file.
+USER_KEY=$USER_HEX npm run --silent create-intent -- \
   ST2RECIPIENT... ST3RELAYER... 100000 1000 > intent.json
 
 # 3. Relayer broadcasts the settlement (reads the envelope; can also take `-` on stdin).

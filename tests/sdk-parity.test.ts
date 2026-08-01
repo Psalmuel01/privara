@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Cl, ClarityType } from "@stacks/transactions";
-import { bytesToHex, hexToBytes } from "@stacks/common";
+import { bytesToHex } from "@stacks/common";
 
 import {
   createIntent,
@@ -52,7 +52,6 @@ function settleArgs(si: SignedIntent) {
     Cl.uint(a.relayerFee),
     Cl.uint(a.nonce),
     Cl.uint(a.expiry),
-    Cl.principal(a.user),
     Cl.buffer(a.userSig),
   ];
 }

@@ -121,13 +121,12 @@ const signed = signIntent(intent, privateKey, "testnet");
 
 ## Authorization flow
 
-The router does not accept a caller-supplied public key. Instead it recovers the
-signer's public key from the signature:
+The router takes no `user` argument at all. The payer is recovered from the
+signature and used directly for nonce, deposit, and settlement:
 
 ```clarity
 (secp256k1-recover? digest user-sig)   ;; -> (ok (buff 33)) compressed pubkey
-(principal-of? recovered-pubkey)       ;; -> (ok principal)
-(asserts! (is-eq recovered-signer user) ERR_INVALID_SIG)
+(principal-of? recovered-pubkey)        ;; -> (ok principal) == the payer
 ```
 
 A Stacks address is a `hash160` of the public key — a one-way function. A relayer
@@ -136,10 +135,16 @@ supply it (the pre-M1 design) created an out-of-band burden and a "wrong pubkey"
 failure mode. Recovery eliminates both: the signature is the sole source of signer
 identity.
 
-The caller still names `user` explicitly. The contract asserts `recovered-signer ==
-user`, so a forged signature fails with `ERR_INVALID_SIG` rather than being
-misreported as `ERR_INSUFFICIENT_FUNDS` (the recovered principal would simply own no
-deposit, but the error clarity matters for debugging and for test expectations).
+Because no `user` is passed, the payer's principal never appears in the call
+arguments or the `settle-intent` print event. It is obtainable only by re-running
+`secp256k1-recover?` on the signature — the signer is still cryptographically
+present, but is no longer named in plaintext calldata.
+
+**Trade-off.** With no supplied `user` to assert against, a forged or tampered
+signature simply recovers to *some other* principal that never deposited, and fails
+`ERR_NO_DEPOSIT (u110)` rather than `ERR_INVALID_SIG (u102)`. `ERR_INSUFFICIENT_FUNDS
+(u104)` is reserved for a genuine depositor who is merely short. Only a well-formed
+signature over this exact intent, by a principal with a funded deposit, can settle.
 
 ---
 
@@ -154,15 +159,14 @@ User                    Relayer                 Router (on-chain)
  |                         |                         | 2. assert not is-intent-settled(digest)
  |                         |                         | 3. assert block-height < expiry
  |                         |                         | 4. assert amount > relayer-fee
- |                         |                         | 5. recover signer from sig
- |                         |                         | 6. assert recovered == user
- |                         |                         | 7. assert nonce == get-nonce(user)
- |                         |                         | 8. assert deposit(user, asset) >= amount
- |                         |                         | 9. mark digest settled
- |                         |                         |10. increment nonce
- |                         |                         |11. debit deposit
- |                         |                         |12. transfer net-amount to recipient
- |                         |                         |13. transfer relayer-fee to relayer
+ |                         |                         | 5. recover payer from sig
+ |                         |                         | 6. assert nonce == get-nonce(payer)
+ |                         |                         | 7. assert deposit(payer, asset) > 0, then >= amount
+ |                         |                         | 8. mark digest settled
+ |                         |                         | 9. increment nonce
+ |                         |                         |10. debit deposit
+ |                         |                         |11. transfer net-amount to recipient
+ |                         |                         |12. transfer relayer-fee to relayer
  |                         |<-- (ok digest) ----------|
 ```
 
@@ -246,13 +250,18 @@ principal. A relayer not in the registry can still settle any intent that names 
   the user's wallet address.
 - Payment authorization is decoupled from on-chain submission. The user's wallet
   never appears as the direct sender of a transfer to the recipient.
+- **The payer is not named in calldata.** `settle-intent` takes no `user` argument
+  and emits no `user` field in its print event. The authorizing principal is recovered
+  from the signature inside the contract and never handed to the chain in plaintext.
 
 ### What does not improve
 
-- **The sender is identifiable from calldata.** `settle-intent` takes an explicit
-  `user` principal argument. Anyone reading the transaction can see who authorized
-  the payment. Even without that argument, the RSV signature plus the intent fields
-  allow anyone to recover the signer's public key via `secp256k1-recover?`.
+- **The signer is still cryptographically recoverable.** The RSV signature plus the
+  intent fields let anyone reconstruct the digest and recover the signer's public key
+  via `secp256k1-recover?`, then derive its principal. Removing the `user` argument
+  raises the effort to link a settlement to its payer — it is no longer a plaintext
+  field — but does not make the payer unlinkable. Further unlinkability (stealth
+  addresses, encrypted notes, nullifiers) is M2 scope.
 - **Amounts are public.** The settlement amount and relayer fee appear in the
   transaction arguments and in the `settle-intent` print event.
 - **Recipients are public.** The recipient principal is a settlement argument.
@@ -261,8 +270,9 @@ principal. A relayer not in the registry can still settle any intent that names 
   transaction sender field.
 
 Privara v1 reduces wallet-graph traceability — the direct sender-to-recipient link
-that appears in a normal SIP-010 transfer — but does not hide amounts, recipients, or
-the authorizing principal.
+that appears in a normal SIP-010 transfer — and keeps the authorizing principal out
+of plaintext calldata, but does not hide amounts, recipients, or a signer determined
+enough to run signature recovery.
 
 ---
 
@@ -270,7 +280,8 @@ the authorizing principal.
 
 | Threat | Impact | Mitigation |
 |---|---|---|
-| Malicious relayer alters intent fields | Signature no longer verifies | `secp256k1-recover?` recovers a different principal; `ERR_INVALID_SIG` |
+| Malicious relayer alters intent fields | Signature no longer matches | `secp256k1-recover?` recovers a different principal that never deposited; `ERR_NO_DEPOSIT` |
+| Attacker aims a signature at a funded victim | Charge someone else | Impossible — the signature *is* the payer; recovery yields only the signer's own principal, so a victim can only be charged by a signature they themselves produced |
 | Malicious relayer replays a settled intent | Double-spend | Digest stored in `settled-intents`; `ERR_INTENT_USED` |
 | Malicious relayer submits after expiry | Stale payment | `stacks-block-height < expiry` check; `ERR_INTENT_EXPIRED` |
 | Relayer censors user | Funds locked | `withdraw` self-settle path always available |

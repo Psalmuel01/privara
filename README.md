@@ -212,10 +212,10 @@ Milestone 1 core protocol and minimal SDK helpers are implemented. All 35 tests 
 - [docs/protocol-spec.md](docs/protocol-spec.md) — intent model, SIP-018 digest construction, auth flow, privacy assumptions, threat model.
 - [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
 
-**Next:** Stage 1 testnet deployment is live (router + registry + mock-token at
-`STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`); a signed intent has settled end-to-end and
-a replay has been rejected on-chain. Remaining M1 work: the expiry-rejection proof, and
-Stage 2 (swapping the whitelisted asset to real testnet sBTC). See
+**Next:** Stage 1 testnet dry run (mock-token) validated the end-to-end flow — a signed
+intent settled and a replay was rejected on-chain. Stage 2 is now deploying from a fresh
+deployer (`ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN`) with the whitelisted asset set to
+real testnet sBTC, then re-running deposit → settle → expiry-rejection with real sBTC. See
 [docs/deployments.md](docs/deployments.md).
 
 ## Build and Test

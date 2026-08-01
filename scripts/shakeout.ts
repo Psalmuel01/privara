@@ -25,7 +25,35 @@ import {
   coreAddress,
   networkName,
   requireKey,
+  stacksNetwork,
 } from "./_config";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Wait for a broadcast tx to leave the mempool before sending the next one.
+// Every tx from the user shares one account nonce, so mint -> deposit -> settle
+// MUST be mined in order; broadcasting the next before the previous confirms
+// collides at the same nonce (BadNonce) on a live chain.
+async function waitMined(txid: string, label: string): Promise<boolean> {
+  const base = stacksNetwork().client.baseUrl;
+  const clean = txid.startsWith("0x") ? txid.slice(2) : txid;
+  const deadline = Date.now() + 5 * 60_000;
+  while (Date.now() < deadline) {
+    const res = await fetch(`${base}/extended/v1/tx/${clean}`);
+    if (res.ok) {
+      const tx = (await res.json()) as { tx_status: string; tx_result?: { repr?: string } };
+      if (tx.tx_status !== "pending") {
+        const ok = tx.tx_status === "success";
+        console.log(`  ${label}: ${ok ? "✔" : "✘ " + tx.tx_status + " " + (tx.tx_result?.repr ?? "")}`.trimEnd());
+        return ok;
+      }
+    }
+    process.stderr.write(".");
+    await sleep(5_000);
+  }
+  console.log(`  ${label}: ? still pending after 5 min`);
+  return false;
+}
 
 // A spread of amounts and fees to exercise fee edges (incl. fee=0) and sizes.
 const VARIANTS: Array<{ amount: number; fee: number; expiryWindow: number }> = [
@@ -101,10 +129,17 @@ async function main() {
     console.log(`\n===== intent ${i + 1}/${count}: amount=${v.amount} fee=${v.fee} =====`);
 
     // Mint + deposit exactly this intent's amount so the deposit never runs dry.
+    // Each must be MINED before the next broadcast -- they share the user's nonce.
     const mint = run("mint.ts", [String(v.amount)]);
-    if (mint.code !== 0) { results.push({ i, amount: v.amount, fee: v.fee, settleTxid: null, ok: false }); break; }
+    const mintTx = extractTxid(mint.out);
+    if (mint.code !== 0 || !mintTx || !(await waitMined(mintTx, "mint"))) {
+      results.push({ i, amount: v.amount, fee: v.fee, settleTxid: null, ok: false }); break;
+    }
     const dep = run("deposit.ts", [String(v.amount)]);
-    if (dep.code !== 0) { results.push({ i, amount: v.amount, fee: v.fee, settleTxid: null, ok: false }); break; }
+    const depTx = extractTxid(dep.out);
+    if (dep.code !== 0 || !depTx || !(await waitMined(depTx, "deposit"))) {
+      results.push({ i, amount: v.amount, fee: v.fee, settleTxid: null, ok: false }); break;
+    }
 
     // Sign with a live expiry window, capture the JSON, settle it, wait for mining.
     const nonceBefore = await getNonce(user);

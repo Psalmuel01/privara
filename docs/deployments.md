@@ -47,16 +47,22 @@ sBTC and `mock-token` is dropped.
 
 ## Testnet — Stage 2: real sBTC
 
-> Status: pending — swap `SBTC` to the canonical testnet sBTC contract and redeploy
-> `privara-router`, then rerun the flow with real sBTC (no `mint` step).
+> Status: pending — fresh deployer, `SBTC` set to canonical testnet sBTC. Deploys
+> `privara-router` (+ trait, registry) and runs the flow with real sBTC (no `mint`).
 
 Network: Stacks testnet  
-Deployer: `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`  
-Whitelisted asset: `ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token`
+Deployer: `ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN`  
+Whitelisted asset (`SBTC` constant): `ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token`
+
+Stage 2 uses a new deployer address, so `privara-router` is a fresh contract at
+`ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN.privara-router` (no name collision with the
+Stage 1 deployer's router; the contract name is unchanged).
 
 | Contract | Address | Deploy tx |
 |---|---|---|
-| `privara-router` (sBTC build) | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router` | [explorer](<txid>) |
+| `sip010-ft-trait` | `ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN.sip010-ft-trait` | [explorer](<txid>) |
+| `privara-registry` | `ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN.privara-registry` | [explorer](<txid>) |
+| `privara-router` (sBTC build) | `ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN.privara-router` | [explorer](<txid>) |
 
 ### sBTC demo transactions
 

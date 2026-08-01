@@ -17,3 +17,4 @@ settings/Mainnet.toml
 costs-reports.json
 lcov.info
 intent.json
+expired.json

@@ -91,8 +91,9 @@ function signIntent(i: Intent, key: string): Uint8Array {
   return hexToBytes(sig);
 }
 
-// settle-intent argument list for a given intent + signature.
-function settleArgs(i: Intent, sig: Uint8Array, signer = user()) {
+// settle-intent argument list for a given intent + signature. The payer is not an
+// argument -- the contract recovers it from the signature.
+function settleArgs(i: Intent, sig: Uint8Array) {
   return [
     Cl.principal(mockToken()),
     Cl.uint(i.amount),
@@ -101,7 +102,6 @@ function settleArgs(i: Intent, sig: Uint8Array, signer = user()) {
     Cl.uint(i.relayerFee),
     Cl.uint(i.nonce),
     Cl.uint(i.expiry),
-    Cl.principal(signer),
     Cl.buffer(sig),
   ];
 }
@@ -119,12 +119,12 @@ function deposit(amount: bigint) {
   );
 }
 
-function settle(i: Intent, opts: { key?: string; signer?: string } = {}) {
+function settle(i: Intent, opts: { key?: string } = {}) {
   const sig = signIntent(i, opts.key ?? USER_KEY);
   return simnet.callPublicFn(
     "privara-router",
     "settle-intent",
-    settleArgs(i, sig, opts.signer ?? user()),
+    settleArgs(i, sig),
     relayer()
   );
 }
@@ -195,13 +195,20 @@ describe("privara-router settle-intent", () => {
     expect(result).toBeErr(Cl.uint(101));
   });
 
-  it("rejects a signature from the wrong key (ERR_INVALID_SIG u102)", () => {
-    // Signed by OTHER_KEY but the named user is still wallet_1 -> recovered signer mismatches.
+  it("rejects a signature from the wrong key (recovers a signer with no deposit -> ERR_NO_DEPOSIT u110)", () => {
+    // The payer is whoever the signature recovers to. Signing with OTHER_KEY makes
+    // the recovered signer OTHER_KEY's principal, which never deposited, so it fails
+    // the no-deposit guard. (Pre-obfuscation this was ERR_INVALID_SIG via a
+    // supplied-user mismatch; with `user` removed, the no-deposit path is the guard,
+    // kept distinct from u104 so a genuine short depositor is still reported clearly.)
     const { result } = settle(baseIntent, { key: OTHER_KEY });
-    expect(result).toBeErr(Cl.uint(102));
+    expect(result).toBeErr(Cl.uint(110));
   });
 
-  it("rejects a tampered amount: valid sig but relayer submits a different amount (ERR_INVALID_SIG u102)", () => {
+  it("rejects a tampered amount: valid sig over a different amount recovers a signer with no deposit -> ERR_NO_DEPOSIT u110", () => {
+    // The relayer submits amount+5 but the signature is over `amount`. The contract
+    // recomputes the digest from the submitted args, so recovery yields a principal
+    // unrelated to the real signer -- one with no deposit. The tamper cannot settle.
     const sig = signIntent(baseIntent, USER_KEY);
     const tampered: Intent = { ...baseIntent, amount: AMOUNT + 5n };
     const { result } = simnet.callPublicFn(
@@ -210,7 +217,7 @@ describe("privara-router settle-intent", () => {
       settleArgs(tampered, sig),
       relayer()
     );
-    expect(result).toBeErr(Cl.uint(102));
+    expect(result).toBeErr(Cl.uint(110));
   });
 
   it("rejects a wrong nonce (ERR_NONCE_MISMATCH u103)", () => {
@@ -349,7 +356,6 @@ describe("privara-router asset whitelist (ERR_ASSET_NOT_WHITELISTED u108)", () =
         Cl.uint(FEE),
         Cl.uint(0n),
         Cl.uint(1000n),
-        Cl.principal(user()),
         Cl.buffer(sig),
       ],
       relayer()

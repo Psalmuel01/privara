@@ -102,7 +102,6 @@ async function main() {
       uintCV(BigInt(e.relayerFee)),
       uintCV(BigInt(e.nonce)),
       uintCV(BigInt(e.expiry)),
-      principalCV(e.user),
       bufferCV(hexToBytes(e.userSig)),
     ],
     senderKey,

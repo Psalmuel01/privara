@@ -4,14 +4,15 @@
 //   USER_KEY=<hex> RELAYER_KEY=<hex> PRIVARA_CORE_ADDRESS=<addr> \
 //     npx tsx scripts/shakeout.ts [count]
 //
-// For each iteration it: mints + deposits enough mock-token, signs an intent with
-// a varied (amount, fee, expiry-window), settles it, and waits for the mined
+// For each iteration it: funds + deposits the intent's amount, signs an intent
+// with a varied (amount, fee, expiry-window), settles it, and waits for the mined
 // result. Intents MUST run sequentially -- each settlement advances the user's
 // on-chain nonce, and create-intent reads that nonce live, so overlapping runs
 // would collide. Every broadcast tx id and outcome is printed and tallied.
 //
-// This is a testnet dry-run harness (mock-token, mintable). Not part of the
-// real-sBTC demo; it exists to log ~10-15 varied executions for the milestone.
+// Works against both testnet builds: with mock-token it mints each amount first;
+// with real sBTC (PRIVARA_ASSET=...sbtc-token) it skips minting and spends from a
+// pre-funded wallet. Logs ~10-15 varied executions for the milestone record.
 
 import { spawnSync } from "node:child_process";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@stacks/transactions";
 import {
   ROUTER_NAME,
+  asset,
   coreAddress,
   networkName,
   requireKey,
@@ -119,7 +121,12 @@ async function main() {
     throw new Error("RECIPIENT and RELAYER env vars are required (settlement targets)");
   }
 
+  // mock-token is the only mintable asset; real sBTC deposits come from a
+  // pre-funded wallet, so mint is skipped there.
+  const mintable = asset().endsWith(".mock-token");
+
   console.log(`Shakeout: ${count} varied intents as user ${user}`);
+  console.log(`  asset ${asset()} (${mintable ? "mintable dry-run" : "pre-funded, no mint"})`);
   console.log(`  recipient ${recipient} / relayer ${relayer}\n`);
 
   const results: Result[] = [];
@@ -128,12 +135,17 @@ async function main() {
     const v = VARIANTS[i];
     console.log(`\n===== intent ${i + 1}/${count}: amount=${v.amount} fee=${v.fee} =====`);
 
-    // Mint + deposit exactly this intent's amount so the deposit never runs dry.
+    // Fund + deposit exactly this intent's amount so the deposit never runs dry.
     // Each must be MINED before the next broadcast -- they share the user's nonce.
-    const mint = run("mint.ts", [String(v.amount)]);
-    const mintTx = extractTxid(mint.out);
-    if (mint.code !== 0 || !mintTx || !(await waitMined(mintTx, "mint"))) {
-      results.push({ i, amount: v.amount, fee: v.fee, settleTxid: null, ok: false }); break;
+    // Only mock-token is mintable; against real sBTC we rely on a pre-funded wallet
+    // and skip the mint (minting a foreign asset would be dead work and extra RPC
+    // load that trips the node's per-minute rate limit).
+    if (mintable) {
+      const mint = run("mint.ts", [String(v.amount)]);
+      const mintTx = extractTxid(mint.out);
+      if (mint.code !== 0 || !mintTx || !(await waitMined(mintTx, "mint"))) {
+        results.push({ i, amount: v.amount, fee: v.fee, settleTxid: null, ok: false }); break;
+      }
     }
     const dep = run("deposit.ts", [String(v.amount)]);
     const depTx = extractTxid(dep.out);

@@ -47,20 +47,46 @@ as a JSON payload. The relayer passes all fields plus the signature to `settle-i
 
 ## SIP-018 digest construction
 
-Intents are signed as [SIP-018 structured data](https://github.com/stacksgov/sips/blob/main/sips/sip-018/sip-018-signed-structured-data.md).
-This makes them signable by browser wallets (Leather, Xverse) in M2 without any
-custom signing UI.
+Intents are signed as [SIP-018 structured data](https://github.com/stacksgov/sips/blob/main/sips/sip-018/sip-018-signed-structured-data.md),
+so browser wallets (Leather, Xverse) can sign them natively in M2 with no custom
+signing cryptography.
+
+> **Signing-UX limitation (known, M2).** "Natively signable" is not the same as
+> "clearly presented." Leather renders a SIP-018 request as the raw Clarity tuple:
+> field names with raw values — `amount: u100000` (not "0.001 sBTC"), full
+> unabbreviated principals, and no semantic framing that tells the user *this
+> signature spends money*. The fields are all visible and correct, but nothing on the
+> signing screen says "you are authorizing a payment." The wallet controls this view;
+> the dApp cannot restyle it. Because the signature IS the spend authorization, this
+> is a phishing surface: a hostile dApp could show a friendly summary while the raw
+> tuple authorizes something else.
+>
+> **M1/early-M2 mitigation (chosen): out-of-band.** The domain `name`/`version`
+> ("privara"/"1") do display, identifying the app. Integrating dApps MUST add a
+> pre-sign confirmation that states the payment in human terms and instructs the user
+> to verify the raw `recipient` principal and `amount` shown by the wallet against it.
+> This trusts user diligence and does not cryptographically bind the framing.
+>
+> **Deferred stronger fix:** bind a human-readable `summary` string into the signed
+> tuple and have the contract reconstruct and assert it from the numeric fields, so a
+> forged summary cannot settle and Leather renders a bound, readable sentence. Not
+> done: reconstructing a formatted decimal amount in Clarity (`int-to-ascii` +
+> decimal placement) is non-trivial and would change the digest. Tracked for M2.
 
 ### Domain
 
 ```
-domain = { name: "privara", version: "1", chain-id: <chain-id keyword> }
+domain = { name: "privara", version: "1", chain-id: <chain-id keyword>, router: <this router principal> }
 domain-hash = sha256(to-consensus-buff?(domain))
 ```
 
 The `chain-id` keyword evaluates to `u1` on mainnet and `u2147483648` on testnet and
 simnet. Binding it into the domain means a signature produced for testnet can never
-be replayed on mainnet, and vice versa.
+be replayed on mainnet, and vice versa. The `router` field is this contract's own
+principal (`.privara-router`, resolving to `<deployer>.privara-router`), so a signature
+is valid only against the exact deployment it was made for — it cannot be replayed on a
+different or redeployed router, even one sharing the same contract name under a
+different deployer.
 
 ### Message
 

@@ -28,7 +28,7 @@
 ;;   simnet/test : .mock-token
 ;;   testnet     : 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token
 ;;   mainnet     : 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
-(define-constant SBTC 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token)
+(define-constant SBTC .mock-token)
 
 ;; --- SIP-018 structured-data signing domain ---
 ;; Intents are signed as SIP-018 structured data so browser wallets (Leather,

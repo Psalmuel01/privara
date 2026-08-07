@@ -16,13 +16,17 @@ export function createIntent(params: Intent): Intent {
 // The contract recovers the signer from the signature and uses it as the payer, so
 // `user` is NOT sent on-chain. We still derive and record it here as local metadata
 // (deposit/nonce lookups, display) -- it never enters the settlement args.
+// `router` is the deployed router contract principal ("<address>.<name>") the intent
+// settles against. It is bound into the SIP-018 domain so the signature is valid only
+// against that exact deployment (cross-deployment / cross-name replay protection).
 export function signIntent(
   intent: Intent,
   privateKey: string,
-  network: Network
+  network: Network,
+  router: string
 ): SignedIntent {
   const intentHash = hashIntent(intent);
-  const digest = messageDigest(intent, network);
+  const digest = messageDigest(intent, network, router);
 
   // signMessageHashRsv emits the 65-byte RSV layout (recovery byte last) that
   // Clarity's secp256k1-recover? expects, so no byte reordering is needed.

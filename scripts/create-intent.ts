@@ -21,6 +21,7 @@ import {
   network,
   networkName,
   requireKey,
+  routerId,
   stacksNetwork,
 } from "./_config";
 
@@ -72,7 +73,7 @@ async function main() {
     expiry,
   });
 
-  const signed = signIntent(intent, senderKey, network());
+  const signed = signIntent(intent, senderKey, network(), routerId());
 
   // Serialize to a relayer-friendly JSON envelope (bigints -> strings, bytes -> hex).
   const envelope = {

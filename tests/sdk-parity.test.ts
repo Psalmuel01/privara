@@ -25,6 +25,7 @@ const normHex = (s: string) => s.replace(/^0x/, "");
 const accounts = () => simnet.getAccounts();
 const deployer = () => simnet.deployer;
 const mockToken = () => `${deployer()}.mock-token`;
+const routerId = () => `${deployer()}.privara-router`;
 const recipient = () => accounts().get("wallet_2")!;
 const relayer = () => accounts().get("wallet_3")!;
 
@@ -100,7 +101,7 @@ describe("SDK <-> contract parity", () => {
       deployer()
     );
     if (result.type !== ClarityType.Buffer) throw new Error("bad domain hash");
-    expect(normHex(result.value)).toBe(bytesToHex(domainHash(NETWORK)));
+    expect(normHex(result.value)).toBe(bytesToHex(domainHash(NETWORK, routerId())));
   });
 
   it("SDK messageDigest equals the contract's message-digest", () => {
@@ -113,7 +114,7 @@ describe("SDK <-> contract parity", () => {
       deployer()
     );
     if (result.type !== ClarityType.Buffer) throw new Error("bad digest");
-    expect(normHex(result.value)).toBe(bytesToHex(messageDigest(i, NETWORK)));
+    expect(normHex(result.value)).toBe(bytesToHex(messageDigest(i, NETWORK, routerId())));
   });
 });
 
@@ -121,13 +122,13 @@ describe("SDK end-to-end: sign then settle on simnet", () => {
   const DEPOSIT = 1_000_000n;
 
   beforeEach(() => {
-    const si = signIntent(baseIntent(), USER_KEY, NETWORK);
+    const si = signIntent(baseIntent(), USER_KEY, NETWORK, routerId());
     mint(si.user, DEPOSIT);
     deposit(si.user, DEPOSIT);
   });
 
   it("a relayer settles an intent the SDK signed", () => {
-    const si = signIntent(baseIntent(), USER_KEY, NETWORK);
+    const si = signIntent(baseIntent(), USER_KEY, NETWORK, routerId());
     expect(si.userSig.length).toBe(65);
     expect(si.digest.length).toBe(32);
 
@@ -141,7 +142,7 @@ describe("SDK end-to-end: sign then settle on simnet", () => {
   });
 
   it("the digest signed offline matches what the contract records as settled", () => {
-    const si = signIntent(baseIntent(), USER_KEY, NETWORK);
+    const si = signIntent(baseIntent(), USER_KEY, NETWORK, routerId());
     simnet.callPublicFn("privara-router", "settle-intent", settleArgs(si), relayer());
 
     const { result } = simnet.callReadOnlyFn(

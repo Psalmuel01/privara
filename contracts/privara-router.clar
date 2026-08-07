@@ -32,13 +32,22 @@
 
 ;; --- SIP-018 structured-data signing domain ---
 ;; Intents are signed as SIP-018 structured data so browser wallets (Leather,
-;; Xverse) can sign them natively in M2. The digest binds chain-id, so a
-;; signature made for testnet can never be replayed on mainnet (and vice versa).
+;; Xverse) can sign them natively in M2. The domain binds chain-id AND this router's
+;; own principal, so a signature is valid only against this exact deployment: it can
+;; never be replayed on the other network (chain-id) NOR against a different or
+;; redeployed router that shares the same name (router principal). The router
+;; principal is `(as-contract tx-sender)` -- the contract's own identity.
 (define-constant STRUCTURED_DATA_PREFIX 0x534950303138) ;; ascii "SIP018"
 
+;; The router's own principal, bound into the domain so a signature is valid only
+;; against this exact deployment. `.privara-router` resolves to `<deployer>.privara-router`
+;; -- the full principal of THIS deployed contract -- so it also separates a redeployed
+;; router under the same name (different deployer) from an old one. This is the same
+;; self-reference the deposit transfer uses. It is a compile-time literal, so the
+;; domain hash stays a constant (no per-call recomputation).
 (define-constant MESSAGE_DOMAIN_HASH
   (sha256 (unwrap-panic (to-consensus-buff?
-    { name: "privara", version: "1", chain-id: chain-id }))))
+    { name: "privara", version: "1", chain-id: chain-id, router: .privara-router }))))
 
 ;; --- Storage ---
 

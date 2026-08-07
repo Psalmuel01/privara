@@ -46,13 +46,17 @@ export function hashIntent(intent: Intent): Uint8Array {
   return sha256(serializeCVBytes(intentTupleCV(intent)));
 }
 
-// sha256 of the consensus-serialized SIP-018 domain tuple for a network. Matches the
-// contract's MESSAGE_DOMAIN_HASH constant (which uses the `chain-id` keyword).
-export function domainHash(network: Network): Uint8Array {
+// sha256 of the consensus-serialized SIP-018 domain tuple. Matches the contract's
+// MESSAGE_DOMAIN_HASH constant, which binds `chain-id` AND the router's own principal.
+// `router` is the deployed router contract principal ("<address>.<name>"); it scopes
+// the signature to one exact deployment, defeating cross-deployment replay. The SDK
+// can't derive it from `network` alone, so the caller must pass the deployed principal.
+export function domainHash(network: Network, router: string): Uint8Array {
   const domain = Cl.tuple({
     name: Cl.stringAscii("privara"),
     version: Cl.stringAscii("1"),
     "chain-id": Cl.uint(CHAIN_ID[network]),
+    router: Cl.principal(router),
   });
   return sha256(serializeCVBytes(domain));
 }
@@ -60,9 +64,10 @@ export function domainHash(network: Network): Uint8Array {
 // Full SIP-018 digest the user signs:
 //   sha256(0x534950303138 || domain-hash || structured-data-hash)
 // This is what the contract recovers the signer from via secp256k1-recover?.
-export function messageDigest(intent: Intent, network: Network): Uint8Array {
+// `router` is the deployed router contract principal the intent settles against.
+export function messageDigest(intent: Intent, network: Network, router: string): Uint8Array {
   const dataHash = hashIntent(intent);
-  return sha256(concat(STRUCTURED_DATA_PREFIX, domainHash(network), dataHash));
+  return sha256(concat(STRUCTURED_DATA_PREFIX, domainHash(network, router), dataHash));
 }
 
 // Encrypt an offchain payment note for a recipient's public key.

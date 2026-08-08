@@ -22,6 +22,8 @@
 (define-constant ERR_ASSET_GUARD        (err u109))
 ;; Signature recovered a well-formed principal that never deposited to the router.
 (define-constant ERR_NO_DEPOSIT         (err u110))
+;; cancel-intent: caller is not the intent's signer (only the payer may cancel).
+(define-constant ERR_NOT_SIGNER         (err u111))
 
 ;; --- Whitelisted asset (per-network variant) ---
 ;; The only settlement asset the router will accept. The (with-ft SBTC "*" ...)
@@ -225,6 +227,47 @@
         nonce:       nonce,
       })
       (ok digest)
+    )
+  )
+)
+
+;; --- Cancel Intent ---
+
+;; A payer revokes an intent they signed before a relayer settles it. Because intents
+;; are unordered, there is no counter to bump past a stalled intent, so this is the
+;; explicit escape hatch: it burns the digest (marks it settled without moving funds),
+;; after which settle-intent returns ERR_INTENT_USED for that intent.
+;;
+;; Only the signer may cancel: the same signature that authorizes settlement is supplied,
+;; the signer is recovered from it, and it must equal tx-sender. A relayer holding the
+;; intent cannot cancel it (they are not the signer), and no one can cancel a stranger's
+;; intent. Cancelling an already-settled/cancelled digest is a no-op success (idempotent).
+;;
+;; #[allow(unchecked_data)]
+(define-public (cancel-intent
+  (asset       principal)
+  (amount      uint)
+  (recipient   principal)
+  (relayer     principal)
+  (relayer-fee uint)
+  (nonce       uint)
+  (expiry      uint)
+  (user-sig    (buff 65)))
+
+  (let (
+    (data-hash (try! (hash-intent asset amount recipient relayer relayer-fee nonce expiry)))
+    (digest    (message-digest data-hash))
+    (recovered-pubkey (unwrap! (secp256k1-recover? digest user-sig) ERR_INVALID_SIG))
+    (signer    (unwrap! (principal-of? recovered-pubkey)            ERR_INVALID_SIG))
+  )
+    (asserts! (is-eq signer tx-sender) ERR_NOT_SIGNER)
+    (if (is-intent-settled digest)
+      (ok digest) ;; already settled or cancelled -- idempotent
+      (begin
+        (map-set settled-intents digest true)
+        (print { event: "cancel-intent", intent-hash: digest, signer: signer })
+        (ok digest)
+      )
     )
   )
 )

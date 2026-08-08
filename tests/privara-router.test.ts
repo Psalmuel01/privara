@@ -129,6 +129,19 @@ function settle(i: Intent, opts: { key?: string } = {}) {
   );
 }
 
+// cancel-intent takes the identical argument shape as settle-intent. It must be called
+// by the signer, so `caller` defaults to the user (the USER_KEY principal). `signKey`
+// lets a test sign with a different key to exercise the non-signer rejection.
+function cancel(i: Intent, opts: { caller?: string; signKey?: string } = {}) {
+  const sig = signIntent(i, opts.signKey ?? USER_KEY);
+  return simnet.callPublicFn(
+    "privara-router",
+    "cancel-intent",
+    settleArgs(i, sig),
+    opts.caller ?? user()
+  );
+}
+
 function balance(who: string): bigint {
   const { result } = simnet.callReadOnlyFn(
     "mock-token",
@@ -257,6 +270,55 @@ describe("privara-router settle-intent", () => {
     // Reusing a nonce reproduces an already-settled digest -> ERR_INTENT_USED.
     const { result } = settle({ ...baseIntent, nonce: 2n });
     expect(result).toBeErr(Cl.uint(100));
+  });
+});
+
+describe("privara-router cancel-intent", () => {
+  beforeEach(() => {
+    // Fund fully so a post-cancel settle failure is attributable to the cancel, not to
+    // an empty deposit.
+    mint(user(), DEPOSIT);
+    deposit(DEPOSIT);
+  });
+
+  it("the signer cancels an intent, and settlement then fails with ERR_INTENT_USED", () => {
+    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+    // The deposit is untouched (cancel moves no funds).
+    const { result: dep } = simnet.callReadOnlyFn(
+      "privara-router",
+      "get-deposit",
+      [Cl.principal(user()), Cl.principal(mockToken())],
+      user()
+    );
+    expect(dep).toBeUint(DEPOSIT);
+    // A relayer can no longer settle the cancelled intent.
+    expect(settle(baseIntent).result).toBeErr(Cl.uint(100));
+  });
+
+  it("a non-signer cannot cancel someone else's intent (ERR_NOT_SIGNER u111)", () => {
+    // An attacker submits the USER-signed intent while being tx-sender. The contract
+    // recovers the real signer (USER) from the signature; USER != tx-sender, so the
+    // cancel is rejected and the intent is NOT burned.
+    const attacker = accounts().get("wallet_4")!;
+    const { result } = simnet.callPublicFn(
+      "privara-router",
+      "cancel-intent",
+      settleArgs(baseIntent, signIntent(baseIntent, USER_KEY)),
+      attacker
+    );
+    expect(result).toBeErr(Cl.uint(111));
+    // The intent is still settleable, proving the failed cancel did not burn it.
+    expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+  });
+
+  it("cancelling an already-settled intent is an idempotent no-op success", () => {
+    expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+  });
+
+  it("cancelling twice is idempotent", () => {
+    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
   });
 });
 

@@ -10,6 +10,18 @@ export function createIntent(params: Intent): Intent {
   return { ...params };
 }
 
+// Re-issue an intent as a fresh attempt of the SAME logical payment: every field is
+// held fixed except the nonce, which is replaced with a new random salt. Use this to
+// retry a stalled or lost intent -- retrying with the ORIGINAL nonce would reproduce the
+// same digest, which the router rejects as a replay (ERR_INTENT_USED) once the first has
+// settled, or leaves you two identical intents either of which a relayer may settle.
+// A reissued intent has a distinct digest, so it is independently cancellable and
+// settleable. (Both copies remain valid until they expire or are cancelled; cancel the
+// old one via `cancel-intent` if you must guarantee only one can settle.)
+export function reissue(intent: Intent): Intent {
+  return { ...intent, nonce: randomNonce() };
+}
+
 // A random 64-bit nonce. Intents are unordered: the router no longer enforces a
 // sequential per-user counter, so the nonce is only a uniqueness salt that keeps two
 // otherwise-identical payments (same asset/amount/recipient/relayer/fee/expiry) from
@@ -65,6 +77,7 @@ export function signIntent(
 // Formats a SignedIntent into the positional argument list expected by settle-intent:
 //   (asset amount recipient relayer relayer-fee nonce expiry user-sig)
 // `user` is intentionally absent -- the contract recovers the payer from user-sig.
+// cancel-intent takes the identical argument shape, so this also builds cancel args.
 export function buildSettlementArgs(si: SignedIntent) {
   return {
     asset: si.asset,

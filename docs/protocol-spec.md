@@ -230,7 +230,22 @@ design: with a strict counter, a single stalled or censored intent at nonce *n* 
 block every later intent until it expired (head-of-line blocking). With unordered nonces
 there is no queue to wedge — a stuck intent affects only itself. Double-submission is
 still impossible because replay is enforced per-digest (below), not by the nonce. The SDK
-generates a random 64-bit nonce, so intent creation needs no on-chain read.
+generates a random 64-bit nonce (`randomNonce`), so intent creation needs no on-chain read.
+
+**Cancellation** — because there is no counter to bump past a stalled intent, the payer
+revokes one explicitly with `cancel-intent`. It takes the same arguments as
+`settle-intent` (including the signature), recovers the signer, and requires the signer to
+equal `tx-sender` (`ERR_NOT_SIGNER` otherwise) — so only the payer can cancel, and only an
+intent they actually signed; a relayer holding the intent cannot. Cancellation burns the
+digest (marks it settled without moving funds), after which `settle-intent` returns
+`ERR_INTENT_USED`. It is idempotent: cancelling an already-settled or already-cancelled
+digest is a no-op success.
+
+**Retrying** — to re-attempt a stalled or lost payment, re-issue it with a fresh nonce
+(`reissue` in the SDK) rather than re-sending the original. Reusing the original nonce
+reproduces the same digest, which either duplicates a still-valid intent or hits
+`ERR_INTENT_USED` once the first settles. A reissued intent has a distinct digest, so it
+is independently settleable and cancellable; cancel the original if only one may settle.
 
 **Expiry** — a Stacks block height. The contract asserts `stacks-block-height <
 expiry` at settlement time. Users set expiry to limit the window in which a relayer
@@ -325,7 +340,7 @@ that stronger guarantee is the M2 privacy-pool track.
 | Attacker aims a signature at a funded victim | Charge someone else | Impossible — the signature *is* the payer; recovery yields only the signer's own principal, so a victim can only be charged by a signature they themselves produced |
 | Malicious relayer replays a settled intent | Double-spend | Digest stored in `settled-intents`; `ERR_INTENT_USED` |
 | Malicious relayer submits after expiry | Stale payment | `stacks-block-height < expiry` check; `ERR_INTENT_EXPIRED` |
-| Relayer censors user | Funds locked | `withdraw` self-settle path always available |
+| Relayer censors or stalls an intent | Funds locked / stuck payment | Intents are unordered, so a stalled one blocks nothing; the payer can `cancel-intent` it, `reissue` with a fresh nonce, or `withdraw` the deposit outright |
 | Resubmit a settled intent (any nonce) | Double-spend | Per-digest replay check; `ERR_INTENT_USED`. Intents are unordered, so there is no nonce-sequence to attack — reuse only reproduces a stored digest |
 | Non-whitelisted asset deposited | Funds trapped | Whitelist checked at deposit, withdraw, and settle |
 | Signature malleability | Forged authorization | `secp256k1-recover?` is canonical; recovery byte disambiguates |

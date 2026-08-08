@@ -282,12 +282,17 @@ principal. A relayer not in the registry can still settle any intent that names 
 
 ### What does not improve
 
-- **The signer is still cryptographically recoverable.** The RSV signature plus the
-  intent fields let anyone reconstruct the digest and recover the signer's public key
-  via `secp256k1-recover?`, then derive its principal. Removing the `user` argument
-  raises the effort to link a settlement to its payer — it is no longer a plaintext
-  field — but does not make the payer unlinkable. Further unlinkability (stealth
-  addresses, encrypted notes, nullifiers) is M2 scope.
+- **The signer is still cryptographically recoverable — but no longer trivially.**
+  Because the payer is not a calldata field, block explorers, token-transfer event
+  feeds, and anyone casually reading the transaction do **not** see the payer: the
+  settlement args and print event name only the recipient, relayer, asset, and amount.
+  Recovering the payer takes deliberate work — reconstruct the SIP-018 digest from the
+  intent fields and run `secp256k1-recover?` + `principal-of?` per settlement. So the
+  design genuinely *reduces* casual and plaintext linkability (a real improvement over
+  a normal SIP-010 transfer, where the sender is the tx principal); it does **not**
+  achieve unlinkability against a determined indexer willing to run recovery over every
+  settlement. Full payer anonymity (commitment/nullifier pool, fixed denominations) is
+  M2 scope.
 - **Amounts are public.** The settlement amount and relayer fee appear in the
   transaction arguments and in the `settle-intent` print event.
 - **Recipients are public.** The recipient principal is a settlement argument.
@@ -295,10 +300,12 @@ principal. A relayer not in the registry can still settle any intent that names 
 - **The relayer is public.** The relayer's address appears in both the intent and the
   transaction sender field.
 
-Privara v1 reduces wallet-graph traceability — the direct sender-to-recipient link
-that appears in a normal SIP-010 transfer — and keeps the authorizing principal out
-of plaintext calldata, but does not hide amounts, recipients, or a signer determined
-enough to run signature recovery.
+Privara v1 reduces wallet-graph traceability on two axes: it removes the direct
+sender-to-recipient link that a normal SIP-010 transfer exposes (the payer is never the
+tx sender), and it keeps the payer out of plaintext calldata so casual observers and
+explorers do not see who paid. It does not hide amounts or recipients, and it does not
+defeat an indexer determined enough to run signature recovery over every settlement —
+that stronger guarantee is the M2 privacy-pool track.
 
 ---
 

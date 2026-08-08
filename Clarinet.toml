@@ -16,12 +16,12 @@ clarity_version = 4
 epoch = "3.3"
 
 [contracts.mock-token]
-path = "contracts/mock-token.clar"
+path = "contracts/tokens/mock-token.clar"
 clarity_version = 4
 epoch = "3.3"
 
 [contracts.other-token]
-path = "contracts/other-token.clar"
+path = "contracts/tokens/other-token.clar"
 clarity_version = 4
 epoch = "3.3"
 

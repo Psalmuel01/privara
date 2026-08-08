@@ -19,14 +19,14 @@ plan:
             contract-name: mock-token
             expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
             cost: 19180
-            path: contracts/mock-token.clar
+            path: contracts/tokens/mock-token.clar
             anchor-block-only: true
             clarity-version: 4
         - contract-publish:
             contract-name: other-token
             expected-sender: ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN
             cost: 13500
-            path: contracts/other-token.clar
+            path: contracts/tokens/other-token.clar
             anchor-block-only: true
             clarity-version: 4
         - contract-publish:

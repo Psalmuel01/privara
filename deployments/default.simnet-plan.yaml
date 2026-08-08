@@ -80,6 +80,11 @@ plan:
       path: contracts/tokens/other-token.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
+      contract-name: privara-pool
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/privara-pool.clar
+      clarity-version: 4
+    - transaction-type: emulated-contract-publish
       contract-name: privara-registry
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/privara-registry.clar

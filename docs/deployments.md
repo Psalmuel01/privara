@@ -37,7 +37,7 @@ sBTC and `mock-token` is dropped.
 
 ## Testnet — Stage 2: real sBTC
 
-> Status: pending — fresh deployer, `SBTC` set to canonical testnet sBTC. Deploys
+> Status: ✅ complete — fresh deployer, `SBTC` set to canonical testnet sBTC. Deploys
 > `privara-router` (+ trait, registry) and runs the flow with real sBTC (no `mint`).
 
 Network: Stacks testnet  

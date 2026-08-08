@@ -38,7 +38,7 @@ function baseIntent(): Intent {
     relayer: relayer(),
     relayerFee: 1_000n,
     nonce: 0n,
-    expiry: 1000n,
+    expiry: 1000,
   });
 }
 

@@ -237,10 +237,13 @@ re-submit the same digest returns `ERR_INTENT_USED`. Because the digest binds
 `chain-id`, a settled intent on testnet cannot be replayed on mainnet even if the
 same key and nonce are used.
 
-**Cross-deployment replay** — the current digest does not bind the router's own
-contract principal. A redeployed router at a different address would accept the same
-signatures. This is a known limitation; binding the router principal into the domain
-or message is the straightforward fix and is planned for a future version.
+**Cross-deployment replay** — the SIP-018 domain binds the router's own contract
+principal (`.privara-router`, resolving to `<deployer>.privara-router`), so a signature
+is scoped to the exact deployment it was made for. A different or redeployed router —
+even one sharing the `privara-router` contract name under a different deployer — computes
+a different domain hash, so it recovers a different signer from the same signature and the
+intent fails to authorize. This closes the replay window that would otherwise exist when a
+user has deposits in two routers at once, or when the router is redeployed.
 
 ---
 

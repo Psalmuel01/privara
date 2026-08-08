@@ -72,12 +72,12 @@ plan:
     - transaction-type: emulated-contract-publish
       contract-name: mock-token
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/mock-token.clar
+      path: contracts/tokens/mock-token.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
       contract-name: other-token
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-      path: contracts/other-token.clar
+      path: contracts/tokens/other-token.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
       contract-name: privara-registry

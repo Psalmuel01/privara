@@ -4,20 +4,16 @@
 //     npx tsx scripts/create-intent.ts <recipient> <relayer> <amount> <relayerFee> [expiryBlocks]
 //
 // Nothing is broadcast: the user signs locally and hands the JSON to a relayer,
-// who runs settle.ts. The nonce is fetched from the router so intents are ordered.
+// who runs settle.ts. Intents are unordered -- the nonce is a random uniqueness salt
+// (no on-chain read needed), so signing is fully offline.
 
 import {
-  fetchCallReadOnlyFunction,
   getAddressFromPrivateKey,
-  principalCV,
-  cvToValue,
 } from "@stacks/transactions";
 import { bytesToHex } from "@stacks/common";
-import { createIntent, signIntent } from "../sdk/src";
+import { createIntent, signIntent, randomNonce } from "../sdk/src";
 import {
-  ROUTER_NAME,
   asset,
-  coreAddress,
   network,
   networkName,
   requireKey,
@@ -34,18 +30,6 @@ async function currentBlockHeight(): Promise<number> {
   return info.stacks_tip_height;
 }
 
-async function getNonce(user: string): Promise<bigint> {
-  const cv = await fetchCallReadOnlyFunction({
-    contractAddress: coreAddress(),
-    contractName: ROUTER_NAME,
-    functionName: "get-nonce",
-    functionArgs: [principalCV(user)],
-    senderAddress: user,
-    network: networkName(),
-  });
-  return BigInt(cvToValue(cv));
-}
-
 async function main() {
   const [recipient, relayer, amountStr, feeStr, expiryStr] = process.argv.slice(2);
   if (!recipient || !relayer || !amountStr || !feeStr) {
@@ -56,7 +40,7 @@ async function main() {
 
   const senderKey = requireKey("USER_KEY");
   const user = getAddressFromPrivateKey(senderKey, networkName());
-  const nonce = await getNonce(user);
+  const nonce = randomNonce();
 
   const tip = await currentBlockHeight();
   const expiry = expiryStr

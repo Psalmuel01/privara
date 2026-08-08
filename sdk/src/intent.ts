@@ -10,6 +10,21 @@ export function createIntent(params: Intent): Intent {
   return { ...params };
 }
 
+// A random 64-bit nonce. Intents are unordered: the router no longer enforces a
+// sequential per-user counter, so the nonce is only a uniqueness salt that keeps two
+// otherwise-identical payments (same asset/amount/recipient/relayer/fee/expiry) from
+// hashing to the same digest -- which the router would reject as a replay. A random
+// nonce needs no on-chain read, so signing is fully offline. Collision odds over 2^64
+// are negligible for one user's intent volume; a same-nonce accidental duplicate simply
+// fails with ERR_INTENT_USED and can be re-signed with a fresh nonce.
+export function randomNonce(): bigint {
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let n = 0n;
+  for (const b of bytes) n = (n << 8n) | BigInt(b);
+  return n;
+}
+
 // Signs an intent with the caller's secp256k1 private key, producing the SIP-018
 // digest and the 65-byte RSV signature the router's settle-intent accepts.
 //

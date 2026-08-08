@@ -6,25 +6,19 @@
 //
 // For each iteration it: funds + deposits the intent's amount, signs an intent
 // with a varied (amount, fee, expiry-window), settles it, and waits for the mined
-// result. Intents MUST run sequentially -- each settlement advances the user's
-// on-chain nonce, and create-intent reads that nonce live, so overlapping runs
-// would collide. Every broadcast tx id and outcome is printed and tallied.
+// result. Iterations run sequentially not because intents are ordered (they are not
+// -- the router accepts any nonce), but because every tx from the one funding wallet
+// shares that wallet's Stacks ACCOUNT nonce, so mint -> deposit -> settle must mine in
+// order or collide with BadNonce. Every broadcast tx id and outcome is printed.
 //
 // Works against both testnet builds: with mock-token it mints each amount first;
 // with real sBTC (PRIVARA_ASSET=...sbtc-token) it skips minting and spends from a
 // pre-funded wallet. Logs ~10-15 varied executions for the milestone record.
 
 import { spawnSync } from "node:child_process";
+import { getAddressFromPrivateKey } from "@stacks/transactions";
 import {
-  fetchCallReadOnlyFunction,
-  getAddressFromPrivateKey,
-  principalCV,
-  cvToValue,
-} from "@stacks/transactions";
-import {
-  ROUTER_NAME,
   asset,
-  coreAddress,
   networkName,
   requireKey,
   stacksNetwork,
@@ -98,17 +92,6 @@ function extractTxid(out: string): string | null {
   return m ? m[1] : null;
 }
 
-async function getNonce(user: string): Promise<bigint> {
-  const cv = await fetchCallReadOnlyFunction({
-    contractAddress: coreAddress(),
-    contractName: ROUTER_NAME,
-    functionName: "get-nonce",
-    functionArgs: [principalCV(user)],
-    senderAddress: user,
-    network: networkName(),
-  });
-  return BigInt(cvToValue(cv));
-}
 
 async function main() {
   const count = Math.min(Number(process.argv[2] ?? "12"), VARIANTS.length);
@@ -154,7 +137,6 @@ async function main() {
     }
 
     // Sign with a live expiry window, capture the JSON, settle it, wait for mining.
-    const nonceBefore = await getNonce(user);
     const create = run("create-intent.ts", [
       recipient, relayer, String(v.amount), String(v.fee), "", // expiry defaults to tip+window inside the script
     ]);
@@ -169,9 +151,7 @@ async function main() {
     const txid = extractTxid(settle.out);
     const ok = settle.code === 0;
     results.push({ i, amount: v.amount, fee: v.fee, settleTxid: txid, ok });
-
-    const nonceAfter = await getNonce(user);
-    console.log(`  nonce ${nonceBefore} -> ${nonceAfter} (${ok ? "settled" : "FAILED"})`);
+    console.log(`  ${ok ? "settled" : "FAILED"}`);
     fs.unlinkSync(tmp);
   }
 

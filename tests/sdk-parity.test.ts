@@ -9,6 +9,7 @@ import {
   hashIntent,
   domainHash,
   messageDigest,
+  randomNonce,
   type Intent,
   type SignedIntent,
 } from "../sdk/src";
@@ -115,6 +116,17 @@ describe("SDK <-> contract parity", () => {
     );
     if (result.type !== ClarityType.Buffer) throw new Error("bad digest");
     expect(normHex(result.value)).toBe(bytesToHex(messageDigest(i, NETWORK, routerId())));
+  });
+
+  it("randomNonce produces distinct in-range 64-bit values", () => {
+    const seen = new Set<bigint>();
+    for (let k = 0; k < 200; k++) {
+      const n = randomNonce();
+      expect(n).toBeGreaterThanOrEqual(0n);
+      expect(n).toBeLessThan(1n << 64n); // fits in a 64-bit uint
+      seen.add(n);
+    }
+    expect(seen.size).toBe(200); // no collisions over a small sample
   });
 });
 

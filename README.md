@@ -109,7 +109,7 @@ The M1 SDK core (`sdk/`) provides:
 - `hashIntent` / `domainHash` / `messageDigest` — offline digest helpers, no RPC needed to sign
 - `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent`
 
-M2 will add encrypted note payload support (`encryptNote` / `decryptNote` via ECIES), nonce/expiry helpers that fetch live chain state, and wallet integration utilities (Leather, Xverse structured-message signing).
+M2 will add encrypted note payload support (`encryptNote` / `decryptNote` via ECIES), expiry helpers that fetch the live chain tip, and wallet integration utilities (Leather, Xverse structured-message signing).
 
 ### Reference Relayer
 

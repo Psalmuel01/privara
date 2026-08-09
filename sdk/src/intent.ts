@@ -10,14 +10,21 @@ export function createIntent(params: Intent): Intent {
   return { ...params };
 }
 
-// Re-issue an intent as a fresh attempt of the SAME logical payment: every field is
-// held fixed except the nonce, which is replaced with a new random salt. Use this to
-// retry a stalled or lost intent -- retrying with the ORIGINAL nonce would reproduce the
-// same digest, which the router rejects as a replay (ERR_INTENT_USED) once the first has
-// settled, or leaves you two identical intents either of which a relayer may settle.
-// A reissued intent has a distinct digest, so it is independently cancellable and
-// settleable. (Both copies remain valid until they expire or are cancelled; cancel the
-// old one via `cancel-intent` if you must guarantee only one can settle.)
+// Re-issue an intent as a fresh attempt of the SAME logical payment: every field is held
+// fixed except the nonce, which is replaced with a new random salt, giving a distinct
+// digest that settles/cancels independently of the original.
+//
+// !! DOUBLE-SPEND HAZARD !! Re-issuing does NOT invalidate the original. After reissue you
+// hold TWO valid intents for the same payment, and a relayer may settle EITHER (or, absent
+// deposit for both, whichever it gets to first). This function alone does not make a retry
+// safe. The safe retry sequence, which the caller must perform, is:
+//   1. cancel-intent(original) and WAIT for it to confirm as (ok true).
+//        - (ok false) means a relayer already settled the original: you are done, do NOT
+//          reissue, or you will pay twice.
+//   2. only then reissue() and sign/broadcast the new one.
+// cancel is itself best-effort (a relayer can front-run it), which is exactly why step 1
+// must be confirmed before step 2. If you cannot cancel-confirm, prefer waiting for the
+// original to expire over reissuing.
 export function reissue(intent: Intent): Intent {
   return { ...intent, nonce: randomNonce() };
 }

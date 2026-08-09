@@ -107,7 +107,7 @@ The M1 SDK core (`sdk/`) provides:
 
 - `createIntent` / `signIntent(intent, privateKey, network, router)` — SIP-018 structured-data signing; produces the 65-byte RSV signature `settle-intent` accepts
 - `randomNonce` — a random 64-bit nonce (the uniqueness salt); intents are unordered, so no on-chain counter read is needed
-- `reissue(intent)` — re-attempt a stalled payment: same fields, fresh nonce (a distinct, independently settleable digest)
+- `reissue(intent)` — re-attempt a stalled payment: same fields, fresh nonce. Does **not** invalidate the original (both stay settleable), so cancel-and-confirm the original first — see the double-spend note in `sdk/src/intent.ts` and the protocol spec
 - `hashIntent` / `domainHash` / `messageDigest` — offline digest helpers, no RPC needed to sign
 - `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent` (and `cancel-intent`, which shares the shape)
 

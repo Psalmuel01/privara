@@ -233,15 +233,23 @@
 
 ;; --- Cancel Intent ---
 
-;; A payer revokes an intent they signed before a relayer settles it. Because intents
-;; are unordered, there is no counter to bump past a stalled intent, so this is the
-;; explicit escape hatch: it burns the digest (marks it settled without moving funds),
-;; after which settle-intent returns ERR_INTENT_USED for that intent.
+;; A payer attempts to revoke an intent they signed before a relayer settles it.
 ;;
-;; Only the signer may cancel: the same signature that authorizes settlement is supplied,
+;; BEST-EFFORT, NOT A GUARANTEE. cancel-intent and settle-intent are ordinary
+;; transactions racing for block inclusion. A relayer watching the mempool can front-run
+;; a cancel with a higher-fee settle, so cancellation only succeeds if it is mined before
+;; any settlement. The revocation is only real once THIS transaction confirms as the
+;; writer of the digest -- see the return value. For a hard bound on relayer optionality,
+;; use a short `expiry` at signing time (or `withdraw` the deposit), not cancel.
+;;
+;; Returns (ok true) when THIS call burned the digest (a genuine, timely cancel), and
+;; (ok false) when the digest was already settled or cancelled (a relayer beat you, or the
+;; payment already went through). The boolean lets the caller distinguish "I revoked it"
+;; from "too late" without parsing events.
+;;
+;; Only the signer may cancel: the signature that would authorize settlement is supplied,
 ;; the signer is recovered from it, and it must equal tx-sender. A relayer holding the
-;; intent cannot cancel it (they are not the signer), and no one can cancel a stranger's
-;; intent. Cancelling an already-settled/cancelled digest is a no-op success (idempotent).
+;; intent cannot cancel it, and no one can cancel a stranger's intent.
 ;;
 ;; #[allow(unchecked_data)]
 (define-public (cancel-intent
@@ -262,11 +270,11 @@
   )
     (asserts! (is-eq signer tx-sender) ERR_NOT_SIGNER)
     (if (is-intent-settled digest)
-      (ok digest) ;; already settled or cancelled -- idempotent
+      (ok false) ;; already settled or cancelled -- too late, this call changed nothing
       (begin
         (map-set settled-intents digest true)
         (print { event: "cancel-intent", intent-hash: digest, signer: signer })
-        (ok digest)
+        (ok true) ;; this call revoked the intent
       )
     )
   )

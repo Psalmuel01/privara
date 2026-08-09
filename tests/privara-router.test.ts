@@ -281,8 +281,9 @@ describe("privara-router cancel-intent", () => {
     deposit(DEPOSIT);
   });
 
-  it("the signer cancels an intent, and settlement then fails with ERR_INTENT_USED", () => {
-    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+  it("the signer cancels an intent (ok true), and settlement then fails with ERR_INTENT_USED", () => {
+    // (ok true) => THIS call revoked it.
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(true));
     // The deposit is untouched (cancel moves no funds).
     const { result: dep } = simnet.callReadOnlyFn(
       "privara-router",
@@ -311,14 +312,14 @@ describe("privara-router cancel-intent", () => {
     expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
   });
 
-  it("cancelling an already-settled intent is an idempotent no-op success", () => {
+  it("cancelling an already-settled intent returns (ok false) -- too late, distinguishable from a real cancel", () => {
     expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
-    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(false));
   });
 
-  it("cancelling twice is idempotent", () => {
-    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
-    expect(cancel(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+  it("the second of two cancels returns (ok false)", () => {
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(true));
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(false));
   });
 });
 

@@ -232,20 +232,32 @@ there is no queue to wedge — a stuck intent affects only itself. Double-submis
 still impossible because replay is enforced per-digest (below), not by the nonce. The SDK
 generates a random 64-bit nonce (`randomNonce`), so intent creation needs no on-chain read.
 
-**Cancellation** — because there is no counter to bump past a stalled intent, the payer
-revokes one explicitly with `cancel-intent`. It takes the same arguments as
-`settle-intent` (including the signature), recovers the signer, and requires the signer to
-equal `tx-sender` (`ERR_NOT_SIGNER` otherwise) — so only the payer can cancel, and only an
-intent they actually signed; a relayer holding the intent cannot. Cancellation burns the
-digest (marks it settled without moving funds), after which `settle-intent` returns
-`ERR_INTENT_USED`. It is idempotent: cancelling an already-settled or already-cancelled
-digest is a no-op success.
+**Cancellation (best-effort, not a guarantee)** — the payer *attempts* to revoke an intent
+with `cancel-intent`. It takes the same arguments as `settle-intent` (including the
+signature), recovers the signer, and requires the signer to equal `tx-sender`
+(`ERR_NOT_SIGNER` otherwise) — so only the payer can cancel, and only an intent they
+actually signed; a relayer holding the intent cannot. When it succeeds it burns the digest
+(marks it settled without moving funds), after which `settle-intent` returns
+`ERR_INTENT_USED`.
+
+Crucially, `cancel-intent` and `settle-intent` are ordinary transactions racing for block
+inclusion. **A relayer watching the mempool can front-run a cancel with a higher-fee
+settle**, so a cancel only takes effect if it is mined before any settlement — the
+revocation is real only once the cancel transaction *confirms as the writer of the digest*.
+To make this observable, `cancel-intent` returns **`(ok true)` when this call burned the
+digest** (a genuine, timely cancel) and **`(ok false)` when the digest was already settled
+or cancelled** (a relayer beat you, or it already paid). The boolean lets the caller
+distinguish "I revoked it" from "too late" without parsing events. For a hard bound on how
+long a signed intent stays spendable, set a short `expiry` at signing time (or `withdraw`
+the deposit) — do not rely on cancel as a guarantee.
 
 **Retrying** — to re-attempt a stalled or lost payment, re-issue it with a fresh nonce
-(`reissue` in the SDK) rather than re-sending the original. Reusing the original nonce
-reproduces the same digest, which either duplicates a still-valid intent or hits
-`ERR_INTENT_USED` once the first settles. A reissued intent has a distinct digest, so it
-is independently settleable and cancellable; cancel the original if only one may settle.
+(`reissue` in the SDK). **Reissuing does not invalidate the original**, so naively reissuing
+leaves two valid intents for one payment, either of which a relayer may settle — a
+double-spend. The safe sequence is: `cancel-intent` the original and **wait for `(ok true)`**
+first; if it returns `(ok false)` the original already settled, so do not reissue. Only after
+a confirmed cancel should you sign and broadcast the reissued intent. If you cannot
+cancel-confirm, wait for the original to expire rather than reissue.
 
 **Expiry** — a Stacks block height. The contract asserts `stacks-block-height <
 expiry` at settlement time. Users set expiry to limit the window in which a relayer
@@ -340,7 +352,7 @@ that stronger guarantee is the M2 privacy-pool track.
 | Attacker aims a signature at a funded victim | Charge someone else | Impossible — the signature *is* the payer; recovery yields only the signer's own principal, so a victim can only be charged by a signature they themselves produced |
 | Malicious relayer replays a settled intent | Double-spend | Digest stored in `settled-intents`; `ERR_INTENT_USED` |
 | Malicious relayer submits after expiry | Stale payment | `stacks-block-height < expiry` check; `ERR_INTENT_EXPIRED` |
-| Relayer censors or stalls an intent | Funds locked / stuck payment | Intents are unordered, so a stalled one blocks nothing; the payer can `cancel-intent` it, `reissue` with a fresh nonce, or `withdraw` the deposit outright |
+| Relayer censors or stalls an intent | Funds locked / stuck payment | Intents are unordered, so a stalled one blocks nothing else. `withdraw` (or a short `expiry`) is the reliable remedy: it removes the funding for outstanding intents. `cancel-intent` is best-effort only — a relayer can front-run it with a settle — so it is not a guarantee against an adversarial relayer |
 | Resubmit a settled intent (any nonce) | Double-spend | Per-digest replay check; `ERR_INTENT_USED`. Intents are unordered, so there is no nonce-sequence to attack — reuse only reproduces a stored digest |
 | Non-whitelisted asset deposited | Funds trapped | Whitelist checked at deposit, withdraw, and settle |
 | Signature malleability | Forged authorization | `secp256k1-recover?` is canonical; recovery byte disambiguates |

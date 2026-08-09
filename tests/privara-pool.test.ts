@@ -42,10 +42,18 @@ function nullifierFor(secret: Uint8Array): Uint8Array {
   return sha256(secret);
 }
 
-// The coordinator signs sha256(commitment || consensus(recipient)); the contract
-// recovers the signer from this exact message. consensus(principal) == serializeCVBytes.
-function attest(commitment: Uint8Array, recipientPrincipal: string): Uint8Array {
-  const msg = sha256(concatBytes(commitment, serializeCVBytes(Cl.principal(recipientPrincipal))));
+// The coordinator signs sha256(commitment || nullifier || consensus(recipient)); the
+// contract recovers the signer from this exact message. Binding the nullifier is what
+// stops a depositor swapping in a fresh nullifier to drain the pool.
+// consensus(principal) == serializeCVBytes.
+function attest(
+  commitment: Uint8Array,
+  nullifier: Uint8Array,
+  recipientPrincipal: string
+): Uint8Array {
+  const msg = sha256(
+    concatBytes(commitment, nullifier, serializeCVBytes(Cl.principal(recipientPrincipal)))
+  );
   return hexToBytes(signMessageHashRsv({ messageHash: bytesToHex(msg), privateKey: COORDINATOR_KEY }));
 }
 
@@ -115,7 +123,7 @@ describe("privara-pool: attested commitment/nullifier flow", () => {
     mint(payer(), DENOMINATION);
     deposit(c, payer());
 
-    const att = attest(c, recipient());
+    const att = attest(c, n, recipient());
     // The relayer (not the payer) submits the withdrawal -- payer identity is not present.
     const { result } = withdraw(c, n, recipient(), att, relayer());
     expect(result).toStrictEqual(Cl.ok(Cl.uint(DENOMINATION)));
@@ -132,16 +140,19 @@ describe("privara-pool: attested commitment/nullifier flow", () => {
     expect(bal).toStrictEqual(Cl.ok(Cl.uint(DENOMINATION)));
   });
 
-  it("rejects a replayed nullifier (double-spend)", () => {
+  it("rejects re-withdrawal of the same commitment+nullifier (double-spend)", () => {
     const c = commitmentFor(SECRET, DENOMINATION);
     const n = nullifierFor(SECRET);
     mint(payer(), DENOMINATION);
     deposit(c, payer());
-    const att = attest(c, recipient());
+    const att = attest(c, n, recipient());
     withdraw(c, n, recipient(), att, relayer());
 
+    // The first withdrawal consumed the commitment (deleted it), so the re-attempt is
+    // caught by the commitment guard, which runs before the nullifier guard. Either code
+    // means "already spent"; ERR_UNKNOWN_COMMITMENT wins on ordering.
     const { result } = withdraw(c, n, recipient(), att, relayer());
-    expect(result).toStrictEqual(Cl.error(Cl.uint(203))); // ERR_NULLIFIER_USED
+    expect(result).toStrictEqual(Cl.error(Cl.uint(202))); // ERR_UNKNOWN_COMMITMENT (consumed)
   });
 
   it("rejects a forged attestation (not from the coordinator)", () => {
@@ -150,8 +161,9 @@ describe("privara-pool: attested commitment/nullifier flow", () => {
     mint(payer(), DENOMINATION);
     deposit(c, payer());
 
-    // Sign with a non-coordinator key -> recovers a different pubkey.
-    const forgedMsg = sha256(concatBytes(c, serializeCVBytes(Cl.principal(recipient()))));
+    // Sign the correct message shape but with a non-coordinator key -> recovers a
+    // different pubkey, so verification against COORDINATOR_PUBKEY fails.
+    const forgedMsg = sha256(concatBytes(c, n, serializeCVBytes(Cl.principal(recipient()))));
     const forged = hexToBytes(signMessageHashRsv({
       messageHash: bytesToHex(forgedMsg),
       privateKey: "a5".repeat(31) + "01",
@@ -167,7 +179,7 @@ describe("privara-pool: attested commitment/nullifier flow", () => {
     deposit(c, payer());
 
     // Coordinator attested `recipient()`, but the relayer tries to pay itself.
-    const att = attest(c, recipient());
+    const att = attest(c, n, recipient());
     const { result } = withdraw(c, n, relayer(), att, relayer());
     expect(result).toStrictEqual(Cl.error(Cl.uint(204))); // ERR_BAD_ATTESTATION
   });
@@ -176,8 +188,40 @@ describe("privara-pool: attested commitment/nullifier flow", () => {
     const c = commitmentFor(SECRET, DENOMINATION);
     const n = nullifierFor(SECRET);
     // No deposit made.
-    const att = attest(c, recipient());
+    const att = attest(c, n, recipient());
     const { result } = withdraw(c, n, recipient(), att, relayer());
     expect(result).toStrictEqual(Cl.error(Cl.uint(202))); // ERR_UNKNOWN_COMMITMENT
+  });
+
+  it("cannot drain: a swapped nullifier fails the attestation binding (ERR_BAD_ATTESTATION)", () => {
+    // The core vulnerability that was fixed, isolated to the attestation check: the
+    // commitment is still LIVE (this is the first withdrawal of it), the swapped nullifier
+    // is UNUSED -- so neither the commitment nor the nullifier guard trips. Only the
+    // attestation binding catches it: the coordinator signed over n1, the caller supplies
+    // n2, so recovery yields the wrong message and verification fails.
+    const c = commitmentFor(SECRET, DENOMINATION);
+    const n1 = nullifierFor(SECRET);
+    const n2 = sha256(hexToBytes("99".repeat(32)));
+    mint(payer(), DENOMINATION);
+    deposit(c, payer());
+
+    // Attestation is bound to n1, but the attacker submits n2 (never used, commitment live).
+    const { result } = withdraw(c, n2, recipient(), attest(c, n1, recipient()), relayer());
+    expect(result).toStrictEqual(Cl.error(Cl.uint(204))); // ERR_BAD_ATTESTATION
+  });
+
+  it("consumes the commitment on withdrawal: a second attested nullifier still fails", () => {
+    // Defense-in-depth: even if the coordinator (mis)issues a SECOND attestation for the
+    // same commitment with a different nullifier, the commitment was deleted on the first
+    // withdrawal, so the second withdrawal fails as an unknown commitment.
+    const c = commitmentFor(SECRET, DENOMINATION);
+    const n1 = nullifierFor(SECRET);
+    mint(payer(), DENOMINATION);
+    deposit(c, payer());
+    withdraw(c, n1, recipient(), attest(c, n1, recipient()), relayer());
+
+    const n2 = sha256(hexToBytes("77".repeat(32)));
+    const { result } = withdraw(c, n2, recipient(), attest(c, n2, recipient()), relayer());
+    expect(result).toStrictEqual(Cl.error(Cl.uint(202))); // ERR_UNKNOWN_COMMITMENT (consumed)
   });
 });

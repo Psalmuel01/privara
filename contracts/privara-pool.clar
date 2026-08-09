@@ -14,14 +14,19 @@
 ;;                                   use a fixed DENOMINATION so N same-size deposits form
 ;;                                   one anonymity set -- see DENOMINATION below).
 ;;   coordinator blind-signs C off-chain, returning an attestation to the payer.
-;;   withdraw(nullifier, recipient, attestation)
+;;   withdraw(commitment, nullifier, recipient, attestation)
 ;;                                -- anyone (a relayer) presents a coordinator signature
-;;                                   over the commitment plus a nullifier = sha256(secret).
-;;                                   The contract verifies the attestation, checks the
-;;                                   nullifier is unused, pays `recipient` the denomination,
-;;                                   and burns the nullifier. The deposit and the withdrawal
+;;                                   over sha256(commitment || nullifier || recipient),
+;;                                   with nullifier = sha256(secret). The contract verifies
+;;                                   the attestation, checks the nullifier is unused, pays
+;;                                   `recipient` the denomination, burns the nullifier, and
+;;                                   consumes the commitment. The deposit and the withdrawal
 ;;                                   are not linkable on-chain: the withdrawal names only a
-;;                                   nullifier and a recipient, never the commitment's depositor.
+;;                                   commitment/nullifier and a recipient, never the depositor.
+;;                                   The nullifier is bound INTO the attestation, so it cannot
+;;                                   be swapped for a fresh one to withdraw the same deposit
+;;                                   twice; the commitment is deleted on success as a second
+;;                                   guard against re-withdrawal.
 ;;
 ;; TRUST BOUNDARY (documented, not hidden):
 ;;   - The coordinator CANNOT steal funds: it never holds them; the contract only pays out
@@ -43,13 +48,20 @@
 ;; --- Error codes ---
 
 (define-constant ERR_NOT_COORDINATOR    (err u200))
+;; A commitment with this exact value is already deposited (deposit-time uniqueness).
 (define-constant ERR_COMMITMENT_EXISTS  (err u201))
+;; withdraw: no live deposit for this commitment (never deposited, or already spent).
 (define-constant ERR_UNKNOWN_COMMITMENT (err u202))
+;; withdraw: this nullifier was already burned by a prior withdrawal.
 (define-constant ERR_NULLIFIER_USED     (err u203))
+;; withdraw: the attestation is not a coordinator signature over
+;; sha256(commitment || nullifier || recipient) -- forged, or aimed at different args.
 (define-constant ERR_BAD_ATTESTATION    (err u204))
 (define-constant ERR_ASSET_NOT_WHITELISTED (err u205))
+;; as-contract? asset guard rejected a transfer; unreachable given is-whitelisted.
 (define-constant ERR_ASSET_GUARD        (err u206))
 (define-constant ERR_INVALID_ASSET      (err u207))
+;; Deposit amount was not exactly DENOMINATION (fixed size is what makes deposits blend).
 (define-constant ERR_WRONG_AMOUNT       (err u208))
 
 ;; --- Whitelisted asset (per-network variant, mirrors the router) ---
@@ -71,11 +83,15 @@
 
 ;; --- Storage ---
 
-;; Commitments seen at deposit time. Value is the depositor (for refunds / audit only;
-;; it is NOT consulted at withdrawal, so it never links the withdrawal to the payer).
+;; LIVE commitments: present => deposited and not yet withdrawn. The value is the
+;; depositor, kept for audit only; it is NOT consulted at withdrawal, so it never links
+;; the withdrawal to the payer. The entry is DELETED on withdrawal so a commitment can be
+;; spent at most once even if the coordinator (buggy/malicious) attests it more than once.
 (define-map commitments (buff 32) principal)
 
-;; Spent nullifiers. Presence => that deposit has been withdrawn; blocks double-spend.
+;; Spent nullifiers. Presence => that nullifier has been used; blocks double-spend. The
+;; nullifier is bound into the attestation (see withdraw), so it cannot be swapped for a
+;; fresh one to re-withdraw the same commitment.
 (define-map nullifiers (buff 32) bool)
 
 ;; --- Read-only ---
@@ -118,13 +134,17 @@
 
 ;; --- Withdraw ---
 
-;; Present a coordinator attestation over the commitment plus the nullifier, and pay the
-;; denomination to `recipient`. The relayer (tx-sender) may be anyone; the payout target
-;; is bound by the attestation, so a relayer cannot redirect funds.
+;; Present a coordinator attestation and pay the denomination to `recipient`. The relayer
+;; (tx-sender) may be anyone; both the recipient AND the nullifier are bound by the
+;; attestation, so a relayer cannot redirect funds and a depositor cannot swap in a fresh
+;; nullifier to withdraw the same commitment twice.
 ;;
-;; The attestation is a coordinator secp256k1 signature over sha256(commitment || recipient),
-;; so the recipient is committed to at attestation time and cannot be swapped by a relayer.
-;; `commitment` must match a stored deposit; `nullifier` must be fresh.
+;; The attestation is a coordinator secp256k1 signature over
+;;   sha256(commitment || nullifier || recipient)
+;; Binding the nullifier is essential: if it were unbound, a depositor could re-present the
+;; same commitment + attestation with a never-seen nullifier and drain the pool one
+;; denomination at a time. The commitment must match a LIVE deposit, and it is consumed
+;; (deleted) on success so it can be spent at most once even under a misbehaving coordinator.
 ;;
 ;; #[allow(unchecked_data)]
 (define-public (withdraw
@@ -135,18 +155,23 @@
     (attestation (buff 65)))
   (let (
     (asset-contract (contract-of asset))
-    (message-hash (sha256 (concat commitment (unwrap! (to-consensus-buff? recipient) ERR_BAD_ATTESTATION))))
+    (message-hash (sha256 (concat (concat commitment nullifier)
+                                  (unwrap! (to-consensus-buff? recipient) ERR_BAD_ATTESTATION))))
   )
+    (asserts! (is-ok (contract-hash? asset-contract)) ERR_INVALID_ASSET)
     (asserts! (is-whitelisted asset-contract) ERR_ASSET_NOT_WHITELISTED)
     (asserts! (commitment-exists commitment) ERR_UNKNOWN_COMMITMENT)
     (asserts! (not (is-nullifier-spent nullifier)) ERR_NULLIFIER_USED)
-    ;; The coordinator's signature authorizes paying this recipient for this commitment.
+    ;; The coordinator's signature authorizes paying this recipient for this commitment
+    ;; with this exact nullifier.
     (asserts!
       (is-eq (secp256k1-recover? message-hash attestation) (ok COORDINATOR_PUBKEY))
       ERR_BAD_ATTESTATION)
 
-    ;; Burn the nullifier BEFORE paying out (checks-effects-interactions).
+    ;; Effects before interaction (checks-effects-interactions): burn the nullifier AND
+    ;; consume the commitment so neither can be reused.
     (map-set nullifiers nullifier true)
+    (map-delete commitments commitment)
 
     (unwrap!
       (as-contract? ((with-ft SBTC "*" DENOMINATION))

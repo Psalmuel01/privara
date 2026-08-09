@@ -10,7 +10,9 @@
 (define-constant ERR_INTENT_USED        (err u100))
 (define-constant ERR_INTENT_EXPIRED     (err u101))
 (define-constant ERR_INVALID_SIG        (err u102))
-(define-constant ERR_NONCE_MISMATCH     (err u103))
+;; u103 retired: was ERR_NONCE_MISMATCH, removed when intents became unordered
+;; (nonce is now a uniqueness salt, not a sequential counter). Left reserved so the
+;; code is not reused with a different meaning.
 (define-constant ERR_INSUFFICIENT_FUNDS (err u104))
 (define-constant ERR_AMOUNT_TOO_LOW     (err u105))
 (define-constant ERR_INVALID_ASSET      (err u106))
@@ -20,6 +22,8 @@
 (define-constant ERR_ASSET_GUARD        (err u109))
 ;; Signature recovered a well-formed principal that never deposited to the router.
 (define-constant ERR_NO_DEPOSIT         (err u110))
+;; cancel-intent: caller is not the intent's signer (only the payer may cancel).
+(define-constant ERR_NOT_SIGNER         (err u111))
 
 ;; --- Whitelisted asset (per-network variant) ---
 ;; The only settlement asset the router will accept. The (with-ft SBTC "*" ...)
@@ -54,17 +58,10 @@
 ;; Replay protection: settled intent hashes cannot be reused.
 (define-map settled-intents (buff 32) bool)
 
-;; Per-user nonce prevents intent reordering and double-submission.
-(define-map user-nonces principal uint)
-
 ;; Per-user per-asset balances deposited to the router.
 (define-map deposits { user: principal, asset: principal } uint)
 
 ;; --- Read-only ---
-
-(define-read-only (get-nonce (user principal))
-  (default-to u0 (map-get? user-nonces user))
-)
 
 (define-read-only (is-intent-settled (intent-hash (buff 32)))
   (default-to false (map-get? settled-intents intent-hash))
@@ -185,10 +182,14 @@
       (recovered-pubkey (unwrap! (secp256k1-recover? digest user-sig) ERR_INVALID_SIG))
       (user             (unwrap! (principal-of? recovered-pubkey)     ERR_INVALID_SIG))
       (net-amount       (- amount relayer-fee))
-      (expected-nonce   (get-nonce user))
       (user-balance     (get-deposit user asset-contract))
     )
-      (asserts! (is-eq nonce expected-nonce)  ERR_NONCE_MISMATCH)
+      ;; No ordered-nonce check: intents settle in any order. `nonce` is a user-chosen
+      ;; uniqueness salt (so two otherwise-identical payments have distinct digests),
+      ;; NOT a sequential counter. Replay is prevented by the per-digest settled-intents
+      ;; check above (ERR_INTENT_USED), so a stalled or censored intent never blocks the
+      ;; ones behind it -- there is no head-of-line queue to wedge.
+      ;;
       ;; Distinguish "recovered a stranger with no account here" from "a real
       ;; depositor who is simply short" -- the debuggability the removed user-arg
       ;; assert used to give. A forged/wrong-key/tampered signature recovers some
@@ -198,7 +199,6 @@
       (asserts! (>= user-balance amount)      ERR_INSUFFICIENT_FUNDS)
 
       (map-set settled-intents digest true)
-      (map-set user-nonces user (+ expected-nonce u1))
       (map-set deposits { user: user, asset: asset-contract } (- user-balance amount))
 
       ;; Move at most `amount` (net + fee) of SBTC and nothing else. recipient/relayer
@@ -227,6 +227,55 @@
         nonce:       nonce,
       })
       (ok digest)
+    )
+  )
+)
+
+;; --- Cancel Intent ---
+
+;; A payer attempts to revoke an intent they signed before a relayer settles it.
+;;
+;; BEST-EFFORT, NOT A GUARANTEE. cancel-intent and settle-intent are ordinary
+;; transactions racing for block inclusion. A relayer watching the mempool can front-run
+;; a cancel with a higher-fee settle, so cancellation only succeeds if it is mined before
+;; any settlement. The revocation is only real once THIS transaction confirms as the
+;; writer of the digest -- see the return value. For a hard bound on relayer optionality,
+;; use a short `expiry` at signing time (or `withdraw` the deposit), not cancel.
+;;
+;; Returns (ok true) when THIS call burned the digest (a genuine, timely cancel), and
+;; (ok false) when the digest was already settled or cancelled (a relayer beat you, or the
+;; payment already went through). The boolean lets the caller distinguish "I revoked it"
+;; from "too late" without parsing events.
+;;
+;; Only the signer may cancel: the signature that would authorize settlement is supplied,
+;; the signer is recovered from it, and it must equal tx-sender. A relayer holding the
+;; intent cannot cancel it, and no one can cancel a stranger's intent.
+;;
+;; #[allow(unchecked_data)]
+(define-public (cancel-intent
+  (asset       principal)
+  (amount      uint)
+  (recipient   principal)
+  (relayer     principal)
+  (relayer-fee uint)
+  (nonce       uint)
+  (expiry      uint)
+  (user-sig    (buff 65)))
+
+  (let (
+    (data-hash (try! (hash-intent asset amount recipient relayer relayer-fee nonce expiry)))
+    (digest    (message-digest data-hash))
+    (recovered-pubkey (unwrap! (secp256k1-recover? digest user-sig) ERR_INVALID_SIG))
+    (signer    (unwrap! (principal-of? recovered-pubkey)            ERR_INVALID_SIG))
+  )
+    (asserts! (is-eq signer tx-sender) ERR_NOT_SIGNER)
+    (if (is-intent-settled digest)
+      (ok false) ;; already settled or cancelled -- too late, this call changed nothing
+      (begin
+        (map-set settled-intents digest true)
+        (print { event: "cancel-intent", intent-hash: digest, signer: signer })
+        (ok true) ;; this call revoked the intent
+      )
     )
   )
 )

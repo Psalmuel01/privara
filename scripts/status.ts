@@ -48,7 +48,6 @@ async function main() {
     [bufferCV(hexToBytes(e.digest))],
     e.user
   );
-  const nonce = await readOnly("get-nonce", [principalCV(e.user)], e.user);
   const deposit = await readOnly(
     "get-deposit",
     [principalCV(e.user), principalCV(e.asset)],
@@ -58,7 +57,6 @@ async function main() {
   console.log(`Intent digest : ${e.digest}`);
   console.log(`  settled     : ${settled}`);
   console.log(`User ${e.user}`);
-  console.log(`  nonce       : ${nonce}`);
   console.log(`  deposit     : ${deposit} of ${e.asset}`);
   console.log(`\nExplorer (contract): ${explorerTxUrl("").replace(/txid\/.*/, "")}address/${coreAddress()}?chain=${networkName()}`);
 }

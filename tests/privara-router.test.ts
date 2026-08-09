@@ -129,6 +129,19 @@ function settle(i: Intent, opts: { key?: string } = {}) {
   );
 }
 
+// cancel-intent takes the identical argument shape as settle-intent. It must be called
+// by the signer, so `caller` defaults to the user (the USER_KEY principal). `signKey`
+// lets a test sign with a different key to exercise the non-signer rejection.
+function cancel(i: Intent, opts: { caller?: string; signKey?: string } = {}) {
+  const sig = signIntent(i, opts.signKey ?? USER_KEY);
+  return simnet.callPublicFn(
+    "privara-router",
+    "cancel-intent",
+    settleArgs(i, sig),
+    opts.caller ?? user()
+  );
+}
+
 function balance(who: string): bigint {
   const { result } = simnet.callReadOnlyFn(
     "mock-token",
@@ -152,7 +165,7 @@ describe("privara-router settle-intent", () => {
     deposit(DEPOSIT);
   });
 
-  it("settles a valid intent: credits recipient and relayer, debits deposit, marks settled, bumps nonce", () => {
+  it("settles a valid intent: credits recipient and relayer, debits deposit, marks settled", () => {
     const recipBefore = balance(recipient());
     const relayerBefore = balance(relayer());
 
@@ -172,14 +185,14 @@ describe("privara-router settle-intent", () => {
     );
     expect(dep).toBeUint(DEPOSIT - AMOUNT);
 
-    // nonce incremented.
-    const { result: nonce } = simnet.callReadOnlyFn(
+    // intent recorded as settled (digest-based replay protection).
+    const { result: settled } = simnet.callReadOnlyFn(
       "privara-router",
-      "get-nonce",
-      [Cl.principal(user())],
+      "is-intent-settled",
+      [Cl.buffer(digestFor(baseIntent))],
       user()
     );
-    expect(nonce).toBeUint(1n);
+    expect(settled).toBeBool(true);
   });
 
   it("rejects a replay of a settled intent (ERR_INTENT_USED u100)", () => {
@@ -220,10 +233,12 @@ describe("privara-router settle-intent", () => {
     expect(result).toBeErr(Cl.uint(110));
   });
 
-  it("rejects a wrong nonce (ERR_NONCE_MISMATCH u103)", () => {
-    const future: Intent = { ...baseIntent, nonce: 5n };
-    const { result } = settle(future);
-    expect(result).toBeErr(Cl.uint(103));
+  it("accepts any nonce -- intents are unordered (no sequential counter)", () => {
+    // A large, arbitrary nonce settles fine: the nonce is a uniqueness salt, not a
+    // counter, so there is no "expected next nonce" to match.
+    const arbitrary: Intent = { ...baseIntent, nonce: 987654321n };
+    const { result } = settle(arbitrary);
+    expect(result.type).toBe(ClarityType.ResponseOk);
   });
 
   it("rejects settlement exceeding the deposit (ERR_INSUFFICIENT_FUNDS u104)", () => {
@@ -246,9 +261,65 @@ describe("privara-router settle-intent", () => {
     expect(balance(relayer())).toBe(relayerBefore); // unchanged
   });
 
-  it("settles sequential intents at nonce 0 then nonce 1", () => {
-    expect(settle({ ...baseIntent, nonce: 0n }).result.type).toBe(ClarityType.ResponseOk);
+  it("settles two intents with distinct nonces in any order; a repeated nonce is a replay", () => {
+    // Distinct nonces => distinct digests => both settle, order irrelevant. Here the
+    // higher nonce settles FIRST, proving there is no head-of-line ordering.
+    expect(settle({ ...baseIntent, nonce: 2n }).result.type).toBe(ClarityType.ResponseOk);
     expect(settle({ ...baseIntent, nonce: 1n }).result.type).toBe(ClarityType.ResponseOk);
+
+    // Reusing a nonce reproduces an already-settled digest -> ERR_INTENT_USED.
+    const { result } = settle({ ...baseIntent, nonce: 2n });
+    expect(result).toBeErr(Cl.uint(100));
+  });
+});
+
+describe("privara-router cancel-intent", () => {
+  beforeEach(() => {
+    // Fund fully so a post-cancel settle failure is attributable to the cancel, not to
+    // an empty deposit.
+    mint(user(), DEPOSIT);
+    deposit(DEPOSIT);
+  });
+
+  it("the signer cancels an intent (ok true), and settlement then fails with ERR_INTENT_USED", () => {
+    // (ok true) => THIS call revoked it.
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(true));
+    // The deposit is untouched (cancel moves no funds).
+    const { result: dep } = simnet.callReadOnlyFn(
+      "privara-router",
+      "get-deposit",
+      [Cl.principal(user()), Cl.principal(mockToken())],
+      user()
+    );
+    expect(dep).toBeUint(DEPOSIT);
+    // A relayer can no longer settle the cancelled intent.
+    expect(settle(baseIntent).result).toBeErr(Cl.uint(100));
+  });
+
+  it("a non-signer cannot cancel someone else's intent (ERR_NOT_SIGNER u111)", () => {
+    // An attacker submits the USER-signed intent while being tx-sender. The contract
+    // recovers the real signer (USER) from the signature; USER != tx-sender, so the
+    // cancel is rejected and the intent is NOT burned.
+    const attacker = accounts().get("wallet_4")!;
+    const { result } = simnet.callPublicFn(
+      "privara-router",
+      "cancel-intent",
+      settleArgs(baseIntent, signIntent(baseIntent, USER_KEY)),
+      attacker
+    );
+    expect(result).toBeErr(Cl.uint(111));
+    // The intent is still settleable, proving the failed cancel did not burn it.
+    expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+  });
+
+  it("cancelling an already-settled intent returns (ok false) -- too late, distinguishable from a real cancel", () => {
+    expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(false));
+  });
+
+  it("the second of two cancels returns (ok false)", () => {
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(true));
+    expect(cancel(baseIntent).result).toBeOk(Cl.bool(false));
   });
 });
 

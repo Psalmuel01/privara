@@ -105,11 +105,13 @@ Responsibilities (future):
 
 The M1 SDK core (`sdk/`) provides:
 
-- `createIntent` / `signIntent(intent, privateKey, network)` — SIP-018 structured-data signing; produces the 65-byte RSV signature `settle-intent` accepts
+- `createIntent` / `signIntent(intent, privateKey, network, router)` — SIP-018 structured-data signing; produces the 65-byte RSV signature `settle-intent` accepts
+- `randomNonce` — a random 64-bit nonce (the uniqueness salt); intents are unordered, so no on-chain counter read is needed
+- `reissue(intent)` — re-attempt a stalled payment: same fields, fresh nonce. Does **not** invalidate the original (both stay settleable), so cancel-and-confirm the original first — see the double-spend note in `sdk/src/intent.ts` and the protocol spec
 - `hashIntent` / `domainHash` / `messageDigest` — offline digest helpers, no RPC needed to sign
-- `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent`
+- `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent` (and `cancel-intent`, which shares the shape)
 
-M2 will add encrypted note payload support (`encryptNote` / `decryptNote` via ECIES), nonce/expiry helpers that fetch live chain state, and wallet integration utilities (Leather, Xverse structured-message signing).
+M2 will add encrypted note payload support (`encryptNote` / `decryptNote` via ECIES), expiry helpers that fetch the live chain tip, and wallet integration utilities (Leather, Xverse structured-message signing).
 
 ### Reference Relayer
 
@@ -194,7 +196,7 @@ Additional signs of success:
 Milestone 1 core protocol and minimal SDK helpers are implemented. All 35 tests pass on Clarinet simnet, 5 contracts clean.
 
 **Contracts (simnet, Clarity 4):**
-- `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth via `secp256k1-recover?` + `principal-of?`), withdraw, scoped `with-ft` allowances, replay/nonce/expiry protection, and event emission.
+- `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth via `secp256k1-recover?` + `principal-of?`), signer-only `cancel-intent`, withdraw, scoped `with-ft` allowances, per-digest replay + expiry protection (unordered nonces), and event emission.
 - `privara-registry` — relayer registration (pubkey, fee rate, endpoint), lookup, endpoint update, and deactivation.
 - `mock-token` — minimal SIP-010 token used as the whitelisted asset in simnet tests.
 

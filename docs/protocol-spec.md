@@ -37,7 +37,7 @@ An intent is a structured record of a single authorized payment:
 | `recipient` | `principal` | Destination of `amount - relayer-fee` |
 | `relayer` | `principal` | Relayer that will call `settle-intent` |
 | `relayer-fee` | `uint` | Fee paid to the relayer from `amount` |
-| `nonce` | `uint` | Monotonic per-user counter; must equal `get-nonce(user)` at settlement |
+| `nonce` | `uint` | Uniqueness salt (any value); makes otherwise-identical intents hash distinctly. Not an ordered counter — intents settle in any order |
 | `expiry` | `uint` | Stacks block height after which the intent is invalid |
 
 The intent is not submitted on-chain. It is hashed, signed, and handed to the relayer
@@ -186,13 +186,11 @@ User                    Relayer                 Router (on-chain)
  |                         |                         | 3. assert block-height < expiry
  |                         |                         | 4. assert amount > relayer-fee
  |                         |                         | 5. recover payer from sig
- |                         |                         | 6. assert nonce == get-nonce(payer)
- |                         |                         | 7. assert deposit(payer, asset) > 0, then >= amount
- |                         |                         | 8. mark digest settled
- |                         |                         | 9. increment nonce
- |                         |                         |10. debit deposit
- |                         |                         |11. transfer net-amount to recipient
- |                         |                         |12. transfer relayer-fee to relayer
+ |                         |                         | 6. assert deposit(payer, asset) > 0, then >= amount
+ |                         |                         | 7. mark digest settled
+ |                         |                         | 8. debit deposit
+ |                         |                         | 9. transfer net-amount to recipient
+ |                         |                         |10. transfer relayer-fee to relayer
  |                         |<-- (ok digest) ----------|
 ```
 
@@ -223,9 +221,43 @@ settlement, regardless of what the relayer passes.
 
 ## Nonce, expiry, and replay semantics
 
-**Nonce** — a per-user monotonic counter stored in `user-nonces`. The intent must
-name the user's current nonce exactly; the contract increments it on settlement.
-This prevents intent reordering and double-submission.
+**Nonce** — a user-chosen uniqueness salt, **not** an ordered counter. Its only job is
+to make two otherwise-identical intents (same asset, amount, recipient, relayer, fee,
+expiry) hash to different digests, so both can be signed and settled independently. The
+contract does not track a per-user counter and does not require any particular value, so
+intents settle in **any order**. This is a deliberate change from a sequential-nonce
+design: with a strict counter, a single stalled or censored intent at nonce *n* would
+block every later intent until it expired (head-of-line blocking). With unordered nonces
+there is no queue to wedge — a stuck intent affects only itself. Double-submission is
+still impossible because replay is enforced per-digest (below), not by the nonce. The SDK
+generates a random 64-bit nonce (`randomNonce`), so intent creation needs no on-chain read.
+
+**Cancellation (best-effort, not a guarantee)** — the payer *attempts* to revoke an intent
+with `cancel-intent`. It takes the same arguments as `settle-intent` (including the
+signature), recovers the signer, and requires the signer to equal `tx-sender`
+(`ERR_NOT_SIGNER` otherwise) — so only the payer can cancel, and only an intent they
+actually signed; a relayer holding the intent cannot. When it succeeds it burns the digest
+(marks it settled without moving funds), after which `settle-intent` returns
+`ERR_INTENT_USED`.
+
+Crucially, `cancel-intent` and `settle-intent` are ordinary transactions racing for block
+inclusion. **A relayer watching the mempool can front-run a cancel with a higher-fee
+settle**, so a cancel only takes effect if it is mined before any settlement — the
+revocation is real only once the cancel transaction *confirms as the writer of the digest*.
+To make this observable, `cancel-intent` returns **`(ok true)` when this call burned the
+digest** (a genuine, timely cancel) and **`(ok false)` when the digest was already settled
+or cancelled** (a relayer beat you, or it already paid). The boolean lets the caller
+distinguish "I revoked it" from "too late" without parsing events. For a hard bound on how
+long a signed intent stays spendable, set a short `expiry` at signing time (or `withdraw`
+the deposit) — do not rely on cancel as a guarantee.
+
+**Retrying** — to re-attempt a stalled or lost payment, re-issue it with a fresh nonce
+(`reissue` in the SDK). **Reissuing does not invalidate the original**, so naively reissuing
+leaves two valid intents for one payment, either of which a relayer may settle — a
+double-spend. The safe sequence is: `cancel-intent` the original and **wait for `(ok true)`**
+first; if it returns `(ok false)` the original already settled, so do not reissue. Only after
+a confirmed cancel should you sign and broadcast the reissued intent. If you cannot
+cancel-confirm, wait for the original to expire rather than reissue.
 
 **Expiry** — a Stacks block height. The contract asserts `stacks-block-height <
 expiry` at settlement time. Users set expiry to limit the window in which a relayer
@@ -320,12 +352,12 @@ that stronger guarantee is the M2 privacy-pool track.
 | Attacker aims a signature at a funded victim | Charge someone else | Impossible — the signature *is* the payer; recovery yields only the signer's own principal, so a victim can only be charged by a signature they themselves produced |
 | Malicious relayer replays a settled intent | Double-spend | Digest stored in `settled-intents`; `ERR_INTENT_USED` |
 | Malicious relayer submits after expiry | Stale payment | `stacks-block-height < expiry` check; `ERR_INTENT_EXPIRED` |
-| Relayer censors user | Funds locked | `withdraw` self-settle path always available |
-| Wrong nonce submitted | Reordering / double-submit | Exact nonce match required; `ERR_NONCE_MISMATCH` |
+| Relayer censors or stalls an intent | Funds locked / stuck payment | Intents are unordered, so a stalled one blocks nothing else. `withdraw` (or a short `expiry`) is the reliable remedy: it removes the funding for outstanding intents. `cancel-intent` is best-effort only — a relayer can front-run it with a settle — so it is not a guarantee against an adversarial relayer |
+| Resubmit a settled intent (any nonce) | Double-spend | Per-digest replay check; `ERR_INTENT_USED`. Intents are unordered, so there is no nonce-sequence to attack — reuse only reproduces a stored digest |
 | Non-whitelisted asset deposited | Funds trapped | Whitelist checked at deposit, withdraw, and settle |
 | Signature malleability | Forged authorization | `secp256k1-recover?` is canonical; recovery byte disambiguates |
 | Key compromise | Attacker drains deposit | Standard key hygiene; no protocol-level mitigation |
-| Cross-deployment replay | Old sig reused on new router | Known limitation; fix is to bind router principal into domain |
+| Cross-deployment replay | Old sig reused on new router | Domain binds the router principal, so a different/redeployed router recovers a different signer; the intent fails to authorize |
 
 ---
 

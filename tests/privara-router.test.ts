@@ -296,7 +296,7 @@ describe("privara-router cancel-intent", () => {
     expect(settle(baseIntent).result).toBeErr(Cl.uint(100));
   });
 
-  it("a non-signer cannot cancel someone else's intent (ERR_NOT_SIGNER u111)", () => {
+  it("a non-signer cannot cancel someone else's intent (ERR_NOT_SIGNER u103)", () => {
     // An attacker submits the USER-signed intent while being tx-sender. The contract
     // recovers the real signer (USER) from the signature; USER != tx-sender, so the
     // cancel is rejected and the intent is NOT burned.
@@ -307,7 +307,7 @@ describe("privara-router cancel-intent", () => {
       settleArgs(baseIntent, signIntent(baseIntent, USER_KEY)),
       attacker
     );
-    expect(result).toBeErr(Cl.uint(111));
+    expect(result).toBeErr(Cl.uint(103));
     // The intent is still settleable, proving the failed cancel did not burn it.
     expect(settle(baseIntent).result.type).toBe(ClarityType.ResponseOk);
   });

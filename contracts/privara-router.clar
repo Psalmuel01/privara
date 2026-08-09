@@ -10,9 +10,8 @@
 (define-constant ERR_INTENT_USED        (err u100))
 (define-constant ERR_INTENT_EXPIRED     (err u101))
 (define-constant ERR_INVALID_SIG        (err u102))
-;; u103 retired: was ERR_NONCE_MISMATCH, removed when intents became unordered
-;; (nonce is now a uniqueness salt, not a sequential counter). Left reserved so the
-;; code is not reused with a different meaning.
+;; cancel-intent: caller is not the intent's signer (only the payer may cancel).
+(define-constant ERR_NOT_SIGNER         (err u103))
 (define-constant ERR_INSUFFICIENT_FUNDS (err u104))
 (define-constant ERR_AMOUNT_TOO_LOW     (err u105))
 (define-constant ERR_INVALID_ASSET      (err u106))
@@ -22,8 +21,6 @@
 (define-constant ERR_ASSET_GUARD        (err u109))
 ;; Signature recovered a well-formed principal that never deposited to the router.
 (define-constant ERR_NO_DEPOSIT         (err u110))
-;; cancel-intent: caller is not the intent's signer (only the payer may cancel).
-(define-constant ERR_NOT_SIGNER         (err u111))
 
 ;; --- Whitelisted asset (per-network variant) ---
 ;; The only settlement asset the router will accept. The (with-ft SBTC "*" ...)

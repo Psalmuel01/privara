@@ -88,7 +88,7 @@ Responsibilities:
 - expose relayer availability and fee information
 - support future staking or reputation mechanisms
 
-`privara-attested-pool` *(post-grant research — not a Milestone 1 deliverable)*
+`privara-attested-pool` _(post-grant research — not a Milestone 1 deliverable)_
 
 An optional research prototype for fixed-denomination shielded-note redemption with
 explicit trust assumptions. This contract is **not built or deployed in Milestone 1**;
@@ -193,32 +193,36 @@ Additional signs of success:
 
 ## Current Status
 
-Milestone 1 core protocol and minimal SDK helpers are implemented. All 35 tests pass on Clarinet simnet, 5 contracts clean.
+Milestone 1 core protocol and minimal SDK helpers are implemented. All 41 tests pass on Clarinet simnet, 5 contracts clean.
 
 **Contracts (simnet, Clarity 4):**
+
 - `privara-router` — deposit, SIP-018 signed-intent settlement (recover-based auth via `secp256k1-recover?` + `principal-of?`), signer-only `cancel-intent`, withdraw, scoped `with-ft` allowances, per-digest replay + expiry protection (unordered nonces), and event emission.
 - `privara-registry` — relayer registration (pubkey, fee rate, endpoint), lookup, endpoint update, and deactivation.
 - `mock-token` — minimal SIP-010 token used as the whitelisted asset in simnet tests.
 
 **TypeScript SDK (`sdk/`):**
+
 - Real SIP-018 `hashIntent`, `domainHash`, `messageDigest` — computed offline, no RPC needed to sign.
 - `signIntent(intent, privateKey, network)` — produces the 65-byte RSV signature `settle-intent` accepts.
 - `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent`.
 - SDK↔contract digest parity proven by test (byte-for-byte match on `hash-intent`, `get-domain-hash`, `message-digest`).
 
 **Demo scripts (`scripts/`):**
+
 - `deposit.ts`, `create-intent.ts` (signs offline, prints JSON), `settle.ts` (relayer broadcasts, polls for the mined result), `status.ts`, `register-relayer.ts` (registers a relayer in `privara-registry`).
 - Network-configurable via env vars; see [scripts/README.md](scripts/README.md).
 
 **Docs:**
+
 - [docs/protocol-spec.md](docs/protocol-spec.md) — intent model, SIP-018 digest construction, auth flow, privacy assumptions, threat model.
 - [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
 
-**Next:** Stage 1 testnet dry run (mock-token) validated the end-to-end flow — a signed
-intent settled and a replay was rejected on-chain. Stage 2 is now deploying from a fresh
-deployer (`ST1H7G0B7BBM991P2KA77R0XHDRNYCWH8H92TT4QN`) with the whitelisted asset set to
-real testnet sBTC, then re-running deposit → settle → expiry-rejection with real sBTC. See
-[docs/deployments.md](docs/deployments.md).
+**Current testnet deployment:** the complete mock-token flow is confirmed under deployer
+`STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`: relayer registration, mint, deposit,
+successful intent settlement, replay rejection, and expiry rejection. Real-sBTC and
+USDC runs are deferred until funded test assets are available. See
+[docs/deployments.md](docs/deployments.md) for every transaction ID.
 
 ## Build and Test
 

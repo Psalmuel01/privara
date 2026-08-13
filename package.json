@@ -9,6 +9,8 @@
     "test:report": "vitest run -- --coverage --costs",
     "test:watch": "chokidar \"tests/**/*.ts\" \"contracts/**/*.clar\" -c \"npm run test:report\"",
     "typecheck": "tsc --noEmit -p tsconfig.scripts.json",
+    "deploy:testnet": "tsx scripts/deploy-testnet.ts",
+    "acceptance:testnet": "tsx scripts/testnet-acceptance.ts",
     "gen-wallets": "tsx scripts/gen-wallets.ts",
     "mint": "tsx scripts/mint.ts",
     "deposit": "tsx scripts/deposit.ts",

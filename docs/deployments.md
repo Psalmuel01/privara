@@ -211,12 +211,12 @@ Explorer URL format:
 https://explorer.hiro.so/txid/0x<TX_ID>?chain=testnet
 ```
 
-## sBTC status
+<!-- ## sBTC status
 
 The confirmed deployment above is the Milestone 1 mock-token acceptance environment.
 The router compiled into that deployment whitelists `.mock-token`.
 
 The sBTC path is deferred because no test tokens are currently available. No sBTC
-contract, deposit, settlement, or transaction ID is claimed for this run.
+contract, deposit, settlement, or transaction ID is claimed for this run. -->
 
 

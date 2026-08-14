@@ -4,7 +4,7 @@ export interface Intent {
   recipient: string;   // destination principal
   relayer: string;     // relayer principal that will execute settlement
   relayerFee: bigint;  // fee paid to relayer from amount
-  nonce: bigint;       // monotonic per-user nonce (fetch via get-nonce)
+  nonce: bigint;       // unordered uniqueness salt
   expiry: number;      // block height after which the intent is invalid
 }
 

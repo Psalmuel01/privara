@@ -66,6 +66,25 @@ function bytesToScalar(bytes: Uint8Array): bigint {
   return s;
 }
 
+function checkedScalar(bytes: Uint8Array, label: string): bigint {
+  if (bytes.length !== 32) throw new Error(`${label} must be 32 bytes`);
+  const scalar = bytesToScalar(bytes);
+  if (scalar <= 0n || scalar >= N) throw new Error(`${label} out of range`);
+  return scalar;
+}
+
+function checkedPoint(bytes: Uint8Array, label: string): Point {
+  if (bytes.length !== 33) throw new Error(`${label} must be a compressed 33-byte key`);
+  if (bytes[0] !== 0x02 && bytes[0] !== 0x03) {
+    throw new Error(`${label} must use compressed secp256k1 encoding`);
+  }
+  try {
+    return Point.fromHex(bytes);
+  } catch {
+    throw new Error(`${label} is not a valid secp256k1 point`);
+  }
+}
+
 export interface StealthOutput {
   // Compressed one-time public key P' (33 bytes). Callers convert to a Stacks principal.
   stealthPublicKey: Uint8Array;
@@ -82,11 +101,10 @@ export function deriveStealthForSender(
   viewingPublicKey: Uint8Array,
   ephemeralPrivateKey: Uint8Array
 ): StealthOutput {
-  const r = bytesToScalar(ephemeralPrivateKey);
-  if (r <= 0n || r >= N) throw new Error("ephemeral private key out of range");
+  const r = checkedScalar(ephemeralPrivateKey, "ephemeral private key");
 
-  const P = Point.fromHex(spendingPublicKey);
-  const V = Point.fromHex(viewingPublicKey);
+  const P = checkedPoint(spendingPublicKey, "spending public key");
+  const V = checkedPoint(viewingPublicKey, "viewing public key");
   const R = Point.BASE.multiply(r);
 
   // Shared point Q = rV. h = HashToScalar(domain || compressed(Q)). P' = P + hG.
@@ -100,6 +118,41 @@ export function deriveStealthForSender(
   };
 }
 
+// Watch-only RECIPIENT side: v + public P + announced R is sufficient to detect a
+// payment. This deliberately does not require p and cannot derive spending authority.
+export function deriveStealthPublicKeyForRecipient(
+  viewingPrivateKey: Uint8Array,
+  spendingPublicKey: Uint8Array,
+  ephemeralPublicKey: Uint8Array
+): Uint8Array {
+  const v = checkedScalar(viewingPrivateKey, "viewing private key");
+  const P = checkedPoint(spendingPublicKey, "spending public key");
+  const R = checkedPoint(ephemeralPublicKey, "ephemeral public key");
+  const Q = R.multiply(v);
+  const h = hashToScalar(STEALTH_DOMAIN, compressed(Q));
+  return compressed(P.add(Point.BASE.multiply(h)));
+}
+
+// ECDH helpers used by authenticated announcement encryption. They expose only the
+// compressed shared point, never either private scalar.
+export function sharedSecretForSender(
+  viewingPublicKey: Uint8Array,
+  ephemeralPrivateKey: Uint8Array
+): Uint8Array {
+  const V = checkedPoint(viewingPublicKey, "viewing public key");
+  const r = checkedScalar(ephemeralPrivateKey, "ephemeral private key");
+  return compressed(V.multiply(r));
+}
+
+export function sharedSecretForRecipient(
+  viewingPrivateKey: Uint8Array,
+  ephemeralPublicKey: Uint8Array
+): Uint8Array {
+  const v = checkedScalar(viewingPrivateKey, "viewing private key");
+  const R = checkedPoint(ephemeralPublicKey, "ephemeral public key");
+  return compressed(R.multiply(v));
+}
+
 // RECIPIENT side: given the viewing private key v, the recipient's spending private key
 // p, and the announced ephemeral public key R, recompute the one-time key pair. Returns
 // the one-time private key p' and its public key P'. If the derived P' does not match the
@@ -109,12 +162,10 @@ export function deriveStealthForRecipient(
   spendingPrivateKey: Uint8Array,
   ephemeralPublicKey: Uint8Array
 ): { stealthPrivateKey: Uint8Array; stealthPublicKey: Uint8Array } {
-  const v = bytesToScalar(viewingPrivateKey);
-  const p = bytesToScalar(spendingPrivateKey);
-  if (v <= 0n || v >= N) throw new Error("viewing private key out of range");
-  if (p <= 0n || p >= N) throw new Error("spending private key out of range");
+  const v = checkedScalar(viewingPrivateKey, "viewing private key");
+  const p = checkedScalar(spendingPrivateKey, "spending private key");
 
-  const R = Point.fromHex(ephemeralPublicKey);
+  const R = checkedPoint(ephemeralPublicKey, "ephemeral public key");
   // Q = vR == rV (ECDH), so the recipient recovers the same shared point and same h.
   const Q = R.multiply(v);
   const h = hashToScalar(STEALTH_DOMAIN, compressed(Q));

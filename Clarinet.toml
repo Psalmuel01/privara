@@ -30,6 +30,11 @@ path = "contracts/privara-registry.clar"
 clarity_version = 4
 epoch = "3.3"
 
+[contracts.privara-stealth-registry]
+path = "contracts/privara-stealth-registry.clar"
+clarity_version = 4
+epoch = "3.3"
+
 [repl.analysis]
 passes = ["check_checker"]
 

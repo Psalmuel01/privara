@@ -14,8 +14,8 @@ Privara addresses this gap by providing:
 
 - signed SIP-010 payment intents
 - relayer-submitted settlement transactions
-- encrypted offchain payment instructions
-- fresh-address routing for recipients
+- M2 work toward encrypted payment announcements
+- M2 one-time stealth-address routing for recipients
 - replay protection through intent hashes, nonces, and expiries
 - a reusable TypeScript SDK for wallet and protocol integration
 - a reference relayer service for testnet execution
@@ -54,7 +54,7 @@ Intents are signed following [SIP-018 structured data signing](https://github.co
 sha256(0x534950303138 || domain-hash || structured-data-hash)
 ```
 
-where `domain-hash = sha256(to-consensus-buff? { name: "privara", version: "1", chain-id })` and `structured-data-hash = sha256(to-consensus-buff? <intent tuple>)`. Binding `chain-id` into the domain means a signature made for testnet can never be replayed on mainnet, and vice versa.
+where `domain-hash = sha256(to-consensus-buff? { name: "privara", version: "1", chain-id, router })` and `structured-data-hash = sha256(to-consensus-buff? <intent tuple>)`. Binding `chain-id` and the exact router principal prevents cross-network and cross-deployment replay.
 
 The router recovers the signer's principal from the signature using `secp256k1-recover?` + `principal-of?`, rather than requiring the caller to supply a public key. A Stacks address is a hash of the public key, so a relayer cannot derive it from the user's address; recovery removes that out-of-band burden and shrinks the settlement calldata.
 
@@ -111,7 +111,9 @@ The M1 SDK core (`sdk/`) provides:
 - `hashIntent` / `domainHash` / `messageDigest` — offline digest helpers, no RPC needed to sign
 - `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent` (and `cancel-intent`, which shares the shape)
 
-M2 will add encrypted note payload support (`encryptNote` / `decryptNote` via ECIES), expiry helpers that fetch the live chain tip, and wallet integration utilities (Leather, Xverse structured-message signing).
+M2 stealth identity, one-time address derivation, encrypted note, backup, announcement
+hashing, and local scanning primitives are implemented. Registry lookup, router-bound
+announcement emission, indexer, sponsored sweeps, and wallet integration remain.
 
 ### Reference Relayer
 
@@ -193,7 +195,8 @@ Additional signs of success:
 
 ## Current Status
 
-Milestone 1 core protocol and minimal SDK helpers are implemented. All 41 tests pass on Clarinet simnet, 5 contracts clean.
+Milestone 1 is implemented and the M2 stealth SDK core is now underway. All 63 tests pass
+(including 22 M2 stealth tests), and the standalone SDK builds successfully.
 
 **Contracts (simnet, Clarity 4):**
 
@@ -204,7 +207,7 @@ Milestone 1 core protocol and minimal SDK helpers are implemented. All 41 tests 
 **TypeScript SDK (`sdk/`):**
 
 - Real SIP-018 `hashIntent`, `domainHash`, `messageDigest` — computed offline, no RPC needed to sign.
-- `signIntent(intent, privateKey, network)` — produces the 65-byte RSV signature `settle-intent` accepts.
+- `signIntent(intent, privateKey, network, router)` — produces the router-bound 65-byte RSV signature `settle-intent` accepts.
 - `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent`.
 - SDK↔contract digest parity proven by test (byte-for-byte match on `hash-intent`, `get-domain-hash`, `message-digest`).
 

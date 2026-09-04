@@ -177,3 +177,40 @@ describe("stealth isolation", () => {
     expect(bytesToHex(malloryDerived.stealthPublicKey)).not.toBe(bytesToHex(sent.stealthPublicKey));
   });
 });
+
+describe("stealth interoperability vector", () => {
+  it("pins identity, derivation, address mode, and one-time key bytes", () => {
+    const seed = Uint8Array.from(Array.from({ length: 32 }, (_, index) => index));
+    const ephemeral = Uint8Array.from(Array.from({ length: 32 }, (_, index) => index + 1));
+    const identity = identityFromSeed(seed);
+    const sent = deriveStealthForSender(
+      identity.spendingPublicKey,
+      identity.viewingPublicKey,
+      ephemeral
+    );
+    const received = deriveStealthForRecipient(
+      identity.viewingPrivateKey,
+      identity.spendingPrivateKey,
+      sent.ephemeralPublicKey
+    );
+
+    expect(bytesToHex(identity.spendingPublicKey)).toBe(
+      "0217bf8df9ec917e8edf10a3e56f37531cd3a1d51ab33c1b906894955e1696e6b5"
+    );
+    expect(bytesToHex(identity.viewingPublicKey)).toBe(
+      "0238aacd0de45e0891fdae2e368d068cb1b9e6b0aef10d576657db3e09fc8a3813"
+    );
+    expect(bytesToHex(sent.ephemeralPublicKey)).toBe(
+      "0284bf7562262bbd6940085748f3be6afa52ae317155181ece31b66351ccffa4b0"
+    );
+    expect(bytesToHex(sent.stealthPublicKey)).toBe(
+      "02851d9833a4732932945412da22a69f8de887d29f23264b95268bc3207094facc"
+    );
+    expect(bytesToHex(received.stealthPrivateKey)).toBe(
+      "550ec63a845359eaf78d23f8b18aa76da4402e0ab436a28cb711d874c5329aca"
+    );
+    expect(stealthPublicKeyToAddress(sent.stealthPublicKey, NETWORK)).toBe(
+      "ST2SY8423WV1WMXMEN68VP5VT00YK1SVN6MX4RKRY"
+    );
+  });
+});

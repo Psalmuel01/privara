@@ -1,60 +1,83 @@
-# SDK
+# Privara SDK
 
-TypeScript SDK for Privara SIP-010 payment intents.
+TypeScript SDK for M1 SIP-018 payment intents and M2 stealth recipients.
 
-## What's here (M1 core)
+## M1 intent core
 
-**`src/types.ts`** — `Intent`, `SignedIntent` (with `user`, `intentHash`, `digest`,
-`userSig`), `SettlementRequest`, `RelayerInfo`.
+- `hashIntent(intent)` hashes the canonical seven-field Clarity tuple.
+- `domainHash(network, router)` binds the chain and exact router deployment.
+- `messageDigest(intent, network, router)` produces the SIP-018 digest.
+- `signIntent(intent, privateKey, network, router)` produces the 65-byte RSV signature
+  accepted by `settle-intent`.
+- `randomNonce()` returns an unordered 64-bit uniqueness salt.
+- `buildSettlementArgs(signedIntent)` formats the on-chain arguments. It deliberately
+  omits `user`; the router recovers the payer from the signature.
+- `reissue(intent)` creates a separately settleable authorization. Confirm cancellation
+  of the original first or wait for its expiry to avoid double payment.
 
-**`src/crypto.ts`** — SIP-018 digest helpers:
-- `hashIntent(intent)` — sha256 of the consensus-serialized intent tuple. Byte-for-byte
-  identical to the contract's `hash-intent` (proven by the parity test).
-- `domainHash(network)` — sha256 of the consensus-serialized domain tuple for a network.
-  Computed offline; no RPC needed to sign.
-- `messageDigest(intent, network)` — full SIP-018 digest:
-  `sha256(0x534950303138 || domainHash || hashIntent)`. This is what the contract
-  recovers the signer from via `secp256k1-recover?`.
-- `CHAIN_ID` — `{ mainnet: 1n, testnet: 2147483648n }`. Binding chain-id into the
-  domain means a testnet signature can never be replayed on mainnet.
+## M2 stealth core
 
-**`src/intent.ts`** — `createIntent`, `signIntent(intent, privateKey, network)`,
-`buildSettlementArgs(signedIntent)`.
+- `generateIdentity` / `identityFromSeed` create an independent recovery seed and
+  domain-separated spending/viewing keys.
+- `deriveStealthForSender` creates a one-time recipient public key and ephemeral key.
+- `deriveStealthPublicKeyForRecipient` performs watch-only detection using the viewing
+  private key and spending public key.
+- `deriveStealthForRecipient` derives spending authority only when the spending private
+  key is explicitly supplied.
+- `encryptStealthNote` / `decryptStealthNote` use ECDH, HKDF-SHA256, and AES-256-GCM.
+  Associated data binds version, network, router, stealth principal, asset, and epoch.
+- `exportPrivacySeed` / `importPrivacySeed` provide a password-encrypted authenticated
+  recovery backup. Losing this seed can permanently lose access to stealth funds.
+- `scanAnnouncement` / `scanAnnouncements` perform local recipient discovery.
+- `serializeStealthAnnouncement` / `hashStealthAnnouncement` define the canonical payload
+  that the versioned M2 intent will commit to.
 
-`signIntent` uses `signMessageHashRsv` from `@stacks/transactions`, which emits the
-65-byte RSV layout (recovery byte last) that Clarity's `secp256k1-recover?` expects.
-It also derives and records the signer's Stacks principal from the key, so
-`buildSettlementArgs` can supply the `user` argument that `settle-intent` requires.
-
-## Usage
+## M1 signing example
 
 ```ts
-import { createIntent, signIntent, buildSettlementArgs } from "@privara/sdk";
+import {
+  buildSettlementArgs,
+  createIntent,
+  randomNonce,
+  signIntent,
+} from "@privara/sdk";
 
+const router = "ST...DEPLOYER.privara-router";
 const intent = createIntent({
-  asset: "ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token",
+  asset: "ST...DEPLOYER.mock-token",
   amount: 100_000n,
-  recipient: "ST2RECIPIENT...",
-  relayer: "ST3RELAYER...",
+  recipient: "ST...RECIPIENT",
+  relayer: "ST...RELAYER",
   relayerFee: 1_000n,
-  nonce: 0n,   // fetch from get-nonce on the router
-  expiry: 1200, // block height
+  nonce: randomNonce(),
+  expiry: 1200,
 });
 
-const signed = signIntent(intent, process.env.USER_KEY!, "testnet");
+const signed = signIntent(intent, process.env.USER_KEY!, "testnet", router);
 const args = buildSettlementArgs(signed);
-// args.user, args.userSig, etc. — pass to settle-intent
+// Pass args to settle-intent. No payer/user argument is sent on-chain.
 ```
 
-## Deferred (M2)
+## Still deferred in M2
 
-- `encryptNote` / `decryptNote` — ECIES encrypted off-chain payment notes
-  (ephemeral ECDH + AES-GCM using the relayer's registered pubkey).
-- Nonce and expiry helpers that fetch live chain state.
-- Wallet integration utilities (Leather, Xverse structured-message signing).
+- stealth registry lookup and wallet registration;
+- versioned router announcement binding and event;
+- announcement indexer;
+- sponsored SIP-010 sweep construction and relayer integration;
+- live-chain expiry helpers;
+- Leather/Xverse integration utilities.
 
-## Build
+## Build and test
 
 ```bash
-cd sdk && npm install && npm run build
+cd sdk
+npm install
+npm run build
+```
+
+The repository-level test suite contains the contract parity and M2 stealth tests:
+
+```bash
+npm test
+npm run typecheck
 ```

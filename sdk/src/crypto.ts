@@ -69,21 +69,3 @@ export function messageDigest(intent: Intent, network: Network, router: string):
   const dataHash = hashIntent(intent);
   return sha256(concat(STRUCTURED_DATA_PREFIX, domainHash(network, router), dataHash));
 }
-
-// Encrypt an offchain payment note for a recipient's public key.
-// Uses ECIES-like construction: ephemeral ECDH + AES-GCM.
-// TODO: implement with @noble/secp256k1 + @noble/ciphers (M2)
-export async function encryptNote(
-  _payload: Uint8Array,
-  _recipientPubkey: Uint8Array
-): Promise<Uint8Array> {
-  throw new Error("encryptNote: not yet implemented");
-}
-
-// Decrypt a payment note using the recipient's private key.
-export async function decryptNote(
-  _ciphertext: Uint8Array,
-  _privateKey: Uint8Array
-): Promise<Uint8Array> {
-  throw new Error("decryptNote: not yet implemented");
-}

@@ -90,6 +90,11 @@ plan:
       path: contracts/privara-router.clar
       clarity-version: 4
     - transaction-type: emulated-contract-publish
+      contract-name: privara-router-m2
+      emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+      path: contracts/privara-router-m2.clar
+      clarity-version: 4
+    - transaction-type: emulated-contract-publish
       contract-name: privara-stealth-registry
       emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
       path: contracts/privara-stealth-registry.clar

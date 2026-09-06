@@ -52,11 +52,16 @@ export function coreAddress(): string {
 }
 
 export const ROUTER_NAME = "privara-router";
+export const ROUTER_M2_NAME = "privara-router-m2";
 export const REGISTRY_NAME = "privara-registry";
 export const STEALTH_REGISTRY_NAME = "privara-stealth-registry";
 
 export function routerId(): string {
   return `${coreAddress()}.${ROUTER_NAME}`;
+}
+
+export function routerM2Id(): string {
+  return `${coreAddress()}.${ROUTER_M2_NAME}`;
 }
 
 export function stealthRegistryId(): string {

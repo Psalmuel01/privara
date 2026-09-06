@@ -15,6 +15,20 @@ export interface SignedIntent extends Intent {
   userSig: Uint8Array;     // recoverable secp256k1 signature (RSV, recovery byte last), 65 bytes
 }
 
+// Version-2 stealth intent. The recipient is the one-time stealth principal, never
+// the recipient's ordinary wallet. The announcement commitment is signed alongside
+// every payment field and verified atomically by privara-router-m2.
+export interface StealthIntent extends Intent {
+  announcementHash: Uint8Array;
+}
+
+export interface SignedStealthIntent extends StealthIntent {
+  user: string;
+  intentHash: Uint8Array;
+  digest: Uint8Array;
+  userSig: Uint8Array;
+}
+
 export interface SettlementRequest {
   intent: SignedIntent;
   network: "mainnet" | "testnet";

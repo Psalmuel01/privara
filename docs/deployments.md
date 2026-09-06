@@ -209,6 +209,49 @@ registered as part of deployment. Key registration must be paired with an encryp
 recoverable privacy-seed backup; do not register disposable keys for a wallet that may
 later receive funds.
 
+The backed-up test wallet registered P,V at epoch `1` in block `272459`:
+[070deff4…ba39](https://explorer.hiro.so/txid/0x070deff4af1aa221a5aacf3dabca6f1fbc075662659ea3bdda59ff3aa808ba39?chain=testnet).
+Only its public compressed keys are present on-chain.
+
+## Testnet — Milestone 2 announcement-bound router
+
+Status: **deployed and confirmed on 2026-09-06**.
+
+| Setting | Value |
+| --- | --- |
+| Deployer / core address | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0` |
+| Contract | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2` |
+| Signing domain version | `2` |
+| Clarity version | 4 |
+| Deployment block | `272880` |
+| Deployment result | `(ok true)` |
+| Deployment transaction | [fff2b928…76c8](https://explorer.hiro.so/txid/0xfff2b928cd44a2be06e63ae5f71a8375b16ed73a7889bb7fd0c9e187830576c8?chain=testnet) |
+
+The deployment used nonce `5` and a `100,000` micro-STX fee. It is a separate contract;
+the confirmed M1 `privara-router` and its version-1 signing domain were not modified.
+
+### First M2 stealth acceptance flow
+
+| Action | Result | Transaction ID |
+| --- | --- | --- |
+| Mint `1,000,000` MOCK | `(ok u1000000)` | [38b50453…f12c](https://explorer.hiro.so/txid/0x38b50453ea9a9fc17c6b641de06269592958f514cd0b1e72e5ba878056a1f12c?chain=testnet) |
+| Deposit into M2 router | `(ok u1000000)` | [b1a578aa…2192](https://explorer.hiro.so/txid/0xb1a578aa8f71a1002e462fabe735935967739643cdd9126af5483bd0bb822192?chain=testnet) |
+| Settle stealth intent | `(ok 0x5b71bb97…866e)` | [16c7bebe…ae99](https://explorer.hiro.so/txid/0x16c7bebee5f479ab9de7e071faa84fcccaf5bf05cfe629332511111a8ab4ae99?chain=testnet) |
+
+Confirmed settlement details:
+
+- One-time recipient: `STF0481P1D2KVP1EAND65NKZGHXBG03KBKJXJEB9`
+- Amount: `100000` MOCK; recipient net: `99000`; relayer fee: `1000`
+- Announcement hash: `4ba84b44a6715434302b8d63c6865508164f17ac86a932b0b5e5ce821d944466`
+- Intent digest: `5b71bb971c0daba69fe4baacd371f2b7b3894d0c1fa29d2e19fc622b87b5866e`
+- Settlement block: `272903`
+- Indexed contract-log event: index `2`, canonical hash revalidated by the SDK
+
+The ordinary recipient wallet is not an intent or event field. `stealth-intent.json`
+contains the public signed acceptance envelope and remains gitignored. The encrypted
+privacy backup and its password are required separately for recipient detection and
+one-time spend-key derivation.
+
 ### Local intent evidence files
 
 The acceptance runner regenerated both gitignored local envelopes against the canonical
@@ -236,4 +279,3 @@ The router compiled into that deployment whitelists `.mock-token`.
 
 The sBTC path is deferred because no test tokens are currently available. No sBTC
 contract, deposit, settlement, or transaction ID is claimed for this run. -->
-

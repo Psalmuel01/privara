@@ -30,7 +30,12 @@ TypeScript SDK for M1 SIP-018 payment intents and M2 stealth recipients.
   recovery backup. Losing this seed can permanently lose access to stealth funds.
 - `scanAnnouncement` / `scanAnnouncements` perform local recipient discovery.
 - `serializeStealthAnnouncement` / `hashStealthAnnouncement` define the canonical payload
-  that the versioned M2 intent will commit to.
+  committed to by the versioned M2 intent.
+- `createStealthIntent` binds that announcement hash to the payment fields.
+- `signStealthIntent` uses the version-2, exact-router SIP-018 domain.
+- `buildStealthSettlementArgs` refuses any payload that differs from the signed commitment.
+- `fetchAnnouncementPage` reads the supported Hiro contract-log endpoint, authenticates
+  canonical event hashes, and returns public candidate data for local scanning.
 
 ## M1 signing example
 
@@ -60,9 +65,6 @@ const args = buildSettlementArgs(signed);
 
 ## Still deferred in M2
 
-- stealth registry lookup and wallet registration;
-- versioned router announcement binding and event;
-- announcement indexer;
 - sponsored SIP-010 sweep construction and relayer integration;
 - live-chain expiry helpers;
 - Leather/Xverse integration utilities.

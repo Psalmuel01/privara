@@ -33,6 +33,18 @@ DRY_RUN=1 npm run deploy:stealth-registry:testnet
 Remove `DRY_RUN=1` only when the reported address, nonce, and fee are correct. The command
 publishes `privara-stealth-registry` and prints its transaction ID and explorer link.
 
+The M2 router is a separate deployment with a version-2 signing domain. After the full
+local suite passes, dry-run it against the original Privara deployer:
+
+```sh
+PRIVARA_CORE_ADDRESS=ST...YOUR_DEPLOYER_ADDRESS \
+PRIVARA_DEPLOYER_ADDRESS=ST...YOUR_DEPLOYER_ADDRESS \
+DRY_RUN=1 npm run deploy:router-m2:testnet
+```
+
+Removing `DRY_RUN=1` publishes `privara-router-m2`; it never overwrites or changes
+`privara-router`.
+
 ## Register wallet stealth keys
 
 The registration command generates an independent privacy seed, encrypts it locally,
@@ -53,6 +65,32 @@ with owner-only permissions. Copy it to a second secure location. Running the co
 again loads that backup and verifies the existing registration without broadcasting.
 If a wallet already has different registered keys, the command refuses to replace them;
 intentional rotation additionally requires `PRIVARA_ROTATE_STEALTH_KEYS=1`.
+
+## M2 stealth acceptance
+
+After `privara-router-m2` is confirmed, run the public testnet flow. It resolves the
+registered recipient P,V, creates a fresh one-time address, mints/deposits MOCK, settles
+the signed announcement-bound intent, and verifies the indexed event:
+
+```sh
+PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0 \
+npm run acceptance:stealth:testnet
+```
+
+Recipient detection and spend-key derivation happen locally after unlocking the backup:
+
+```sh
+export PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+export PRIVARA_RECIPIENT_ADDRESS=ST16H55CE41DBKFY9QDHESXQT2GD110WKT7VW9EPR
+read -s "PRIVARA_PRIVACY_PASSWORD?Privacy backup password: "; echo
+export PRIVARA_PRIVACY_PASSWORD
+npm run scan:stealth:testnet
+unset PRIVARA_PRIVACY_PASSWORD
+```
+
+The scanner validates that the encrypted backup matches the live registry record,
+authenticates each indexed payload, decrypts matching notes locally, and proves the
+one-time spending key can be derived without printing it.
 
 ## Wallets
 

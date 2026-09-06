@@ -12,6 +12,13 @@ and expiries, prevents replay (keyed on the full signed digest), and executes
 SIP-010 transfers under a scoped `(with-ft ...)` allowance. Users can always
 `withdraw` unspent deposits — settlement never depends on a single relayer.
 
+`privara-router-m2`
+
+Versioned stealth settlement router. It preserves unordered intent nonces, adds a
+signed `announcement-hash`, verifies the supplied canonical encrypted announcement,
+and emits that payload atomically with the SIP-010 transfer. The M1 router remains
+unchanged and has a separate signing domain.
+
 `privara-registry`
 
 Relayer registry. Relayers publish their secp256k1 pubkey (needed for M2 encrypted

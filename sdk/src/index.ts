@@ -1,4 +1,11 @@
-export type { Intent, SignedIntent, SettlementRequest, RelayerInfo } from "./types";
+export type {
+  Intent,
+  SignedIntent,
+  StealthIntent,
+  SignedStealthIntent,
+  SettlementRequest,
+  RelayerInfo,
+} from "./types";
 export { createIntent, signIntent, buildSettlementArgs, randomNonce, reissue } from "./intent";
 export {
   hashIntent,
@@ -57,3 +64,23 @@ export {
   type StealthRegistryRecord,
   type FetchStealthKeysOptions,
 } from "./registry/stealth";
+export {
+  createStealthIntent,
+  hashStealthIntent,
+  stealthDomainHash,
+  stealthMessageDigest,
+  signStealthIntent,
+  buildStealthSettlementArgs,
+  buildStealthCancellationArgs,
+  STEALTH_INTENT_VERSION,
+} from "./stealth-intent";
+export {
+  parseStealthSettlementLog,
+  fetchAnnouncementPage,
+  MemoryAnnouncementStore,
+  announcementRecordId,
+  type IndexedStealthAnnouncement,
+  type HiroContractLog,
+  type FetchAnnouncementPageOptions,
+  type AnnouncementPage,
+} from "./indexer/announcements";

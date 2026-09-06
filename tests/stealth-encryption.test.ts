@@ -19,7 +19,7 @@ import { generateIdentity, identityFromSeed } from "../sdk/src/stealth/identity"
 import { scanAnnouncement, scanAnnouncements } from "../sdk/src/stealth/scanning";
 
 const NETWORK = "testnet" as const;
-const ROUTER = "ST000000000000000000002AMW42H.privara-router";
+const ROUTER = "ST000000000000000000002AMW42H.privara-router-m2";
 const ASSET = "ST000000000000000000002AMW42H.mock-token";
 
 function setupPayment() {
@@ -238,6 +238,59 @@ describe("announcement scanning", () => {
     );
     expect(detected).toHaveLength(1);
   });
+
+  it("partitions 200 mixed announcements so only each intended recipient detects them", async () => {
+    const alice = generateIdentity();
+    const bob = generateIdentity();
+    const candidates = [];
+    const aliceMemos: string[] = [];
+    const bobMemos: string[] = [];
+
+    for (let index = 0; index < 200; index++) {
+      const intended = index % 2 === 0 ? alice : bob;
+      const ephemeralPrivateKey = utils.randomPrivateKey();
+      const derived = deriveStealthForSender(
+        intended.spendingPublicKey,
+        intended.viewingPublicKey,
+        ephemeralPrivateKey
+      );
+      const stealthPrincipal = stealthPublicKeyToAddress(derived.stealthPublicKey, NETWORK);
+      const context: AnnouncementContext = {
+        network: NETWORK,
+        router: ROUTER,
+        stealthPrincipal,
+        asset: ASSET,
+        registryEpoch: 1n,
+      };
+      const memo = `payment-${index}`;
+      const note = await encryptStealthNote(
+        new TextEncoder().encode(memo),
+        intended.viewingPublicKey,
+        ephemeralPrivateKey,
+        context
+      );
+      candidates.push({
+        stealthPrincipal,
+        ephemeralPublicKey: derived.ephemeralPublicKey,
+        note,
+        context,
+      });
+      (index % 2 === 0 ? aliceMemos : bobMemos).push(memo);
+    }
+
+    const [forAlice, forBob] = await Promise.all([
+      scanAnnouncements(candidates, alice.viewingPrivateKey, alice.spendingPublicKey, NETWORK),
+      scanAnnouncements(candidates, bob.viewingPrivateKey, bob.spendingPublicKey, NETWORK),
+    ]);
+    expect(forAlice.map((payment) => new TextDecoder().decode(payment.plaintext))).toEqual(
+      aliceMemos
+    );
+    expect(forBob.map((payment) => new TextDecoder().decode(payment.plaintext))).toEqual(
+      bobMemos
+    );
+    expect(forAlice).toHaveLength(100);
+    expect(forBob).toHaveLength(100);
+  }, 20_000);
 });
 
 describe("privacy seed backup", () => {

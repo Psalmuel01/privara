@@ -15,6 +15,11 @@ path = "contracts/privara-router.clar"
 clarity_version = 4
 epoch = "3.3"
 
+[contracts.privara-router-m2]
+path = "contracts/privara-router-m2.clar"
+clarity_version = 4
+epoch = "3.3"
+
 [contracts.mock-token]
 path = "contracts/tokens/mock-token.clar"
 clarity_version = 4

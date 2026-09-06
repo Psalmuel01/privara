@@ -17,6 +17,7 @@
     "scan:stealth:testnet": "tsx scripts/scan-testnet-announcements.ts",
     "create:sponsored-sweep": "tsx scripts/create-sponsored-sweep.ts",
     "sponsor:sweep:testnet": "tsx scripts/sponsor-sweep.ts",
+    "relayer:serve": "tsx relayer/src/server.ts",
     "acceptance:testnet": "tsx scripts/testnet-acceptance.ts",
     "gen-wallets": "tsx scripts/gen-wallets.ts",
     "mint": "tsx scripts/mint.ts",

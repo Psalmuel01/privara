@@ -117,6 +117,10 @@ PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0 \
 npm run sponsor:sweep:testnet -- sponsored-sweep.json
 ```
 
+The same validated operation is available through the reference HTTP service. Configure
+dedicated `RELAYER_KEY` and `SPONSOR_KEY` environment variables, run
+`npm run relayer:serve`, and follow [`relayer/README.md`](../relayer/README.md).
+
 Sweeping directly to the ordinary recipient address publicly links the one-time address
 to that wallet. This is acceptable for the MOCK acceptance test but should be an explicit
 user choice, not a silent SDK default.

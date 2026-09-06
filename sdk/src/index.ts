@@ -50,3 +50,10 @@ export {
   MAX_STEALTH_CIPHERTEXT_BYTES,
   type StealthAnnouncementPayload,
 } from "./stealth/announcement";
+export {
+  buildStealthKeyArgs,
+  parseStealthKeysCV,
+  fetchStealthKeys,
+  type StealthRegistryRecord,
+  type FetchStealthKeysOptions,
+} from "./registry/stealth";

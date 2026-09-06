@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { Cl } from "@stacks/transactions";
+import { bytesToHex } from "@stacks/common";
+import { generateIdentity } from "../sdk/src/stealth/identity";
+import {
+  buildStealthKeyArgs,
+  parseStealthKeysCV,
+} from "../sdk/src/registry/stealth";
 
 declare const simnet: import("@stacks/clarinet-sdk").Simnet;
 
@@ -122,5 +128,44 @@ describe("privara-stealth-registry rotation", () => {
         user()
       ).result
     ).toBeBool(false);
+  });
+});
+
+describe("stealth registry SDK", () => {
+  it("builds registration args from validated generated keys", () => {
+    const identity = generateIdentity();
+    const args = buildStealthKeyArgs(identity.spendingPublicKey, identity.viewingPublicKey);
+    expect(args).toHaveLength(2);
+  });
+
+  it("parses a contract record into SDK bytes and epoch", () => {
+    const identity = generateIdentity();
+    const result = simnet.callPublicFn(
+      "privara-stealth-registry",
+      "register-stealth-keys",
+      buildStealthKeyArgs(identity.spendingPublicKey, identity.viewingPublicKey),
+      user()
+    );
+    expect(result.result).toBeOk(Cl.uint(1));
+    const lookup = simnet.callReadOnlyFn(
+      "privara-stealth-registry",
+      "get-stealth-keys",
+      [Cl.principal(user())],
+      other()
+    );
+    const parsed = parseStealthKeysCV(lookup.result);
+    expect(parsed?.epoch).toBe(1n);
+    expect(bytesToHex(parsed!.spendingPublicKey)).toBe(bytesToHex(identity.spendingPublicKey));
+    expect(bytesToHex(parsed!.viewingPublicKey)).toBe(bytesToHex(identity.viewingPublicKey));
+  });
+
+  it("returns null for an unregistered principal", () => {
+    const lookup = simnet.callReadOnlyFn(
+      "privara-stealth-registry",
+      "get-stealth-keys",
+      [Cl.principal(other())],
+      user()
+    );
+    expect(parseStealthKeysCV(lookup.result)).toBeNull();
   });
 });

@@ -14,8 +14,45 @@ No secret is ever committed — every key and address comes from the environment
 | `USER_KEY` | hex private key of the depositing/signing user | *(as needed)* |
 | `RELAYER_KEY` | hex private key of the relayer broadcasting settlement | *(as needed)* |
 | `STACKS_API_URL` | RPC override | Hiro testnet/mainnet |
+| `PRIVARA_PRIVACY_PASSWORD` | Password for encrypted stealth-seed backup (12+ characters) | *(for stealth registration)* |
+| `PRIVARA_PRIVACY_BACKUP_PATH` | Encrypted stealth-seed backup location | `.privara/stealth-<network>-<wallet>.json` |
 
 Run with `tsx` (installed as a dev dependency) or the npm aliases below.
+
+## M2 stealth registry deployment
+
+The new registry is deployed separately so the confirmed M1 contract names are never
+reused. Verify the transaction locally and query live testnet state without broadcasting:
+
+```sh
+PRIVARA_CORE_ADDRESS=ST...YOUR_DEPLOYER_ADDRESS \
+PRIVARA_DEPLOYER_ADDRESS=ST...YOUR_DEPLOYER_ADDRESS \
+DRY_RUN=1 npm run deploy:stealth-registry:testnet
+```
+
+Remove `DRY_RUN=1` only when the reported address, nonce, and fee are correct. The command
+publishes `privara-stealth-registry` and prints its transaction ID and explorer link.
+
+## Register wallet stealth keys
+
+The registration command generates an independent privacy seed, encrypts it locally,
+registers only its public spending/viewing keys, waits for testnet confirmation, and
+verifies the result through the SDK. It never prints the seed or derived private keys.
+
+```sh
+export PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+export USER_KEY="$USER_HEX"
+read -s "PRIVARA_PRIVACY_PASSWORD?Privacy backup password: "
+export PRIVARA_PRIVACY_PASSWORD
+npm run register:stealth-keys
+unset PRIVARA_PRIVACY_PASSWORD
+```
+
+The generated `.privara/stealth-testnet-<wallet>.json` file is gitignored and written
+with owner-only permissions. Copy it to a second secure location. Running the command
+again loads that backup and verifies the existing registration without broadcasting.
+If a wallet already has different registered keys, the command refuses to replace them;
+intentional rotation additionally requires `PRIVARA_ROTATE_STEALTH_KEYS=1`.
 
 ## Wallets
 

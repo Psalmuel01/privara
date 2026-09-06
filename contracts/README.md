@@ -18,6 +18,13 @@ Relayer registry. Relayers publish their secp256k1 pubkey (needed for M2 encrypt
 note delivery), fee rate, and API endpoint. Read-only lookups expose availability
 and fee info. No staking or reputation logic yet (post-M1).
 
+`privara-stealth-registry`
+
+M2 recipient-key discovery contract. A user registers compressed spending and viewing
+public keys under `tx-sender`; rotations increment an epoch. The privacy seed and private
+keys never enter the contract. Senders perform full curve-point validation in the SDK;
+the contract enforces exact length, compressed-key prefix, and key separation.
+
 `mock-token`
 
 Minimal SIP-010 token with a public `mint`. Used as the whitelisted settlement asset
@@ -36,6 +43,6 @@ Standard SIP-010 fungible token trait. Imported by the router and token contract
 ## Running checks
 
 ```bash
-clarinet check   # type-check all 5 contracts (0 warnings expected)
-npm test         # run the full Clarinet/Vitest suite (35 tests)
+clarinet check   # type-check all 6 contracts
+npm test         # run the full Clarinet/Vitest suite
 ```

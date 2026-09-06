@@ -19,3 +19,7 @@ costs-reports.json
 lcov.info
 intent.json
 expired.json
+
+# Encrypted M2 privacy-seed backups. These are recoverable wallet material and
+# must be stored separately from the repository even though they are encrypted.
+.privara/

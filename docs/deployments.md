@@ -191,6 +191,24 @@ Verified final state:
 - Relayer balance: `1000` MOCK
 - Successful intent digest: `1aea90e1394f46f6850ce7b5374077e25ba1503fdeb8bff836a4298a7554d696`
 
+## Testnet — Milestone 2 stealth registry
+
+Status: **deployed and confirmed on 2026-09-06**.
+
+| Setting | Value |
+| --- | --- |
+| Deployer / core address | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0` |
+| Contract | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stealth-registry` |
+| Clarity version | 4 |
+| Deployment block | `272093` |
+| Deployment result | `(ok true)` |
+| Deployment transaction | [8e026e77…9c1e](https://explorer.hiro.so/txid/0x8e026e77a43ff62d2858f773c949d4880f76f3fc45ec23f7fe28acc074c99c1e?chain=testnet) |
+
+The deployment uses nonce `4` and a `60,000` micro-STX fee. No recipient keys were
+registered as part of deployment. Key registration must be paired with an encrypted,
+recoverable privacy-seed backup; do not register disposable keys for a wallet that may
+later receive funds.
+
 ### Local intent evidence files
 
 The acceptance runner regenerated both gitignored local envelopes against the canonical
@@ -218,5 +236,4 @@ The router compiled into that deployment whitelists `.mock-token`.
 
 The sBTC path is deferred because no test tokens are currently available. No sBTC
 contract, deposit, settlement, or transaction ID is claimed for this run. -->
-
 

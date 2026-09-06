@@ -36,6 +36,10 @@ TypeScript SDK for M1 SIP-018 payment intents and M2 stealth recipients.
 - `buildStealthSettlementArgs` refuses any payload that differs from the signed commitment.
 - `fetchAnnouncementPage` reads the supported Hiro contract-log endpoint, authenticates
   canonical event hashes, and returns public candidate data for local scanning.
+- `buildSponsoredSweep` creates an origin-signed SIP-010 transfer using p' with sponsored
+  authorization and an exact-token post-condition.
+- `validateSponsoredSweep` enforces the relayer's network, contract, method, amount,
+  transaction-size, origin, memo, and post-condition policy before it pays a fee.
 
 ## M1 signing example
 
@@ -65,7 +69,7 @@ const args = buildSettlementArgs(signed);
 
 ## Still deferred in M2
 
-- sponsored SIP-010 sweep construction and relayer integration;
+- production HTTP relayer deployment and rate limiting;
 - live-chain expiry helpers;
 - Leather/Xverse integration utilities.
 

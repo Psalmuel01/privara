@@ -84,3 +84,10 @@ export {
   type FetchAnnouncementPageOptions,
   type AnnouncementPage,
 } from "./indexer/announcements";
+export {
+  buildSponsoredSweep,
+  validateSponsoredSweep,
+  type BuildSponsoredSweepOptions,
+  type SponsoredSweepPolicy,
+  type ValidatedSponsoredSweep,
+} from "./sponsor/sweep";

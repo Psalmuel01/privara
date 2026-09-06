@@ -92,6 +92,35 @@ The scanner validates that the encrypted backup matches the live registry record
 authenticates each indexed payload, decrypts matching notes locally, and proves the
 one-time spending key can be derived without printing it.
 
+## Sponsored stealth sweep
+
+The client and relayer are deliberately separate commands. First, the recipient unlocks
+the backup locally, derives p', and writes only an origin-signed sponsored transaction:
+
+```sh
+export PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
+export PRIVARA_RECIPIENT_ADDRESS=ST16H55CE41DBKFY9QDHESXQT2GD110WKT7VW9EPR
+export STEALTH_SETTLEMENT_TXID=0x16c7bebee5f479ab9de7e071faa84fcccaf5bf05cfe629332511111a8ab4ae99
+export SWEEP_DESTINATION=ST...EXPLICIT_DESTINATION
+read -s "PRIVARA_PRIVACY_PASSWORD?Privacy backup password: "; echo
+export PRIVARA_PRIVACY_PASSWORD
+npm run create:sponsored-sweep
+unset PRIVARA_PRIVACY_PASSWORD
+```
+
+Then the relayer independently validates the network, origin signature, exact
+`mock-token::transfer` call, amount ceiling, transaction size, deny mode, and exact FT
+post-condition before adding its sponsor signature and paying the STX fee:
+
+```sh
+PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0 \
+npm run sponsor:sweep:testnet -- sponsored-sweep.json
+```
+
+Sweeping directly to the ordinary recipient address publicly links the one-time address
+to that wallet. This is acceptable for the MOCK acceptance test but should be an explicit
+user choice, not a silent SDK default.
+
 ## Wallets
 
 The demo uses three testnet accounts. Derive all three from a single fresh mnemonic:

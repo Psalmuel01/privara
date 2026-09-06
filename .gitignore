@@ -20,6 +20,7 @@ lcov.info
 intent.json
 expired.json
 stealth-intent.json
+sponsored-sweep.json
 
 # Encrypted M2 privacy-seed backups. These are recoverable wallet material and
 # must be stored separately from the repository even though they are encrypted.

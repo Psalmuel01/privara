@@ -252,6 +252,37 @@ contains the public signed acceptance envelope and remains gitignored. The encry
 privacy backup and its password are required separately for recipient detection and
 one-time spend-key derivation.
 
+Recipient-side acceptance was subsequently confirmed: the local scanner authenticated
+the encrypted backup against the registered P,V record, detected the indexed settlement,
+decrypted its note, and derived the one-time spending key without printing it.
+
+### First sponsored stealth sweep
+
+The recipient derived the one-time private key locally, signed only the origin half of a
+sponsored SIP-010 transfer, and handed the serialized transaction to the reference
+relayer. The relayer validated the contract, method, asset, amount, destination,
+post-condition mode, exact fungible-token post-condition, network, size, and origin
+signature before adding its independent sponsor signature.
+
+| Action | Result | Transaction ID |
+| --- | --- | --- |
+| Sweep `99,000` MOCK from the one-time address | `(ok true)` | [d3e46715…3374](https://explorer.hiro.so/txid/0xd3e46715178147904fbf1437d05cfb503f85a778b0b56579047c256dfd583374?chain=testnet) |
+
+Confirmed sweep details:
+
+- Block: `275753`
+- Origin: `STF0481P1D2KVP1EAND65NKZGHXBG03KBKJXJEB9`
+- Destination: `ST16H55CE41DBKFY9QDHESXQT2GD110WKT7VW9EPR`
+- Sponsor: `ST15SJ519YTDC54FP9NKZ239S59E5EKMYMSMC6QF2`
+- Sponsor fee: `374` micro-STX
+- Final origin balances: `0` MOCK and `0` STX
+- Final destination MOCK balance: `99000`
+
+This confirms the complete recipient flow: indexed discovery, local one-time key
+derivation, origin authorization, sponsored broadcast, and withdrawal without funding
+the one-time address with STX. The gitignored `sponsored-sweep.json` contains the public
+origin-signed transaction, not the derived private key.
+
 ### Local intent evidence files
 
 The acceptance runner regenerated both gitignored local envelopes against the canonical

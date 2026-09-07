@@ -176,16 +176,22 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .status-dot.inactive { background: #7c8982; box-shadow: none; }
 .asset-menu button:disabled { opacity: .58; }
 .connect-wallet { padding-inline: 13px; font-family: "Manrope", sans-serif; }
-.notice-bar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 16px; padding: 11px 13px; border: 1px solid #d7e5d2; border-radius: 10px; color: #315540; background: #eef8e9; font-size: 10px; }
+.notice-bar { position: fixed; top: 22px; right: 22px; z-index: 300; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 11px; width: min(430px, calc(100vw - 32px)); padding: 14px; border: 1px solid #d7e5d2; border-radius: 12px; color: #315540; background: #eef8e9; box-shadow: 0 18px 55px rgb(17 26 23 / 18%); font-size: 11px; animation: toast-in .22s ease both; }
 .notice-bar.error { color: #76452f; border-color: #efd4c5; background: #fff2eb; }
 .notice-bar.info { color: #4f5d57; border-color: #dce3de; background: white; }
-.notice-bar button { padding: 2px; border: 0; color: inherit; background: transparent; }
+.notice-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: rgb(255 255 255 / 58%); }
+.notice-bar strong, .notice-bar div > span { display: block; }
+.notice-bar strong { margin: 1px 0 3px; color: currentColor; font-size: 11px; }
+.notice-bar div > span { color: color-mix(in srgb, currentColor 84%, transparent); line-height: 1.45; }
+.notice-bar button { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px; color: inherit; background: transparent; }
+.notice-bar button:hover { background: rgb(17 26 23 / 7%); }
 .funding-strip { display: flex; align-items: center; justify-content: space-between; gap: 22px; margin-bottom: 17px; padding: 18px 20px; }
 .funding-strip strong, .funding-strip small { display: block; }
 .funding-strip strong { font-size: 17px; }
 .funding-strip small { margin-top: 4px; color: var(--muted); font-size: 8px; }
 .funding-controls { display: flex; align-items: center; gap: 8px; }
 .funding-controls input { width: 86px; height: 39px; padding: 0 10px; border: 1px solid #d6ddd8; border-radius: 8px; outline: none; font: 500 10px var(--mono); }
+.funding-actions > small { display: block; margin-top: 7px; color: var(--muted); font-size: 10px; text-align: right; }
 .resolved.missing { color: #8a4c35; background: #fff0e9; }
 .ready-badge.locked { color: #6e5d41; background: #f5eddd; }
 .privacy-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
@@ -202,9 +208,30 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .activity-live-row strong, .activity-live-row small { display: block; }
 .activity-live-row strong { font-size: 10px; }
 .activity-live-row small { max-width: 420px; margin-top: 3px; overflow: hidden; color: var(--muted); font: 400 7px var(--mono); text-overflow: ellipsis; }
+.submission-note { margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; text-align: center; }
+
+/* Keep supporting text readable without changing the compact product aesthetic. */
+.menu-label, .eyebrow, .network-status, .proof-strip a { font-size: 10px; }
+.activity-row > div > small, .status-label, .row-amount small,
+.proof-strip small, .stepper span i, .resolved, .resolved-card small,
+.privacy-tag, .fee-choice small, .fee-choice em, .summary-note,
+.route-visual small, .info-box p, .warning-box p, .ready-badge,
+.setup-flow strong, .setup-flow small, .key-list > div, .key-list code,
+.scan-card > p, .scan-stat small, .muted-label, .private-payment small,
+.zero-stx, .private-payment button, .drawer-copy, .source-account small,
+.source-account strong, .signed-fields, .success-tx small,
+.activity-live-row small, .dao-metrics small, .payout-head,
+.payout-row small, .private-route, .batch-summary > div { font-size: 10px; }
+.fee-choice strong, .summary-card dl > div, .back-link,
+.review-lines > div, .fee-breakdown > div, .segmented button,
+.source-account > span strong, .success-tx strong { font-size: 11px; }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
 
 @media (max-width: 760px) {
+  .notice-bar { top: 12px; right: 16px; }
   .funding-strip, .funding-controls { align-items: stretch; flex-direction: column; }
+  .funding-actions > small { text-align: left; }
   .funding-controls input { width: 100%; }
   .activity-live-row { grid-template-columns: 36px minmax(0, 1fr) 18px; }
   .activity-live-row > strong { grid-column: 2; }

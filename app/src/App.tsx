@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowDownLeft,
@@ -64,11 +64,22 @@ import {
 type View = "overview" | "send" | "receive" | "activity" | "payouts";
 type FeeMode = "added" | "included";
 type Notice = { kind: "success" | "error" | "info"; message: string } | null;
+type SpendResult = { txid: string; paymentAmount: string; tokenSponsorFee: string; networkFeePaid: string };
 
 const short = (value: string, start = 6, end = 5) =>
   `${value.slice(0, start)}…${value.slice(-end)}`;
 const explorer = (txid: string) =>
   `https://explorer.hiro.so/txid/0x${txid.replace(/^0x/, "")}?chain=testnet`;
+
+async function copyText(value: string, notify: (notice: Notice) => void, label: string) {
+  try {
+    if (!navigator.clipboard) throw new Error("Clipboard access is unavailable in this browser");
+    await navigator.clipboard.writeText(value);
+    notify({ kind: "success", message: `${label} copied to clipboard.` });
+  } catch (error) {
+    notify({ kind: "error", message: message(error) });
+  }
+}
 
 const navItems = [
   { id: "overview" as const, label: "Overview", icon: LayoutDashboard },
@@ -96,12 +107,23 @@ export default function App() {
   const [tip, setTip] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [connecting, setConnecting] = useState(false);
+  const configErrorNotified = useRef(false);
   const asset = SUPPORTED_ASSETS.find((item) => item.id === assetId)!;
 
   useEffect(() => {
     const loadConfig = () => void fetchPublicConfig()
-      .then((value) => { setConfig(value); setConfigError(null); })
-      .catch((error) => setConfigError(error instanceof Error ? error.message : String(error)));
+      .then((value) => {
+        setConfig(value);
+        setConfigError(null);
+        configErrorNotified.current = false;
+      })
+      .catch((error) => {
+        // Report an outage once, then keep retrying quietly until the service recovers.
+        if (!configErrorNotified.current) {
+          setConfigError(error instanceof Error ? error.message : String(error));
+          configErrorNotified.current = true;
+        }
+      });
     loadConfig();
     // A local or newly deployed relayer may start after the static app; reconnect without
     // making the user refresh or losing an unlocked in-memory privacy identity.
@@ -188,7 +210,7 @@ export default function App() {
               </div>}
             </div>
             {walletAddress ? (
-              <button className="wallet-pill" onClick={() => navigator.clipboard?.writeText(walletAddress)} title="Copy wallet address">
+              <button className="wallet-pill" onClick={() => void copyText(walletAddress, setNotice, "Wallet address")} title="Copy wallet address">
                 <span className="wallet-avatar">S</span><span>{short(walletAddress)}</span><Copy size={14} />
               </button>
             ) : (
@@ -209,7 +231,20 @@ export default function App() {
       </main>
 
       {selectedPayment && config && walletAddress && (
-        <SponsoredSpend asset={asset} config={config} wallet={walletAddress} payment={selectedPayment} close={() => setSelectedPayment(null)} notify={setNotice} />
+        <SponsoredSpend
+          asset={asset}
+          config={config}
+          wallet={walletAddress}
+          payment={selectedPayment}
+          close={() => setSelectedPayment(null)}
+          notify={setNotice}
+          onComplete={(result) => {
+            const spent = BigInt(result.paymentAmount) + BigInt(result.tokenSponsorFee);
+            setPayments((current) => current.map((item) => item.transactionId === selectedPayment.transactionId
+              ? { ...item, balance: item.balance > spent ? item.balance - spent : 0n }
+              : item));
+          }}
+        />
       )}
     </div>
   );
@@ -220,9 +255,32 @@ function message(error: unknown): string {
 }
 
 function NoticeBar({ notice, clear }: { notice: NonNullable<Notice>; clear: () => void }) {
-  return <div className={`notice-bar ${notice.kind}`} role="status">
-    {notice.kind === "error" ? <TriangleAlert size={16} /> : notice.kind === "success" ? <CircleCheck size={16} /> : <Info size={16} />}
-    <span>{notice.message}</span><button onClick={clear} aria-label="Dismiss"><X size={14} /></button>
+  const noticeRef = useRef<HTMLDivElement>(null);
+  const clearRef = useRef(clear);
+  clearRef.current = clear;
+
+  useEffect(() => {
+    const duration = notice.kind === "info" ? 12_000 : notice.kind === "error" ? 9_000 : 7_000;
+    const timer = window.setTimeout(() => clearRef.current(), duration);
+    const dismissOutside = (event: PointerEvent) => {
+      if (!noticeRef.current?.contains(event.target as Node)) clearRef.current();
+    };
+    const dismissWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") clearRef.current();
+    };
+    document.addEventListener("pointerdown", dismissOutside);
+    document.addEventListener("keydown", dismissWithEscape);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("pointerdown", dismissOutside);
+      document.removeEventListener("keydown", dismissWithEscape);
+    };
+  }, [notice.kind, notice.message]);
+
+  return <div ref={noticeRef} className={`notice-bar ${notice.kind}`} role={notice.kind === "error" ? "alert" : "status"} aria-live={notice.kind === "error" ? "assertive" : "polite"}>
+    <span className="notice-icon">{notice.kind === "error" ? <TriangleAlert size={18} /> : notice.kind === "success" ? <CircleCheck size={18} /> : <Info size={18} />}</span>
+    <div><strong>{notice.kind === "error" ? "Something went wrong" : notice.kind === "success" ? "Success" : "In progress"}</strong><span>{notice.message}</span></div>
+    <button onClick={clear} aria-label="Dismiss notification"><X size={15} /></button>
   </div>;
 }
 
@@ -304,6 +362,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     try {
       const result = await submitPrivatePayment({ config, walletAddress: wallet, recipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
       setTxid(result.txid); setStealthPrincipal(result.stealthPrincipal); setStage("done");
+      notify({ kind: "success", message: `Private payment accepted by the relayer. Transaction ${short(result.txid, 10, 8)} was broadcast.` });
     } catch (error) { setStage("review"); notify({ kind: "error", message: message(error) }); }
   };
 
@@ -312,7 +371,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     <PageTitle eyebrow="Live private payment" title="Send without exposing who receives." copy="Fund your router deposit, enter a registered recipient, then sign the exact SIP-018 intent in Leather or Xverse." />
     <section className="funding-strip panel">
       <div><span className="eyebrow">Router deposit</span><strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong><small>Both faucet mint and deposit are separate on-chain transactions.</small></div>
-      <div className="funding-controls"><input value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" /><button className="light-button" onClick={() => fund("mint")} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint MOCK</button><button className="dark-button" onClick={() => fund("deposit")} disabled={funding !== null}>{funding === "deposit" ? <RefreshCw className="spin" size={14} /> : null} Deposit</button></div>
+      <div className="funding-actions"><div className="funding-controls"><input aria-label="Funding amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" /><button className="light-button" onClick={() => fund("mint")} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} 1. Mint to wallet</button><button className="dark-button" onClick={() => fund("deposit")} disabled={funding !== null}>{funding === "deposit" ? <RefreshCw className="spin" size={14} /> : null} 2. Deposit to router</button></div><small>The amount applies to either action. Each requires a separate wallet approval.</small></div>
     </section>
     <div className="flow-layout">
       <section className="flow-card">
@@ -382,7 +441,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
     {!wallet ? <section className="panel empty-state"><Wallet size={28} /><h2>Connect a testnet wallet</h2><p>Your privacy backup is stored separately for each wallet address.</p><button className="primary-action" onClick={connect}>Connect Leather or Xverse</button></section> : <section className="setup-grid">
       <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Privacy identity</span><h2>{identity ? "Unlocked locally" : backupExists ? "Encrypted and locked" : "Not created on this device"}</h2></div><span className={`ready-badge ${identity ? "" : "locked"}`}>{identity ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity ? "Ready" : "Locked"}</span></div>
         {!identity && <><label className="field-label">Backup password (minimum 12 characters)</label><div className="address-input compact"><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Never sent to Privara" /></div><small className="field-help">Enter the password used to create this backup, then choose its JSON file.</small><div className="privacy-actions">{backupExists ? <button className="dark-button" onClick={() => privacyAction("unlock")} disabled={password.length < 12 || busy !== null}>Unlock backup</button> : <button className="dark-button" onClick={() => privacyAction("create")} disabled={password.length < 12 || busy !== null}>Create and register P/V</button>}<label className="light-button file-button"><FileKey size={15} /> Import backup<input type="file" accept="application/json" onChange={(event) => { void importBackup(event.target.files?.[0]); event.target.value = ""; }} disabled={busy !== null} /></label></div></>}
-        {identity && <><div className="key-list"><div><span>Spending public key · P</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => navigator.clipboard?.writeText(publicKeyLabel(identity, "spending"))}><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => navigator.clipboard?.writeText(publicKeyLabel(identity, "viewing"))}><Copy size={13} /></button></div></div><div className="privacy-actions"><button className="dark-button" onClick={() => privacyAction("register")} disabled={busy !== null}><KeyRound size={15} /> Verify/register on-chain</button><button className="light-button" onClick={() => exportStoredBackup(wallet)}><FileKey size={15} /> Download encrypted backup</button></div></>}
+        {identity && <><div className="key-list"><div><span>Spending public key · P</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "spending"), notify, "Spending public key")} aria-label="Copy spending public key"><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "viewing"), notify, "Viewing public key")} aria-label="Copy viewing public key"><Copy size={13} /></button></div></div><div className="privacy-actions"><button className="dark-button" onClick={() => privacyAction("register")} disabled={busy !== null}><KeyRound size={15} /> Verify/register on-chain</button><button className="light-button" onClick={() => { exportStoredBackup(wallet); notify({ kind: "success", message: "Encrypted privacy backup downloaded." }); }}><FileKey size={15} /> Download encrypted backup</button></div></>}
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
     </section>}
@@ -390,20 +449,29 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   </>;
 }
 
-function SponsoredSpend({ asset, config, wallet, payment, close, notify }: {
+function SponsoredSpend({ asset, config, wallet, payment, close, notify, onComplete }: {
   asset: Sip010Asset; config: PublicRelayerConfig; wallet: string; payment: LivePayment; close: () => void; notify: (notice: Notice) => void;
+  onComplete: (result: SpendResult) => void;
 }) {
   const [kind, setKind] = useState<"send" | "withdraw">("send");
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("0.1");
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ txid: string; paymentAmount: string; tokenSponsorFee: string; networkFeePaid: string } | null>(null);
+  const [result, setResult] = useState<SpendResult | null>(null);
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
   const submit = async () => {
-    try { setSubmitting(true); const response = await spendPrivatePayment({ config, payment, destination: kind === "withdraw" ? wallet : destination, fullBalance: kind === "withdraw", amount: kind === "send" ? paymentAmount : undefined }); setResult(response); }
+    try {
+      setSubmitting(true);
+      notify({ kind: "info", message: "One-time signature created locally. The relayer is validating and sponsoring the transaction…" });
+      const response = await spendPrivatePayment({ config, payment, destination: kind === "withdraw" ? wallet : destination, fullBalance: kind === "withdraw", amount: kind === "send" ? paymentAmount : undefined });
+      setResult(response);
+      onComplete(response);
+      notify({ kind: "success", message: `Sponsored spend accepted and broadcast as ${short(response.txid, 10, 8)}.` });
+    }
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
   };
-  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title"><button className="close-button" onClick={close} aria-label="Close"><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">The one-time key signs locally. The relayer receives only the serialized origin-signed transaction.</p><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div><small>From one-time address</small><strong>{short(payment.stealthPrincipal, 10, 8)}</strong></div></div><span><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div><div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw"} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={submit} disabled={submitting || (kind === "send" && (!destination || paymentAmount <= 0n))}>{submitting ? <><RefreshCw className="spin" size={16} /> Signing and sponsoring…</> : <><Zap size={16} /> Sign locally and sponsor</>}</button></> }</section></div>;
+  const closeSafely = () => { if (!submitting) close(); };
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting}><button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">The one-time key signs locally. The relayer receives only the serialized origin-signed transaction.</p><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div><small>From one-time address</small><strong>{short(payment.stealthPrincipal, 10, 8)}</strong></div></div><span><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div><div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={submitting}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")} disabled={submitting}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw" || submitting} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={submitting} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={submit} disabled={submitting || (kind === "send" && (!destination || paymentAmount <= 0n))}>{submitting ? <><RefreshCw className="spin" size={16} /> Relayer is sponsoring and broadcasting…</> : <><Zap size={16} /> Sign locally and sponsor</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</> }</section></div>;
 }
 
 function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LivePayment[] }) {

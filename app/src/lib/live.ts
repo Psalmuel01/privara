@@ -44,6 +44,8 @@ export interface PublicRelayerConfig {
   tokenName: string;
   relayerAddress: string;
   settlementFeeBps: number;
+  /** Fixed token fee charged when spending from a one-time address. */
+  sponsorFee?: string;
 }
 
 export interface LivePayment {

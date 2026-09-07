@@ -236,11 +236,12 @@ export default function App() {
           config={config}
           wallet={walletAddress}
           payment={selectedPayment}
+          payments={payments.filter((payment) => payment.balance > 0n)}
           close={() => setSelectedPayment(null)}
           notify={setNotice}
-          onComplete={(result) => {
+          onComplete={(source, result) => {
             const spent = BigInt(result.paymentAmount) + BigInt(result.tokenSponsorFee);
-            setPayments((current) => current.map((item) => item.transactionId === selectedPayment.transactionId
+            setPayments((current) => current.map((item) => item.transactionId === source.transactionId
               ? { ...item, balance: item.balance > spent ? item.balance - spent : 0n }
               : item));
           }}
@@ -449,29 +450,38 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   </>;
 }
 
-function SponsoredSpend({ asset, config, wallet, payment, close, notify, onComplete }: {
-  asset: Sip010Asset; config: PublicRelayerConfig; wallet: string; payment: LivePayment; close: () => void; notify: (notice: Notice) => void;
-  onComplete: (result: SpendResult) => void;
+function SponsoredSpend({ asset, config, wallet, payment, payments, close, notify, onComplete }: {
+  asset: Sip010Asset; config: PublicRelayerConfig; wallet: string; payment: LivePayment; payments: LivePayment[];
+  close: () => void; notify: (notice: Notice) => void; onComplete: (source: LivePayment, result: SpendResult) => void;
 }) {
   const [kind, setKind] = useState<"send" | "withdraw">("send");
+  const [sourceId, setSourceId] = useState(payment.transactionId);
   const [destination, setDestination] = useState("");
   const [amount, setAmount] = useState("0.1");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SpendResult | null>(null);
+  const activePayment = payments.find((item) => item.transactionId === sourceId) ?? payment;
+  const sponsorFee = BigInt(config.sponsorFee ?? "100");
+  const maximumPayment = activePayment.balance > sponsorFee ? activePayment.balance - sponsorFee : 0n;
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
+  const exceedsBalance = kind === "send" && paymentAmount > maximumPayment;
   const submit = async () => {
+    if (kind === "send" && exceedsBalance) {
+      notify({ kind: "error", message: `This one-time address can send at most ${formatUnits(maximumPayment, asset.decimals, asset.decimals)} ${asset.symbol} after its sponsorship fee.` });
+      return;
+    }
     try {
       setSubmitting(true);
       notify({ kind: "info", message: "One-time signature created locally. The relayer is validating and sponsoring the transaction…" });
-      const response = await spendPrivatePayment({ config, payment, destination: kind === "withdraw" ? wallet : destination, fullBalance: kind === "withdraw", amount: kind === "send" ? paymentAmount : undefined });
+      const response = await spendPrivatePayment({ config, payment: activePayment, destination: kind === "withdraw" ? wallet : destination, fullBalance: kind === "withdraw", amount: kind === "send" ? paymentAmount : undefined });
       setResult(response);
-      onComplete(response);
+      onComplete(activePayment, response);
       notify({ kind: "success", message: `Sponsored spend accepted and broadcast as ${short(response.txid, 10, 8)}.` });
     }
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
   };
   const closeSafely = () => { if (!submitting) close(); };
-  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting}><button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">The one-time key signs locally. The relayer receives only the serialized origin-signed transaction.</p><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div><small>From one-time address</small><strong>{short(payment.stealthPrincipal, 10, 8)}</strong></div></div><span><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div><div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={submitting}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")} disabled={submitting}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw" || submitting} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={submitting} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={submit} disabled={submitting || (kind === "send" && (!destination || paymentAmount <= 0n))}>{submitting ? <><RefreshCw className="spin" size={16} /> Relayer is sponsoring and broadcasting…</> : <><Zap size={16} /> Sign locally and sponsor</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</> }</section></div>;
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting}><button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">Choose one spendable address. Its one-time key signs locally, and balances are never combined automatically.</p><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={submitting || payments.length < 2} aria-label="Spend from one-time address">{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, asset.decimals, asset.decimals)} {asset.symbol}</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div>{payments.length > 1 && <p className="source-help">This payment uses only the selected address. Choose another balance here when needed.</p>}<div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={submitting}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")} disabled={submitting}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw" || submitting} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${exceedsBalance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={submitting} aria-invalid={exceedsBalance} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div><small className={exceedsBalance ? "amount-error" : "amount-limit"}>Maximum from this address after fee: {formatUnits(maximumPayment, asset.decimals, asset.decimals)} {asset.symbol}</small></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={submit} disabled={submitting || activePayment.balance <= sponsorFee || (kind === "send" && (!destination || paymentAmount <= 0n || exceedsBalance))}>{submitting ? <><RefreshCw className="spin" size={16} /> Relayer is sponsoring and broadcasting…</> : <><Zap size={16} /> Sign locally and sponsor</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</> }</section></div>;
 }
 
 function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LivePayment[] }) {

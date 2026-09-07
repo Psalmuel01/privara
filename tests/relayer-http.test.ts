@@ -54,6 +54,7 @@ describe("relayer HTTP production adapter", () => {
       network: "testnet",
       router: `${CORE}.privara-router-m2`,
       settlementFeeBps: 100,
+      sponsorFee: "100",
     });
   });
 

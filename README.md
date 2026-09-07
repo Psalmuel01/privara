@@ -236,6 +236,8 @@ Requires [Clarinet](https://github.com/hirosystems/clarinet) and Node.js.
 npm install        # install test dependencies
 clarinet check     # type-check all contracts
 npm test           # run the Clarinet/Vitest contract test suite
+npm run app:dev    # run the standalone React demo at localhost:5173
+npm run app:build  # create the deployable static app bundle
 ```
 
 ## Repository Layout

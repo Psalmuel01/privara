@@ -1,24 +1,39 @@
-# Demo App
+# Privara React demo
 
-Demo application workspace for Privara. Not yet implemented — this is the M2 deliverable.
+A standalone Vite + React application for the Privara M2 experience. It is kept inside
+this repository and has no hosted-platform integration.
 
-Planned flows:
+## Run locally
 
-- wallet-to-wallet SIP-010 intent creation and signing
-- relayer-submitted settlement with status tracking
-- fresh-address recipient routing
-- simulated DAO payout flow
-- transaction explorer integration
+```sh
+cd app
+npm install
+npm run dev
+```
 
-The sponsored-spend screen must show the available balance, destination payment, fixed
-token sponsor fee, total token deduction, and `STX required from you: 0` before local
-signing. Full withdrawal displays `amount received = balance - sponsor fee` and warns:
+Open `http://127.0.0.1:5173`. Create a production bundle with `npm run build`; the output
+is written to `app/dist/` for deployment on any static host.
 
-> Withdrawing directly to your public wallet may publicly link this stealth payment to
-> that wallet.
+## Demo coverage
 
-Sponsorship removes the need for STX at the one-time address; it does not hide the
-on-chain transfer or destination.
+- sBTC-first private balance dashboard;
+- configurable SIP-010 asset registry, with testnet MOCK as the second example;
+- exact-recipient and fee-inclusive private payment modes using `@privara/sdk` math;
+- P/V registration and encrypted-backup explanation;
+- local announcement scanning and detected one-time balances;
+- partial sponsored payments and full withdrawals with separate token/STX fees;
+- public-wallet privacy warning before withdrawal;
+- DAO contributor payout flow and confirmed testnet proof links.
 
-For M1, the end-to-end flow is demonstrated via the CLI scripts in `scripts/`.
-See [scripts/README.md](../scripts/README.md).
+Wallet approval and broadcast buttons are intentionally simulated in this UI build. No
+private key, mnemonic, or privacy seed is embedded in frontend source. The confirmed
+testnet proof linked in the interface comes from the real Phase 4/5 HTTP acceptance run.
+Connecting Leather/Xverse and a deployed relayer URL is the remaining live-integration
+step before treating this as a production transaction interface.
+
+## Adding another SIP-010 token
+
+Add its symbol, decimals, contract principal, display metadata, and sponsor fee to
+`src/config/assets.ts`, then enable the same contract in the relayer policy. Components
+do not branch on token symbols, so the existing send, receive, fee, and sweep screens will
+use the new asset configuration.

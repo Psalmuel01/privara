@@ -5,6 +5,8 @@ The reference service exposes the two Milestone 2 relayer operations:
 - `POST /v1/intents/settle` validates and broadcasts a signed M1 intent.
 - `POST /v1/stealth/sponsor` validates an origin-signed stealth transfer, adds the
   sponsor authorization, and broadcasts it.
+- `GET /v1/stealth/sponsor-policy` returns the exact token fee and treasury the client
+  must display and sign.
 
 Neither endpoint accepts a privacy seed, backup password, viewing key, spending key, or
 derived one-time private key. Recipient scanning and origin signing stay client-side.
@@ -20,6 +22,9 @@ export PRIVARA_NETWORK=testnet
 export PRIVARA_CORE_ADDRESS=ST...DEPLOYER
 export PRIVARA_ASSET=ST...DEPLOYER.mock-token
 export PRIVARA_TOKEN_NAME=mock
+export PRIVARA_SPEND_CONTRACT=ST...DEPLOYER.privara-sponsored-spend-v2
+export PRIVARA_SPONSOR_FEE_RECIPIENT=ST...TREASURY
+export PRIVARA_TOKEN_SPONSOR_FEE=100
 export RELAYER_KEY="$RELAYER_PRIVATE_KEY"
 export SPONSOR_KEY="$SPONSOR_PRIVATE_KEY"
 npm run relayer:serve
@@ -65,19 +70,25 @@ track the returned transaction ID to finality.
 | `PRIVARA_MAX_RELAYER_FEE_BPS` | `100` | Maximum signed settlement fee (1%) |
 | `PRIVARA_MAX_SWEEP_AMOUNT` | `100000000` | Maximum sponsored SIP-010 transfer |
 | `PRIVARA_MAX_SPONSOR_FEE` | `10000` | Maximum sponsor fee in micro-STX |
+| `PRIVARA_SPEND_CONTRACT` | `<core>.privara-sponsored-spend-v2` | Sponsor-bound atomic payment + fee helper |
+| `PRIVARA_SPONSOR_FEE_RECIPIENT` | required | Token-fee treasury; separate from signer |
+| `PRIVARA_TOKEN_SPONSOR_FEE` | `100` | Exact token service fee in atomic units |
 | `PRIVARA_MAX_SPONSOR_TX_BYTES` | `4096` | Serialized sponsored-request limit |
 | `PRIVARA_SPONSOR_RATE_LIMIT` | `10` | Sponsorships per one-time origin per window |
 | `PRIVARA_SPONSOR_RATE_WINDOW_MS` | `60000` | In-memory rate-limit window |
 | `STACKS_API_URL` | network default | Stacks API base URL override |
 | `PORT` | `8787` | Local listen port |
+| `PRIVARA_PROCESSED_STORE` | `.privara/relayer-processed.json` | Durable accepted-request IDs |
 
 The sponsor additionally requires testnet/mainnet matching, sponsored single-signature
-authorization, the configured token contract's exact `transfer` method, four canonical
-SIP-010 arguments, sender equal to the signed origin, a distinct destination, `none`
-memo, deny post-condition mode, one exact-equality FT post-condition, and a valid origin
-signature. Accepted serialized requests are rejected on duplicate submission for the
-lifetime of the process.
+authorization, the configured helper contract's exact `sponsored-spend` method, six
+canonical arguments, the allowed token, exact service fee and treasury, the expected
+sponsor derived from `SPONSOR_KEY`, distinct destinations, deny post-condition mode, one
+exact-total FT post-condition, a valid origin signature, and a matching confirmed Privara
+M2 announcement. Accepted serialized requests are durably rejected on duplicate
+submission.
 
-The rate limiter and duplicate set are intentionally in-memory reference implementations.
-A production deployment must use a shared durable store, authentication/abuse controls,
-metrics, secret management, and transaction-finality tracking across replicas/restarts.
+The file-backed request store survives a local process restart. A multi-replica production
+deployment still requires a shared transactional store, distributed sponsor-nonce
+coordination, authentication/abuse controls, metrics, secret management, and finality
+tracking.

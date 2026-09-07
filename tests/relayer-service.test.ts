@@ -6,7 +6,7 @@ import {
 } from "@stacks/transactions";
 import { describe, expect, it, vi } from "vitest";
 import {
-  buildSponsoredSweep,
+  buildSponsoredSpend,
   createIntent,
   signIntent,
 } from "../sdk/src";
@@ -24,6 +24,7 @@ const RELAYER_KEY = "530d9f61984c888536871c6573073bdfc0058896dc1adfe9a6a10dfacad
 const USER_KEY = "4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f01";
 const ORIGIN_KEY = "0101010101010101010101010101010101010101010101010101010101010101";
 const DESTINATION = "ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5";
+const TREASURY = "ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG";
 
 const config: RelayerConfig = {
   network: "testnet",
@@ -32,6 +33,9 @@ const config: RelayerConfig = {
   sponsorPrivateKey: RELAYER_KEY,
   assetContract: ASSET,
   tokenName: "mock",
+  spendContract: `${CORE}.privara-sponsored-spend-v2`,
+  feeRecipient: TREASURY,
+  exactTokenSponsorFee: 100n,
   maxIntentAmount: 1_000_000n,
   maxRelayerFeeBps: 100,
   maxSweepAmount: 1_000_000n,
@@ -74,14 +78,27 @@ function fakeDependencies() {
     sponsorTransaction({ ...options, sponsorNonce: 7n, fee: 374n })
   );
   const blockHeight = vi.fn(async () => 100);
-  return { broadcast, sponsor, blockHeight } as unknown as RelayerDependencies & {
+  const knownStealthOrigin = vi.fn(async () => true);
+  return { broadcast, sponsor, blockHeight, knownStealthOrigin } as unknown as RelayerDependencies & {
     broadcast: typeof broadcast;
     sponsor: typeof sponsor;
     blockHeight: typeof blockHeight;
+    knownStealthOrigin: typeof knownStealthOrigin;
   };
 }
 
 describe("reference relayer service", () => {
+  it("publishes an exact, separate token sponsorship policy", () => {
+    const policy = new PrivaraRelayerService(config, fakeDependencies()).sponsorPolicy();
+    expect(policy).toMatchObject({
+      spendContract: `${CORE}.privara-sponsored-spend-v2`,
+      asset: ASSET,
+      feeRecipient: TREASURY,
+      sponsorFee: "100",
+      maxStacksNetworkFee: "10000",
+    });
+  });
+
   it("recovers and verifies a signed settlement envelope", () => {
     const envelope = settlementEnvelope();
     const validated = validateSettlementEnvelope(envelope, config);
@@ -122,11 +139,15 @@ describe("reference relayer service", () => {
   });
 
   it("validates, sponsors, and broadcasts an origin-signed sweep", async () => {
-    const originSigned = await buildSponsoredSweep({
+    const originSigned = await buildSponsoredSpend({
+      spendContract: `${CORE}.privara-sponsored-spend-v2`,
       assetContract: ASSET,
       tokenName: "mock",
       destination: DESTINATION,
-      amount: 99_000n,
+      paymentAmount: 99_000n,
+      feeRecipient: TREASURY,
+      sponsorFee: 100n,
+      expectedSponsor: getAddressFromPrivateKey(RELAYER_KEY, "testnet"),
       stealthPrivateKey: ORIGIN_KEY,
       network: "testnet",
       nonce: 0n,
@@ -136,18 +157,24 @@ describe("reference relayer service", () => {
     const result = await service.sponsorSweep({
       originSignedTransaction: serializeTransaction(originSigned),
     });
-    expect(result.amount).toBe("99000");
-    expect(result.sponsorFee).toBe("374");
+    expect(result.paymentAmount).toBe("99000");
+    expect(result.tokenSponsorFee).toBe("100");
+    expect(result.networkFeePaid).toBe("374");
+    expect(dependencies.knownStealthOrigin).toHaveBeenCalledOnce();
     expect(dependencies.sponsor).toHaveBeenCalledOnce();
     expect(dependencies.broadcast).toHaveBeenCalledOnce();
   });
 
   it("rejects an already accepted sponsorship request", async () => {
-    const originSigned = await buildSponsoredSweep({
+    const originSigned = await buildSponsoredSpend({
+      spendContract: `${CORE}.privara-sponsored-spend-v2`,
       assetContract: ASSET,
       tokenName: "mock",
       destination: DESTINATION,
-      amount: 1n,
+      paymentAmount: 1n,
+      feeRecipient: TREASURY,
+      sponsorFee: 100n,
+      expectedSponsor: getAddressFromPrivateKey(RELAYER_KEY, "testnet"),
       stealthPrivateKey: ORIGIN_KEY,
       network: "testnet",
       nonce: 0n,
@@ -156,5 +183,28 @@ describe("reference relayer service", () => {
     const request = { originSignedTransaction: serializeTransaction(originSigned) };
     await service.sponsorSweep(request);
     await expect(service.sponsorSweep(request)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("rejects a signed origin that is not in a confirmed Privara announcement", async () => {
+    const originSigned = await buildSponsoredSpend({
+      spendContract: `${CORE}.privara-sponsored-spend-v2`,
+      assetContract: ASSET,
+      tokenName: "mock",
+      destination: DESTINATION,
+      paymentAmount: 1n,
+      feeRecipient: TREASURY,
+      sponsorFee: 100n,
+      expectedSponsor: getAddressFromPrivateKey(RELAYER_KEY, "testnet"),
+      stealthPrivateKey: ORIGIN_KEY,
+      network: "testnet",
+      nonce: 0n,
+    });
+    const dependencies = fakeDependencies();
+    dependencies.knownStealthOrigin.mockResolvedValue(false);
+    const service = new PrivaraRelayerService(config, dependencies);
+    await expect(
+      service.sponsorSweep({ originSignedTransaction: serializeTransaction(originSigned) })
+    ).rejects.toMatchObject({ status: 403, code: "unknown_stealth_origin" });
+    expect(dependencies.sponsor).not.toHaveBeenCalled();
   });
 });

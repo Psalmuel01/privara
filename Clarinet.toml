@@ -40,6 +40,16 @@ path = "contracts/privara-stealth-registry.clar"
 clarity_version = 4
 epoch = "3.3"
 
+[contracts.privara-sponsored-spend]
+path = "contracts/privara-sponsored-spend.clar"
+clarity_version = 4
+epoch = "3.3"
+
+[contracts.privara-sponsored-spend-v2]
+path = "contracts/privara-sponsored-spend-v2.clar"
+clarity_version = 4
+epoch = "3.3"
+
 [repl.analysis]
 passes = ["check_checker"]
 

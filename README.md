@@ -220,6 +220,7 @@ Milestone 1 is implemented and the M2 stealth SDK core is now underway. All 63 t
 
 - [docs/protocol-spec.md](docs/protocol-spec.md) — intent model, SIP-018 digest construction, auth flow, privacy assumptions, threat model.
 - [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
+- [docs/sponsorship.md](docs/sponsorship.md) — M2 sponsored-spend fee model, security policy, and privacy behavior.
 
 **Current testnet deployment:** the complete mock-token flow is confirmed under deployer
 `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`: relayer registration, mint, deposit,

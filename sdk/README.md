@@ -40,6 +40,15 @@ TypeScript SDK for M1 SIP-018 payment intents and M2 stealth recipients.
   authorization and an exact-token post-condition.
 - `validateSponsoredSweep` enforces the relayer's network, contract, method, amount,
   transaction-size, origin, memo, and post-condition policy before it pays a fee.
+- `buildSponsoredSpend` signs an atomic helper call that binds the payment, destination,
+  exact token sponsor fee, fee treasury, asset, and exact-total FT post-condition.
+- `validateSponsoredSpend` reproduces the server's fail-closed sponsorship policy.
+- `sendFromStealth` and `withdrawStealthBalance` fetch the relayer policy, read the live
+  SIP-010 balance, sign with p' locally, submit only the serialized transaction, and
+  return the broadcast transaction ID.
+
+`buildSponsoredSweep` remains exported only for compatibility with the first fee-free
+testnet acceptance transaction. New integrations use `buildSponsoredSpend`.
 
 ## M1 signing example
 

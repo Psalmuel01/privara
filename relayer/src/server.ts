@@ -6,6 +6,7 @@ import {
   type SettlementEnvelope,
   type SweepRequest,
 } from "./service";
+import { FileProcessedRequestStore } from "./store";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -34,11 +35,21 @@ function respond(response: ServerResponse, status: number, body: unknown): void 
   response.end(`${JSON.stringify(body)}\n`);
 }
 
-const service = new PrivaraRelayerService(relayerConfigFromEnv());
+const service = new PrivaraRelayerService(
+  relayerConfigFromEnv(),
+  undefined,
+  new FileProcessedRequestStore(
+    process.env.PRIVARA_PROCESSED_STORE ?? ".privara/relayer-processed.json"
+  )
+);
 const server = createServer(async (request, response) => {
   try {
     if (request.method === "GET" && request.url === "/health") {
       respond(response, 200, { ok: true, network: service.config.network });
+      return;
+    }
+    if (request.method === "GET" && request.url === "/v1/stealth/sponsor-policy") {
+      respond(response, 200, service.sponsorPolicy());
       return;
     }
     if (request.method !== "POST") throw new RelayerError("route not found", 404, "not_found");

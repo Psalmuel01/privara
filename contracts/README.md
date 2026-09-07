@@ -32,6 +32,17 @@ public keys under `tx-sender`; rotations increment an epoch. The privacy seed an
 keys never enter the contract. Senders perform full curve-point validation in the SDK;
 the contract enforces exact length, compressed-key prefix, and key separation.
 
+`privara-sponsored-spend-v2`
+
+Additive, non-custodial M2 helper for token-paid sponsorship. A stealth-origin transaction
+atomically transfers the signed payment amount to its destination and the exact signed
+service fee to a separate treasury. Its sixth argument binds the expected Stacks sponsor;
+a sponsored execution fails if the actual sponsor differs. It never switches `tx-sender`,
+never holds balances, and leaves the deployed M1/M2 routers unchanged.
+
+`privara-sponsored-spend` is the immutable first testnet prototype. It did not bind the
+actual Stacks sponsor, is not accepted by the SDK or relayer, and received no user payment.
+
 `mock-token`
 
 Minimal SIP-010 token with a public `mint`. Used as the whitelisted settlement asset
@@ -50,6 +61,6 @@ Standard SIP-010 fungible token trait. Imported by the router and token contract
 ## Running checks
 
 ```bash
-clarinet check   # type-check all 6 contracts
+clarinet check   # type-check every configured contract
 npm test         # run the full Clarinet/Vitest suite
 ```

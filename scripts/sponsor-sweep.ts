@@ -3,6 +3,7 @@
 
 import { readFileSync } from "node:fs";
 import { generateNewAccount, generateWallet } from "@stacks/wallet-sdk";
+import { getAddressFromPrivateKey } from "@stacks/transactions";
 import { PrivaraRelayerService } from "../relayer/src/service";
 import { explorerTxUrl, stacksNetwork } from "./_config";
 
@@ -27,6 +28,9 @@ async function main() {
   let wallet = await generateWallet({ secretKey: mnemonic(), password: "" });
   while (wallet.accounts.length < 3) wallet = generateNewAccount(wallet);
   const sponsorPrivateKey = wallet.accounts[2].stxPrivateKey;
+  const feeRecipient =
+    process.env.PRIVARA_SPONSOR_FEE_RECIPIENT ??
+    getAddressFromPrivateKey(sponsorPrivateKey, "testnet");
   const result = await new PrivaraRelayerService({
     network: "testnet",
     coreAddress: CORE,
@@ -34,6 +38,9 @@ async function main() {
     sponsorPrivateKey,
     assetContract: `${CORE}.mock-token`,
     tokenName: "mock",
+    spendContract: `${CORE}.privara-sponsored-spend-v2`,
+    feeRecipient,
+    exactTokenSponsorFee: BigInt(process.env.PRIVARA_TOKEN_SPONSOR_FEE ?? "100"),
     maxIntentAmount: 100_000_000n,
     maxRelayerFeeBps: 100,
     maxSweepAmount: BigInt(process.env.PRIVARA_MAX_SWEEP_AMOUNT ?? "1000000"),
@@ -44,10 +51,11 @@ async function main() {
     stacksApiUrl: stacksNetwork().client.baseUrl,
   }).sponsorSweep(envelope);
 
-  console.log(`Policy accepted: ${result.amount} MOCK`);
+  console.log(`Policy accepted: ${result.paymentAmount} MOCK payment`);
   console.log(`Origin: ${result.origin}`);
   console.log(`Destination: ${result.destination}`);
-  console.log(`Sponsor fee: ${result.sponsorFee} micro-STX`);
+  console.log(`Token sponsor fee: ${result.tokenSponsorFee} MOCK`);
+  console.log(`Stacks network fee: ${result.networkFeePaid} micro-STX`);
   console.log(`Broadcast: ${result.txid}`);
   console.log(explorerTxUrl(result.txid));
 }

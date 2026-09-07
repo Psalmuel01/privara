@@ -102,15 +102,23 @@ export PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0
 export PRIVARA_RECIPIENT_ADDRESS=ST16H55CE41DBKFY9QDHESXQT2GD110WKT7VW9EPR
 export STEALTH_SETTLEMENT_TXID=0x16c7bebee5f479ab9de7e071faa84fcccaf5bf05cfe629332511111a8ab4ae99
 export SWEEP_DESTINATION=ST...EXPLICIT_DESTINATION
+export PRIVARA_SPONSOR_FEE_RECIPIENT=ST...TREASURY
+export PRIVARA_SPONSOR_ADDRESS=ST...SPONSOR
+export PRIVARA_TOKEN_SPONSOR_FEE=100
 read -s "PRIVARA_PRIVACY_PASSWORD?Privacy backup password: "; echo
 export PRIVARA_PRIVACY_PASSWORD
 npm run create:sponsored-sweep
 unset PRIVARA_PRIVACY_PASSWORD
 ```
 
-Then the relayer independently validates the network, origin signature, exact
-`mock-token::transfer` call, amount ceiling, transaction size, deny mode, and exact FT
-post-condition before adding its sponsor signature and paying the STX fee:
+Omit `SWEEP_AMOUNT` to withdraw the full balance net of the token sponsor fee. Set it to
+the destination payment amount for a partial spend; the fee is added separately.
+
+Then the relayer independently validates the network, origin signature, confirmed
+Privara announcement, exact `privara-sponsored-spend-v2::sponsored-spend` call, expected
+sponsor, payment ceiling, configured token fee and treasury, transaction size, deny mode,
+and exact-total FT post-condition before adding its sponsor signature and paying the STX
+fee:
 
 ```sh
 PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0 \

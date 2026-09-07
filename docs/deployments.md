@@ -230,6 +230,31 @@ Status: **deployed and confirmed on 2026-09-06**.
 The deployment used nonce `5` and a `100,000` micro-STX fee. It is a separate contract;
 the confirmed M1 `privara-router` and its version-1 signing domain were not modified.
 
+## Testnet — Milestone 2 sponsored-spend helpers
+
+Status: **deployed and confirmed on 2026-09-07**.
+
+| Setting | Value |
+| --- | --- |
+| Deployer / core address | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0` |
+| Contract | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-sponsored-spend-v2` |
+| Clarity version | 4 |
+| Deployment block | `281347` |
+| Deployment result | `(ok true)` |
+| Deployment transaction | [a862d9b1…d727](https://explorer.hiro.so/txid/0xa862d9b1591b6f989a543ac9122b47ed1c1bcba64b25e3d7b37e3a27aa56d727?chain=testnet) |
+
+The canonical v2 deployment used nonce `9` and a `60,000` micro-STX fee. This additive
+helper does not modify either router and never takes custody. Its single
+`sponsored-spend` entrypoint atomically moves the signed payment amount to the signed
+destination and the exact signed token service fee to a separate treasury. It also binds
+the expected Stacks sponsor in the origin-signed call and rejects a different actual
+sponsor.
+
+The immutable `privara-sponsored-spend` prototype was deployed earlier in block `281318`
+([fb76f228…c3e7](https://explorer.hiro.so/txid/0xfb76f228df3b961199c7c1cfeff28997234449e809a08ad93e92b5ca9563c3e7?chain=testnet)).
+It lacks the expected-sponsor binding, is unsupported by the SDK and relayer, and was
+never used for a payment.
+
 ### First M2 stealth acceptance flow
 
 | Action | Result | Transaction ID |
@@ -256,7 +281,7 @@ Recipient-side acceptance was subsequently confirmed: the local scanner authenti
 the encrypted backup against the registered P,V record, detected the indexed settlement,
 decrypted its note, and derived the one-time spending key without printing it.
 
-### First sponsored stealth sweep
+### First sponsored stealth sweep (fee-free compatibility path)
 
 The recipient derived the one-time private key locally, signed only the origin half of a
 sponsored SIP-010 transfer, and handed the serialized transaction to the reference
@@ -282,6 +307,10 @@ This confirms the complete recipient flow: indexed discovery, local one-time key
 derivation, origin authorization, sponsored broadcast, and withdrawal without funding
 the one-time address with STX. The gitignored `sponsored-sweep.json` contains the public
 origin-signed transaction, not the derived private key.
+
+This first acceptance predates the token-paid helper and therefore charged no separate
+MOCK sponsorship fee. New sponsored-spend transactions use the deployed helper above;
+their paid live acceptance is recorded separately once completed.
 
 ### Local intent evidence files
 

@@ -12,13 +12,14 @@ import {
   serializeTransaction,
 } from "@stacks/transactions";
 import {
-  buildSponsoredSweep,
+  buildSponsoredSpend,
   fetchAnnouncementPage,
   fetchStealthKeys,
   identityFromSeed,
   importPrivacySeed,
   scanAnnouncements,
-  validateSponsoredSweep,
+  fullWithdrawalPaymentAmount,
+  validateSponsoredSpend,
   type EncryptedPrivacySeedBackup,
   type IndexedStealthAnnouncement,
 } from "../sdk/src";
@@ -37,6 +38,10 @@ const DESTINATION = requiredEnv("SWEEP_DESTINATION");
 const ROUTER = `${CORE}.privara-router-m2`;
 const REGISTRY = `${CORE}.privara-stealth-registry`;
 const ASSET = `${CORE}.mock-token`;
+const SPEND_CONTRACT = `${CORE}.privara-sponsored-spend-v2`;
+const FEE_RECIPIENT = requiredEnv("PRIVARA_SPONSOR_FEE_RECIPIENT");
+const SPONSOR_ADDRESS = requiredEnv("PRIVARA_SPONSOR_ADDRESS");
+const SPONSOR_FEE = BigInt(requiredEnv("PRIVARA_TOKEN_SPONSOR_FEE"));
 
 function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
   return left.length === right.length && left.every((byte, index) => byte === right[index]);
@@ -127,24 +132,37 @@ async function main() {
   const payment = detected[0];
   if (!payment?.stealthPrivateKey) throw new Error("no spendable indexed payment was detected");
   const available = await tokenBalance(payment.stealthPrincipal);
-  const amount = process.env.SWEEP_AMOUNT ? BigInt(process.env.SWEEP_AMOUNT) : available;
-  if (amount <= 0n || amount > available) {
-    throw new Error(`SWEEP_AMOUNT must be between 1 and the available ${available}`);
+  const paymentAmount = process.env.SWEEP_AMOUNT
+    ? BigInt(process.env.SWEEP_AMOUNT)
+    : fullWithdrawalPaymentAmount(available, SPONSOR_FEE);
+  const totalAmount = paymentAmount + SPONSOR_FEE;
+  if (paymentAmount <= 0n || totalAmount > available) {
+    throw new Error(
+      `payment plus sponsor fee must fit the available balance ${available}`
+    );
   }
 
-  const transaction = await buildSponsoredSweep({
+  const transaction = await buildSponsoredSpend({
+    spendContract: SPEND_CONTRACT,
     assetContract: ASSET,
     tokenName: "mock",
     destination: DESTINATION,
-    amount,
+    paymentAmount,
+    feeRecipient: FEE_RECIPIENT,
+    sponsorFee: SPONSOR_FEE,
+    expectedSponsor: SPONSOR_ADDRESS,
     stealthPrivateKey: payment.stealthPrivateKey,
     network: "testnet",
   });
-  const validated = validateSponsoredSweep(transaction, {
+  const validated = validateSponsoredSpend(transaction, {
     network: "testnet",
+    spendContract: SPEND_CONTRACT,
     assetContract: ASSET,
     tokenName: "mock",
-    maxAmount: 1_000_000n,
+    feeRecipient: FEE_RECIPIENT,
+    exactSponsorFee: SPONSOR_FEE,
+    sponsorAddress: SPONSOR_ADDRESS,
+    maxPaymentAmount: 1_000_000n,
     maxTransactionBytes: 4_096,
   });
   const output = {
@@ -153,7 +171,10 @@ async function main() {
     origin: validated.origin,
     destination: validated.destination,
     asset: `${ASSET}::mock`,
-    amount: validated.amount.toString(),
+    paymentAmount: validated.paymentAmount.toString(),
+    feeRecipient: validated.feeRecipient,
+    sponsorFee: validated.sponsorFee.toString(),
+    totalAmount: validated.totalAmount.toString(),
     originSignedTransaction: serializeTransaction(transaction),
   };
   writeFileSync("sponsored-sweep.json", `${JSON.stringify(output, null, 2)}\n`, { mode: 0o600 });
@@ -164,7 +185,9 @@ async function main() {
 
   console.log(`Origin: ${validated.origin}`);
   console.log(`Destination: ${validated.destination}`);
-  console.log(`Amount: ${validated.amount} MOCK`);
+  console.log(`Payment amount: ${validated.paymentAmount} MOCK`);
+  console.log(`Privara sponsor fee: ${validated.sponsorFee} MOCK`);
+  console.log(`Total deducted: ${validated.totalAmount} MOCK`);
   console.log(`Origin signature verified: true`);
   console.log(`Private p' exported: false`);
   console.log(`Wrote origin-signed request: sponsored-sweep.json`);

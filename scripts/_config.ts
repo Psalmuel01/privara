@@ -55,6 +55,7 @@ export const ROUTER_NAME = "privara-router";
 export const ROUTER_M2_NAME = "privara-router-m2";
 export const REGISTRY_NAME = "privara-registry";
 export const STEALTH_REGISTRY_NAME = "privara-stealth-registry";
+export const SPONSORED_SPEND_NAME = "privara-sponsored-spend-v2";
 
 export function routerId(): string {
   return `${coreAddress()}.${ROUTER_NAME}`;

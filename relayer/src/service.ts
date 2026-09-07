@@ -16,11 +16,16 @@ import {
 import {
   hashIntent,
   messageDigest,
-  validateSponsoredSweep,
+  fetchAnnouncementPage,
+  validateSponsoredSpend,
   type Intent,
   type Network,
 } from "../../sdk/src";
 import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
+import {
+  MemoryProcessedRequestStore,
+  type ProcessedRequestStore,
+} from "./store";
 
 export interface RelayerConfig {
   network: Network;
@@ -29,6 +34,9 @@ export interface RelayerConfig {
   sponsorPrivateKey: string;
   assetContract: string;
   tokenName: string;
+  spendContract: string;
+  feeRecipient: string;
+  exactTokenSponsorFee: bigint;
   maxIntentAmount: bigint;
   maxRelayerFeeBps: number;
   maxSweepAmount: bigint;
@@ -60,7 +68,16 @@ export interface SweepRequest {
 
 export interface RelayerResult {
   txid: string;
+  status: "broadcast";
   explorerUrl: string;
+}
+
+export interface SponsoredSweepResult extends RelayerResult {
+  origin: string;
+  destination: string;
+  paymentAmount: string;
+  tokenSponsorFee: string;
+  networkFeePaid: string;
 }
 
 export class RelayerError extends Error {
@@ -77,6 +94,7 @@ export interface RelayerDependencies {
   broadcast: typeof broadcastTransaction;
   sponsor: typeof sponsorTransaction;
   blockHeight: (apiUrl: string) => Promise<number>;
+  knownStealthOrigin: (origin: string, asset: string, config: RelayerConfig) => Promise<boolean>;
 }
 
 const defaultDependencies: RelayerDependencies = {
@@ -88,6 +106,27 @@ const defaultDependencies: RelayerDependencies = {
     const info = (await response.json()) as { stacks_tip_height?: number };
     if (!Number.isSafeInteger(info.stacks_tip_height)) throw new Error("invalid Stacks info response");
     return info.stacks_tip_height!;
+  },
+  knownStealthOrigin: async (origin, asset, config) => {
+    let cursor: string | undefined;
+    for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
+      const page = await fetchAnnouncementPage({
+        apiUrl: networkFor(config).client.baseUrl,
+        router: `${config.coreAddress}.privara-router-m2`,
+        cursor,
+        limit: 100,
+      });
+      if (
+        page.announcements.some(
+          (record) => record.stealthPrincipal === origin && record.asset === asset
+        )
+      ) {
+        return true;
+      }
+      if (!page.nextCursor) return false;
+      cursor = page.nextCursor;
+    }
+    throw new Error("announcement history exceeded safety limit");
   },
 };
 
@@ -215,11 +254,13 @@ function txid(result: Awaited<ReturnType<typeof broadcastTransaction>>): string 
 
 export class PrivaraRelayerService {
   private readonly limiter: FixedWindowLimiter;
-  private readonly accepted = new Set<string>();
+  private readonly pending = new Set<string>();
+  private sponsorshipTail: Promise<void> = Promise.resolve();
 
   constructor(
     readonly config: RelayerConfig,
-    private readonly dependencies: RelayerDependencies = defaultDependencies
+    private readonly dependencies: RelayerDependencies = defaultDependencies,
+    private readonly processed: ProcessedRequestStore = new MemoryProcessedRequestStore()
   ) {
     this.limiter = new FixedWindowLimiter(
       config.sponsorshipsPerWindow,
@@ -230,6 +271,7 @@ export class PrivaraRelayerService {
   private result(id: string): RelayerResult {
     return {
       txid: id,
+      status: "broadcast",
       explorerUrl: `https://explorer.hiro.so/txid/0x${id.replace(/^0x/, "")}?chain=${this.config.network}`,
     };
   }
@@ -270,17 +312,30 @@ export class PrivaraRelayerService {
     return this.result(txid(response));
   }
 
-  async sponsorSweep(request: SweepRequest): Promise<RelayerResult & {
-    origin: string;
-    destination: string;
-    amount: string;
-    sponsorFee: string;
-  }> {
+  async sponsorSweep(request: SweepRequest): Promise<SponsoredSweepResult> {
+    // One local queue prevents concurrent requests from racing for the sponsor account's
+    // next nonce. Multiple server replicas will need distributed nonce coordination.
+    const previous = this.sponsorshipTail;
+    let release!: () => void;
+    this.sponsorshipTail = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await this.sponsorSweepSerial(request);
+    } finally {
+      release();
+    }
+  }
+
+  private async sponsorSweepSerial(request: SweepRequest): Promise<SponsoredSweepResult> {
     if (!request || typeof request.originSignedTransaction !== "string") {
       throw new RelayerError("originSignedTransaction is required");
     }
+    // Hash the complete signed request: replay tracking needs no private information and
+    // does not rely on client-supplied identifiers.
     const requestId = createHash("sha256").update(request.originSignedTransaction).digest("hex");
-    if (this.accepted.has(requestId)) {
+    if (this.processed.has(requestId) || this.pending.has(requestId)) {
       throw new RelayerError("sponsored request was already accepted", 409, "duplicate_request");
     }
     let transaction;
@@ -289,47 +344,105 @@ export class PrivaraRelayerService {
     } catch {
       throw new RelayerError("originSignedTransaction could not be decoded");
     }
-    let validated: ReturnType<typeof validateSponsoredSweep>;
+    let validated: ReturnType<typeof validateSponsoredSpend>;
     try {
-      validated = validateSponsoredSweep(transaction, {
+      validated = validateSponsoredSpend(transaction, {
         network: this.config.network,
+        spendContract: this.config.spendContract,
         assetContract: this.config.assetContract,
         tokenName: this.config.tokenName,
-        maxAmount: this.config.maxSweepAmount,
+        feeRecipient: this.config.feeRecipient,
+        exactSponsorFee: this.config.exactTokenSponsorFee,
+        sponsorAddress: getAddressFromPrivateKey(
+          this.config.sponsorPrivateKey,
+          this.config.network
+        ),
+        maxPaymentAmount: this.config.maxSweepAmount,
         maxTransactionBytes: this.config.maxTransactionBytes,
       });
     } catch (error) {
       throw new RelayerError(error instanceof Error ? error.message : "sweep policy rejected");
     }
-    this.limiter.consume(validated.origin);
-    const sponsored = await this.dependencies.sponsor({
-      transaction,
-      sponsorPrivateKey: this.config.sponsorPrivateKey,
-      network: networkFor(this.config),
-    });
-    if (sponsored.auth.authType !== AuthType.Sponsored) {
-      throw new RelayerError("failed to construct sponsored authorization", 500, "signing_failed");
-    }
-    const fee = sponsored.auth.sponsorSpendingCondition.fee;
-    if (fee > this.config.maxSponsorFee) {
+    // Sponsorship is reserved for addresses created by confirmed Privara settlements;
+    // otherwise this endpoint would become a public free-STX relay for arbitrary users.
+    let knownOrigin: boolean;
+    try {
+      knownOrigin = await this.dependencies.knownStealthOrigin(
+        validated.origin,
+        validated.assetContract,
+        this.config
+      );
+    } catch {
       throw new RelayerError(
-        `estimated sponsor fee ${fee} exceeds maximum ${this.config.maxSponsorFee}`,
-        503,
-        "fee_too_high"
+        "unable to verify the Privara stealth settlement origin",
+        502,
+        "indexer_unavailable"
       );
     }
-    const response = await this.dependencies.broadcast({
-      transaction: sponsored,
-      network: networkFor(this.config),
-    });
-    const id = txid(response);
-    this.accepted.add(requestId);
+    if (!knownOrigin) {
+      throw new RelayerError(
+        "transaction origin is not a confirmed Privara stealth settlement",
+        403,
+        "unknown_stealth_origin"
+      );
+    }
+    this.limiter.consume(validated.origin);
+    this.pending.add(requestId);
+    try {
+      const sponsored = await this.dependencies.sponsor({
+        transaction,
+        sponsorPrivateKey: this.config.sponsorPrivateKey,
+        network: networkFor(this.config),
+      });
+      if (sponsored.auth.authType !== AuthType.Sponsored) {
+        throw new RelayerError("failed to construct sponsored authorization", 500, "signing_failed");
+      }
+      // This is the actual STX network fee paid by Privara. It is deliberately separate
+      // from the fixed SIP-010 service fee already signed into the contract call.
+      const fee = sponsored.auth.sponsorSpendingCondition.fee;
+      if (fee > this.config.maxSponsorFee) {
+        throw new RelayerError(
+          `estimated sponsor fee ${fee} exceeds maximum ${this.config.maxSponsorFee}`,
+          503,
+          "fee_too_high"
+        );
+      }
+      const response = await this.dependencies.broadcast({
+        transaction: sponsored,
+        network: networkFor(this.config),
+      });
+      const id = txid(response);
+      // Persist only after the Stacks node accepts the broadcast. Rejected broadcasts
+      // remain retryable; accepted requests are blocked across local process restarts.
+      this.processed.add(requestId);
+      return {
+        ...this.result(id),
+        origin: validated.origin,
+        destination: validated.destination,
+        paymentAmount: validated.paymentAmount.toString(),
+        tokenSponsorFee: validated.sponsorFee.toString(),
+        networkFeePaid: fee.toString(),
+      };
+    } finally {
+      this.pending.delete(requestId);
+    }
+  }
+
+  sponsorPolicy() {
     return {
-      ...this.result(id),
-      origin: validated.origin,
-      destination: validated.destination,
-      amount: validated.amount.toString(),
-      sponsorFee: fee.toString(),
+      version: 1,
+      network: this.config.network,
+      spendContract: this.config.spendContract,
+      asset: this.config.assetContract,
+      tokenName: this.config.tokenName,
+      feeRecipient: this.config.feeRecipient,
+      sponsorAddress: getAddressFromPrivateKey(
+        this.config.sponsorPrivateKey,
+        this.config.network
+      ),
+      sponsorFee: this.config.exactTokenSponsorFee.toString(),
+      maxPaymentAmount: this.config.maxSweepAmount.toString(),
+      maxStacksNetworkFee: this.config.maxSponsorFee.toString(),
     };
   }
 }

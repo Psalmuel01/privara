@@ -87,7 +87,23 @@ export {
 export {
   buildSponsoredSweep,
   validateSponsoredSweep,
+  buildSponsoredSpend,
+  validateSponsoredSpend,
+  fullWithdrawalPaymentAmount,
   type BuildSponsoredSweepOptions,
   type SponsoredSweepPolicy,
   type ValidatedSponsoredSweep,
+  type BuildSponsoredSpendOptions,
+  type SponsoredSpendPolicy,
+  type ValidatedSponsoredSpend,
 } from "./sponsor/sweep";
+export {
+  fetchSponsorPolicy,
+  fetchSip010Balance,
+  sendFromStealth,
+  withdrawStealthBalance,
+  type SponsorPolicyQuote,
+  type SponsoredSpendResult,
+  type SendFromStealthOptions,
+  type WithdrawStealthBalanceOptions,
+} from "./sponsor/client";

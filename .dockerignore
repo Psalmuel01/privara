@@ -1,0 +1,15 @@
+.git
+.privara
+app
+contracts
+deployments
+docs
+node_modules
+settings
+tests
+*.json
+!package.json
+!package-lock.json
+!tsconfig.scripts.json
+*.md
+!relayer/README.md

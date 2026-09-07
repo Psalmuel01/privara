@@ -11,6 +11,8 @@ export interface Sip010Asset {
   sponsorFeeAtomic: bigint;
   demoBalanceAtomic: bigint;
   usdPrice: number;
+  /** True only when the currently deployed testnet router explicitly whitelists it. */
+  liveTestnet: boolean;
 }
 
 // UI and fee math consume this registry instead of branching on token symbols. Add a
@@ -28,8 +30,11 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
       mainnet: "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token",
     },
     sponsorFeeAtomic: 1_200n,
+    // The current router bytecode is MOCK-bound. Enable this only after deploying
+    // the sBTC router/helper pair and pointing the relayer policy at those contracts.
     demoBalanceAtomic: 250_000_000n,
     usdPrice: 62_496,
+    liveTestnet: false,
   },
   {
     id: "mock",
@@ -44,6 +49,7 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     sponsorFeeAtomic: 100n,
     demoBalanceAtomic: 2_500_000n,
     usdPrice: 1,
+    liveTestnet: true,
   },
 ];
 

@@ -3,6 +3,8 @@ import { bytesToHex, hexToBytes } from "@stacks/common";
 import {
   Cl,
   getAddressFromPrivateKey,
+  getAddressFromPublicKey,
+  publicKeyFromSignatureRsv,
   serializeCVBytes,
   signMessageHashRsv,
 } from "@stacks/transactions";
@@ -31,7 +33,8 @@ function validateAnnouncementHash(hash: Uint8Array): void {
   if (hash.length !== 32) throw new Error("announcement hash must be 32 bytes");
 }
 
-function stealthIntentTupleCV(intent: StealthIntent) {
+/** Canonical SIP-018 message shown to and signed by browser wallets. */
+export function stealthIntentMessageCV(intent: StealthIntent) {
   validateAnnouncementHash(intent.announcementHash);
   return Cl.tuple({
     asset: Cl.principal(intent.asset),
@@ -60,17 +63,21 @@ export function createStealthIntent(
 }
 
 export function hashStealthIntent(intent: StealthIntent): Uint8Array {
-  return sha256(serializeCVBytes(stealthIntentTupleCV(intent)));
+  return sha256(serializeCVBytes(stealthIntentMessageCV(intent)));
 }
 
-export function stealthDomainHash(network: Network, router: string): Uint8Array {
-  const domain = Cl.tuple({
+/** Canonical SIP-018 domain shown to and signed by browser wallets. */
+export function stealthIntentDomainCV(network: Network, router: string) {
+  return Cl.tuple({
     name: Cl.stringAscii("privara"),
     version: Cl.stringAscii(String(STEALTH_INTENT_VERSION)),
     "chain-id": Cl.uint(CHAIN_ID[network]),
     router: Cl.principal(router),
   });
-  return sha256(serializeCVBytes(domain));
+}
+
+export function stealthDomainHash(network: Network, router: string): Uint8Array {
+  return sha256(serializeCVBytes(stealthIntentDomainCV(network, router)));
 }
 
 export function stealthMessageDigest(
@@ -105,6 +112,43 @@ export function signStealthIntent(
     intentHash,
     digest,
     userSig: hexToBytes(signature),
+  };
+}
+
+/**
+ * Attach a recoverable RSV signature returned by `stx_signStructuredMessage`.
+ * This is the browser-wallet path: Privara receives a signature, never the wallet key.
+ */
+export function attachStealthIntentSignature(
+  intent: StealthIntent,
+  signature: Uint8Array | string,
+  network: Network,
+  router: string
+): SignedStealthIntent {
+  const intentHash = hashStealthIntent(intent);
+  const digest = stealthMessageDigest(intent, network, router);
+  const signatureHex =
+    typeof signature === "string"
+      ? signature.replace(/^0x/, "")
+      : bytesToHex(signature);
+  if (!/^[0-9a-fA-F]{130}$/.test(signatureHex)) {
+    throw new Error("wallet signature must be a 65-byte recoverable RSV signature");
+  }
+  let user: string;
+  try {
+    user = getAddressFromPublicKey(
+      publicKeyFromSignatureRsv(bytesToHex(digest), signatureHex),
+      network
+    );
+  } catch {
+    throw new Error("wallet returned an invalid structured-data signature");
+  }
+  return {
+    ...intent,
+    user,
+    intentHash,
+    digest,
+    userSig: hexToBytes(signatureHex),
   };
 }
 

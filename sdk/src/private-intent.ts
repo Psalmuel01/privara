@@ -50,6 +50,14 @@ export interface CreatePrivateIntentOptions {
   ephemeralPrivateKey?: Uint8Array;
 }
 
+export type PreparePrivateIntentOptions = Omit<CreatePrivateIntentOptions, "payerPrivateKey">;
+
+export interface PreparedPrivateIntentResult {
+  intent: import("./types").StealthIntent;
+  announcement: StealthAnnouncementPayload;
+  quote: SettlementFeeQuote;
+}
+
 export interface PrivateIntentResult {
   intent: SignedStealthIntent;
   announcement: StealthAnnouncementPayload;
@@ -135,6 +143,26 @@ export function quoteSettlementFee(options: {
 export async function createPrivateIntent(
   options: CreatePrivateIntentOptions
 ): Promise<PrivateIntentResult> {
+  const prepared = await preparePrivateIntent(options);
+  return {
+    ...prepared,
+    intent: signStealthIntent(
+      prepared.intent,
+      options.payerPrivateKey,
+      options.network,
+      options.router
+    ),
+  };
+}
+
+/**
+ * Prepare the exact private intent and encrypted announcement without signing it.
+ * Browser applications pass the returned Clarity message/domain to the wallet, then
+ * attach its recoverable signature with `attachStealthIntentSignature`.
+ */
+export async function preparePrivateIntent(
+  options: PreparePrivateIntentOptions
+): Promise<PreparedPrivateIntentResult> {
   if (!Number.isSafeInteger(options.expiry) || options.expiry <= 0) {
     throw new Error("intent expiry must be a positive safe integer");
   }
@@ -190,8 +218,7 @@ export async function createPrivateIntent(
       asset: options.asset,
       registryEpoch: registered.epoch,
     };
-    const intent = signStealthIntent(
-      createStealthIntent(
+    const intent = createStealthIntent(
         {
           asset: options.asset,
           amount: quote.totalAmount,
@@ -202,11 +229,7 @@ export async function createPrivateIntent(
           expiry: options.expiry,
         },
         announcement
-      ),
-      options.payerPrivateKey,
-      options.network,
-      options.router
-    );
+      );
     return { intent, announcement, quote };
   } finally {
     ephemeralPrivateKey.fill(0);

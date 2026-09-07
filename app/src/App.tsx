@@ -1,15 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   ArrowDownLeft,
   ArrowRight,
   ArrowUpRight,
-  Building2,
   Check,
   ChevronDown,
   CircleCheck,
   Copy,
-  Database,
   ExternalLink,
   FileKey,
   History,
@@ -18,13 +16,11 @@ import {
   KeyRound,
   LayoutDashboard,
   LockKeyhole,
-  MoreHorizontal,
-  Plus,
+  LogOut,
   Radio,
   RefreshCw,
   Search,
   Send,
-  Settings,
   ShieldCheck,
   TriangleAlert,
   Users,
@@ -32,51 +28,121 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { quoteSettlementFee } from "@privara/sdk";
+import { quoteSettlementFee, type PrivacyIdentity } from "@privara/sdk";
 import {
   SUPPORTED_ASSETS,
   formatUnits,
   parseUnits,
   type Sip010Asset,
 } from "./config/assets";
+import {
+  RELAYER_URL,
+  STACKS_API_URL,
+  connectWallet,
+  createPrivacyIdentity,
+  depositMock,
+  disconnectWallet,
+  exportStoredBackup,
+  fetchPublicConfig,
+  hasPrivacyBackup,
+  importPrivacyIdentity,
+  mintMock,
+  publicKeyLabel,
+  readRouterDeposit,
+  registerPrivacyIdentity,
+  resolveRecipient,
+  scanPrivatePayments,
+  spendPrivatePayment,
+  storedWalletAddress,
+  submitPrivatePayment,
+  unlockPrivacyIdentity,
+  waitForTransaction,
+  type LivePayment,
+  type PublicRelayerConfig,
+} from "./lib/live";
 
 type View = "overview" | "send" | "receive" | "activity" | "payouts";
 type FeeMode = "added" | "included";
+type Notice = { kind: "success" | "error" | "info"; message: string } | null;
 
-const walletAddress = "ST16H55CE41DBKFY9QDHESXQT2GD110WKT7VW9EPR";
-const short = (value: string, start = 6, end = 5) => `${value.slice(0, start)}…${value.slice(-end)}`;
+const short = (value: string, start = 6, end = 5) =>
+  `${value.slice(0, start)}…${value.slice(-end)}`;
+const explorer = (txid: string) =>
+  `https://explorer.hiro.so/txid/0x${txid.replace(/^0x/, "")}?chain=testnet`;
 
-const baseActivity = [
-  { type: "receive", title: "Private payment received", detail: "One-time address · 18 min ago", amount: "+0.25000000", asset: "sBTC", status: "Spendable", tx: "8a3aa853…560d" },
-  { type: "send", title: "Sponsored merchant payment", detail: "To ST2CY5…K9AG · Yesterday", amount: "−0.04001200", asset: "sBTC", status: "Confirmed", tx: "8d4dcb85…aeb2" },
-  { type: "receive", title: "DAO contributor payout", detail: "One-time address · Sep 4", amount: "+0.87500000", asset: "sBTC", status: "Spendable", tx: "16c7bebe…ae99" },
-  { type: "send", title: "Private balance withdrawal", detail: "To ST3RFS…0D8P · Sep 1", amount: "−0.30001200", asset: "sBTC", status: "Confirmed", tx: "d3e46715…3374" },
-];
-
-const navItems: { id: View; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "send", label: "Send privately", icon: Send },
-  { id: "receive", label: "Receive & scan", icon: Inbox },
-  { id: "activity", label: "Activity", icon: History },
-  { id: "payouts", label: "DAO payouts", icon: Users },
+const navItems = [
+  { id: "overview" as const, label: "Overview", icon: LayoutDashboard },
+  { id: "send" as const, label: "Send privately", icon: Send },
+  { id: "receive" as const, label: "Receive & scan", icon: Inbox },
+  { id: "activity" as const, label: "Activity", icon: History },
+  { id: "payouts" as const, label: "DAO payouts", icon: Users },
 ];
 
 function AssetIcon({ asset, small = false }: { asset: Sip010Asset; small?: boolean }) {
   return <span className={`asset-icon ${asset.tone} ${small ? "small" : ""}`}>{asset.icon}</span>;
 }
 
-function App() {
+export default function App() {
   const [view, setView] = useState<View>("overview");
-  const [assetId, setAssetId] = useState("sbtc");
+  const [assetId, setAssetId] = useState("mock");
   const [assetMenu, setAssetMenu] = useState(false);
-  const [spendOpen, setSpendOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(() => storedWalletAddress());
+  const [config, setConfig] = useState<PublicRelayerConfig | null>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [identity, setIdentity] = useState<PrivacyIdentity | null>(null);
+  const [payments, setPayments] = useState<LivePayment[]>([]);
+  const [selectedPayment, setSelectedPayment] = useState<LivePayment | null>(null);
+  const [deposit, setDeposit] = useState(0n);
+  const [tip, setTip] = useState<number | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [connecting, setConnecting] = useState(false);
   const asset = SUPPORTED_ASSETS.find((item) => item.id === assetId)!;
 
-  const copyAddress = async () => {
-    await navigator.clipboard?.writeText(walletAddress);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+  useEffect(() => {
+    const loadConfig = () => void fetchPublicConfig()
+      .then((value) => { setConfig(value); setConfigError(null); })
+      .catch((error) => setConfigError(error instanceof Error ? error.message : String(error)));
+    loadConfig();
+    // A local or newly deployed relayer may start after the static app; reconnect without
+    // making the user refresh or losing an unlocked in-memory privacy identity.
+    const configTimer = window.setInterval(loadConfig, 15_000);
+    void fetch(`${STACKS_API_URL}/v2/info`)
+      .then((response) => response.json())
+      .then((info: { stacks_tip_height?: number }) => setTip(info.stacks_tip_height ?? null))
+      .catch(() => undefined);
+    return () => window.clearInterval(configTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!config || !walletAddress) return;
+    void readRouterDeposit(config, walletAddress).then(setDeposit).catch(() => setDeposit(0n));
+  }, [config, walletAddress]);
+
+  const connect = async () => {
+    setConnecting(true);
+    setNotice(null);
+    try {
+      const address = await connectWallet();
+      setWalletAddress(address);
+      setIdentity(null);
+      setPayments([]);
+      setNotice({ kind: "success", message: "Wallet connected to Stacks testnet." });
+    } catch (error) {
+      setNotice({ kind: "error", message: message(error) });
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const disconnect = () => {
+    disconnectWallet();
+    identity?.privacySeed.fill(0);
+    identity?.spendingPrivateKey.fill(0);
+    identity?.viewingPrivateKey.fill(0);
+    setWalletAddress(null);
+    setIdentity(null);
+    setPayments([]);
+    setNotice({ kind: "info", message: "Wallet disconnected and unlocked privacy keys cleared." });
   };
 
   return (
@@ -85,7 +151,7 @@ function App() {
         <button className="brand" onClick={() => setView("overview")} aria-label="Privara overview">
           <span className="brand-mark">P</span><span>privara</span>
         </button>
-        <div className="demo-chip"><span />Interactive testnet demo</div>
+        <div className="demo-chip"><span />Live testnet app</div>
         <nav className="nav-list" aria-label="Main navigation">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => setView(id)}>
@@ -94,127 +160,260 @@ function App() {
           ))}
         </nav>
         <div className="sidebar-foot">
-          <div className="privacy-live"><span className="status-dot" /><div><strong>Privacy keys active</strong><small>Encrypted on this device</small></div></div>
-          <button className="settings-link"><Settings size={16} /> Settings</button>
+          <div className="privacy-live">
+            <span className={`status-dot ${identity ? "" : "inactive"}`} />
+            <div><strong>{identity ? "Privacy keys unlocked" : "Privacy keys locked"}</strong><small>{identity ? "Held in this browser session" : "Unlock from Receive & scan"}</small></div>
+          </div>
+          {walletAddress && <button className="settings-link" onClick={disconnect}><LogOut size={16} /> Disconnect</button>}
         </div>
       </aside>
 
       <main className="workspace">
         <header className="topbar">
-          <div className="network-status"><span className="pulse" /> Stacks testnet <span>·</span> Block 281,928</div>
+          <div className="network-status"><span className="pulse" /> Stacks testnet <span>·</span> {tip ? `Block ${tip.toLocaleString()}` : "Connecting…"}</div>
           <div className="top-actions">
             <div className="asset-select-wrap">
               <button className="asset-select" onClick={() => setAssetMenu(!assetMenu)} aria-expanded={assetMenu}>
                 <AssetIcon asset={asset} small /> {asset.symbol}<ChevronDown size={14} />
               </button>
               {assetMenu && <div className="asset-menu">
-                <span className="menu-label">Supported SIP-010 assets</span>
-                {SUPPORTED_ASSETS.map((item) => <button key={item.id} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
-                  <AssetIcon asset={item} small /><span><strong>{item.symbol}</strong><small>{item.name}</small></span>{assetId === item.id && <Check size={15} />}
-                </button>)}
-                <div className="coming-soon"><Plus size={13} /> More assets via policy</div>
+                <span className="menu-label">SIP-010 assets</span>
+                {SUPPORTED_ASSETS.map((item) => (
+                  <button key={item.id} disabled={!item.liveTestnet} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
+                    <AssetIcon asset={item} small />
+                    <span><strong>{item.symbol}</strong><small>{item.liveTestnet ? "Live on current router" : "Requires sBTC router deployment"}</small></span>
+                    {assetId === item.id && <Check size={15} />}
+                  </button>
+                ))}
               </div>}
             </div>
-            <button className="wallet-pill" onClick={copyAddress}><span className="wallet-avatar">S</span><span>{short(walletAddress)}</span>{copied ? <Check size={14} /> : <Copy size={14} />}</button>
+            {walletAddress ? (
+              <button className="wallet-pill" onClick={() => navigator.clipboard?.writeText(walletAddress)} title="Copy wallet address">
+                <span className="wallet-avatar">S</span><span>{short(walletAddress)}</span><Copy size={14} />
+              </button>
+            ) : (
+              <button className="wallet-pill connect-wallet" onClick={connect} disabled={connecting}>
+                <Wallet size={15} />{connecting ? "Connecting…" : "Connect wallet"}
+              </button>
+            )}
           </div>
         </header>
 
-        {view === "overview" && <Overview asset={asset} go={setView} openSpend={() => setSpendOpen(true)} />}
-        {view === "send" && <SendPrivate asset={asset} onDone={() => setView("activity")} />}
-        {view === "receive" && <ReceiveAndScan asset={asset} openSpend={() => setSpendOpen(true)} />}
-        {view === "activity" && <ActivityView />}
-        {view === "payouts" && <Payouts asset={asset} />}
+        {(notice || configError) && <NoticeBar notice={notice ?? { kind: "error", message: `Relayer unavailable: ${configError}` }} clear={() => notice ? setNotice(null) : setConfigError(null)} />}
+
+        {view === "overview" && <Overview asset={asset} wallet={walletAddress} identity={identity} deposit={deposit} payments={payments} go={setView} openSpend={(payment) => setSelectedPayment(payment)} connect={connect} />}
+        {view === "send" && <SendPrivate asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onDone={() => setView("activity")} />}
+        {view === "receive" && <ReceiveAndScan asset={asset} config={config} wallet={walletAddress} identity={identity} setIdentity={setIdentity} payments={payments} setPayments={setPayments} notify={setNotice} connect={connect} openSpend={setSelectedPayment} />}
+        {view === "activity" && <ActivityView asset={asset} payments={payments} />}
+        {view === "payouts" && <Payouts asset={asset} goSend={() => setView("send")} />}
       </main>
 
-      {spendOpen && <SponsoredSpend asset={asset} close={() => setSpendOpen(false)} />}
+      {selectedPayment && config && walletAddress && (
+        <SponsoredSpend asset={asset} config={config} wallet={walletAddress} payment={selectedPayment} close={() => setSelectedPayment(null)} notify={setNotice} />
+      )}
     </div>
   );
+}
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function NoticeBar({ notice, clear }: { notice: NonNullable<Notice>; clear: () => void }) {
+  return <div className={`notice-bar ${notice.kind}`} role="status">
+    {notice.kind === "error" ? <TriangleAlert size={16} /> : notice.kind === "success" ? <CircleCheck size={16} /> : <Info size={16} />}
+    <span>{notice.message}</span><button onClick={clear} aria-label="Dismiss"><X size={14} /></button>
+  </div>;
 }
 
 function PageTitle({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
   return <div className="page-title"><div><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{copy}</p></div>{action}</div>;
 }
 
-function Overview({ asset, go, openSpend }: { asset: Sip010Asset; go: (view: View) => void; openSpend: () => void }) {
-  const balance = formatUnits(asset.demoBalanceAtomic, asset.decimals, asset.decimals);
-  const usd = Number(formatUnits(asset.demoBalanceAtomic, asset.decimals)) * asset.usdPrice;
+function Overview({ asset, wallet, identity, deposit, payments, go, openSpend, connect }: {
+  asset: Sip010Asset; wallet: string | null; identity: PrivacyIdentity | null; deposit: bigint;
+  payments: LivePayment[]; go: (view: View) => void; openSpend: (payment: LivePayment) => void; connect: () => void;
+}) {
+  const available = payments.reduce((sum, payment) => sum + payment.balance, 0n);
   return <>
-    <PageTitle eyebrow="Private workspace" title="Your money, quietly received." copy="Receive to unlinkable one-time addresses. Spend directly without funding them with STX." action={<button className="primary-action" onClick={() => go("send")}><Send size={16} /> New private payment</button>} />
+    <PageTitle eyebrow="Private workspace" title="Your money, quietly received." copy="The figures below come from the live testnet router and the one-time addresses detected by your unlocked privacy identity." action={<button className="primary-action" onClick={() => wallet ? go("send") : connect()}><Send size={16} /> {wallet ? "New private payment" : "Connect wallet"}</button>} />
     <section className="balance-grid">
       <article className="balance-card">
-        <div className="card-head"><span>Available privately</span><span className="balance-asset"><AssetIcon asset={asset} small />{asset.symbol}</span></div>
-        <p className="balance-number">{balance} <small>{asset.symbol}</small></p>
-        <p className="balance-fiat">≈ ${usd.toLocaleString(undefined, { maximumFractionDigits: 2 })} · across 3 one-time addresses</p>
-        <div className="action-row"><button className="dark-button" onClick={openSpend}><ArrowUpRight size={15} /> Send from private balance</button><button className="light-button" onClick={openSpend}><Wallet size={15} /> Withdraw</button></div>
+        <div className="card-head"><span>Detected private balance</span><span className="balance-asset"><AssetIcon asset={asset} small />{asset.symbol}</span></div>
+        <p className="balance-number">{formatUnits(available, asset.decimals, asset.decimals)} <small>{asset.symbol}</small></p>
+        <p className="balance-fiat">Across {payments.filter((payment) => payment.balance > 0n).length} spendable one-time address(es)</p>
+        <div className="action-row"><button className="dark-button" onClick={() => go("receive")}><Search size={15} /> Scan blockchain</button>{payments.find((payment) => payment.balance > 0n) && <button className="light-button" onClick={() => openSpend(payments.find((payment) => payment.balance > 0n)!)}><Wallet size={15} /> Spend</button>}</div>
         <div className="privacy-orbit" aria-hidden="true"><i /><i /><i /></div>
       </article>
       <article className="posture-card">
-        <div className="posture-top"><span className="eyebrow on-dark">Privacy posture</span><ShieldCheck size={23} /></div>
-        <div className="score"><strong>Protected</strong><span>3 / 3</span></div><div className="meter"><i /></div>
-        <ul><li><CircleCheck /> Fresh address per payment</li><li><CircleCheck /> Keys stay on this device</li><li><CircleCheck /> Sponsored spends need 0 STX</li></ul>
+        <div className="posture-top"><span className="eyebrow on-dark">Live readiness</span><ShieldCheck size={23} /></div>
+        <div className="score"><strong>{wallet && identity ? "Ready" : "Setup needed"}</strong><span>{wallet && identity ? "3 / 3" : wallet ? "1 / 3" : "0 / 3"}</span></div><div className="meter"><i style={{ width: wallet && identity ? "100%" : wallet ? "34%" : "0%" }} /></div>
+        <ul><li><CircleCheck /> {wallet ? `Wallet ${short(wallet)}` : "Connect a testnet wallet"}</li><li><CircleCheck /> {identity ? "Privacy identity unlocked" : "Unlock encrypted privacy backup"}</li><li><CircleCheck /> Router deposit: {formatUnits(deposit, asset.decimals)} {asset.symbol}</li></ul>
       </article>
     </section>
-    <section className="overview-grid">
-      <article className="panel activity-card"><div className="section-head"><div><span className="eyebrow">Latest</span><h2>Private activity</h2></div><button className="text-button" onClick={() => go("activity")}>View all <ArrowRight size={14} /></button></div><ActivityRows rows={baseActivity.slice(0, 3)} /></article>
-      <article className="panel address-card"><div className="address-art"><div className="key-node"><KeyRound size={24} /></div><span className="r-line">R</span><span className="p-line">P′</span></div><span className="eyebrow">One identity, fresh destinations</span><h2>Bob shares one address. Every sender derives a new one.</h2><p>Your registered P/V keys let senders create addresses only you can detect and spend.</p><button className="text-button" onClick={() => go("receive")}>See how discovery works <ArrowRight size={14} /></button></article>
-    </section>
-    <section className="proof-strip"><div><span className="proof-icon"><Zap size={17} /></span><div><strong>Live testnet proof</strong><small>Paid v2 sponsored withdrawal confirmed at block 281,928</small></div></div><a href="https://explorer.hiro.so/txid/0x8d4dcb85038232e02462f3b000dd59f6da136703692fd6c5c5b6309e5b9aaeb2?chain=testnet" target="_blank" rel="noreferrer">8d4dcb85…aeb2 <ExternalLink size={13} /></a></section>
+    <section className="proof-strip"><div><span className="proof-icon"><Zap size={17} /></span><div><strong>Connected service</strong><small>{RELAYER_URL}</small></div></div><a href={`${STACKS_API_URL}/v2/info`} target="_blank" rel="noreferrer">Stacks API <ExternalLink size={13} /></a></section>
   </>;
 }
 
-function SendPrivate({ asset, onDone }: { asset: Sip010Asset; onDone: () => void }) {
-  const [recipient, setRecipient] = useState("ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG");
+function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, connect, onDone }: {
+  asset: Sip010Asset; config: PublicRelayerConfig | null; wallet: string | null; deposit: bigint;
+  setDeposit: (value: bigint) => void; notify: (notice: Notice) => void; connect: () => void; onDone: () => void;
+}) {
+  const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("1");
+  const [fundAmount, setFundAmount] = useState("10");
   const [feeMode, setFeeMode] = useState<FeeMode>("added");
   const [stage, setStage] = useState<"edit" | "review" | "signing" | "done">("edit");
+  const [route, setRoute] = useState<"idle" | "checking" | "found" | "missing">("idle");
+  const [funding, setFunding] = useState<"mint" | "deposit" | null>(null);
+  const [txid, setTxid] = useState("");
+  const [stealthPrincipal, setStealthPrincipal] = useState("");
   const quote = useMemo(() => {
-    try { return quoteSettlementFee({ amount: parseUnits(amount, asset.decimals), feeBps: 100n, mode: feeMode }); } catch { return null; }
-  }, [amount, asset, feeMode]);
+    try { return quoteSettlementFee({ amount: parseUnits(amount, asset.decimals), feeBps: BigInt(config?.settlementFeeBps ?? 100), mode: feeMode }); } catch { return null; }
+  }, [amount, asset.decimals, config?.settlementFeeBps, feeMode]);
   const format = (value?: bigint) => value === undefined ? "—" : formatUnits(value, asset.decimals, asset.decimals);
-  const submit = () => { setStage("signing"); window.setTimeout(() => setStage("done"), 1300); };
-  if (stage === "done") return <SuccessState asset={asset} amount={format(quote?.recipientAmount)} tx="0x7f36…c921" action={onDone} />;
+
+  useEffect(() => {
+    setRoute("idle");
+    if (!config || recipient.length < 20) return;
+    const timer = window.setTimeout(() => {
+      setRoute("checking");
+      void resolveRecipient(config, recipient).then((record) => setRoute(record ? "found" : "missing")).catch(() => setRoute("missing"));
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [config, recipient]);
+
+  const fund = async (kind: "mint" | "deposit") => {
+    if (!wallet) return connect();
+    if (!config) return notify({ kind: "error", message: "Relayer configuration is unavailable." });
+    try {
+      setFunding(kind);
+      const atomic = parseUnits(fundAmount, asset.decimals);
+      const id = kind === "mint" ? await mintMock(config, wallet, atomic) : await depositMock(config, wallet, atomic);
+      notify({ kind: "info", message: `${kind === "mint" ? "Mint" : "Deposit"} broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
+      await waitForTransaction(id);
+      if (kind === "deposit") setDeposit(await readRouterDeposit(config, wallet));
+      notify({ kind: "success", message: `${kind === "mint" ? "Mint" : "Deposit"} confirmed on testnet.` });
+    } catch (error) { notify({ kind: "error", message: message(error) }); } finally { setFunding(null); }
+  };
+
+  const submit = async () => {
+    if (!wallet) return connect();
+    if (!config || !quote) return;
+    setStage("signing");
+    try {
+      const result = await submitPrivatePayment({ config, walletAddress: wallet, recipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
+      setTxid(result.txid); setStealthPrincipal(result.stealthPrincipal); setStage("done");
+    } catch (error) { setStage("review"); notify({ kind: "error", message: message(error) }); }
+  };
+
+  if (stage === "done") return <SuccessState asset={asset} amount={format(quote?.recipientAmount)} tx={txid} detail={`Settling to fresh address ${short(stealthPrincipal, 9, 7)}`} action={onDone} />;
   return <>
-    <PageTitle eyebrow="Private payment" title="Send without exposing who receives." copy="Enter Bob’s normal Stacks address. Privara resolves his public privacy keys and derives a fresh destination locally." />
+    <PageTitle eyebrow="Live private payment" title="Send without exposing who receives." copy="Fund your router deposit, enter a registered recipient, then sign the exact SIP-018 intent in Leather or Xverse." />
+    <section className="funding-strip panel">
+      <div><span className="eyebrow">Router deposit</span><strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong><small>Both faucet mint and deposit are separate on-chain transactions.</small></div>
+      <div className="funding-controls"><input value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" /><button className="light-button" onClick={() => fund("mint")} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint MOCK</button><button className="dark-button" onClick={() => fund("deposit")} disabled={funding !== null}>{funding === "deposit" ? <RefreshCw className="spin" size={14} /> : null} Deposit</button></div>
+    </section>
     <div className="flow-layout">
       <section className="flow-card">
-        <div className="stepper"><span className="current">1 <i>Payment</i></span><b /><span className={stage === "review" || stage === "signing" ? "current" : ""}>2 <i>Review</i></span><b /><span>3 <i>Sign</i></span></div>
         {stage === "edit" ? <>
-          <label className="field-label">Recipient’s Stacks address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value)} /><span className="resolved"><CircleCheck size={14} /> Privacy keys found</span></div>
-          <div className="resolved-card"><span className="resolved-icon"><LockKeyhole size={18} /></span><div><strong>Private routing is available</strong><small>P and V found · Registry epoch 1</small></div><span className="privacy-tag">Recipient unlinkability</span></div>
-          <label className="field-label">Amount Bob should receive</label><div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><button><AssetIcon asset={asset} small /> {asset.symbol}<ChevronDown size={14} /></button></div>
-          <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Bob receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>The fee is deducted from the entered total</small></div></button></div>
-          <button className="primary-wide" disabled={!quote || !recipient} onClick={() => setStage("review")}>Review private payment <ArrowRight size={16} /></button>
-        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your deposit</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Fresh one-time address</small><strong>ST3JY8…3AZD</strong></div></div><div className="review-lines"><div><span>Bob receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee · 1%</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total you authorize</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>The one-time address and encrypted announcement are bound to your signature. The relayer cannot redirect this payment.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet signature…</> : <><Wallet size={16} /> Sign with wallet</>}</button></div>}
+          <label className="field-label">Recipient’s Stacks testnet address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder="ST…" />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> P/V found</> : "Not registered"}</span>}</div>
+          <label className="field-label">Amount recipient should receive</label><div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div>
+          <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
+          <button className="primary-wide" disabled={!quote || route !== "found" || !wallet || !config || deposit < quote.totalAmount} onClick={() => setStage("review")}>{!wallet ? "Connect wallet first" : deposit < (quote?.totalAmount ?? 0n) ? "Deposit more MOCK" : "Review private payment"} <ArrowRight size={16} /></button>
+        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your router deposit</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh P′</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs a SIP-018 message, not a token transfer. The relayer verifies that signature and submits the bound settlement.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
-      <aside className="summary-card"><span className="eyebrow">Before you sign</span><h3>Payment summary</h3><div className="summary-amount"><AssetIcon asset={asset} /><div><strong>{format(quote?.recipientAmount)}</strong><small>{asset.symbol} to Bob</small></div></div><dl><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Fee handling</dt><dd>{feeMode === "added" ? "Added on top" : "Included"}</dd></div><div><dt>Recipient address</dt><dd>Fresh P′</dd></div><div><dt>Amounts on-chain</dt><dd>Public</dd></div></dl><div className="summary-note"><ShieldCheck size={18} /><span>Bob’s long-term wallet is not included in the signed intent or announcement.</span></div></aside>
+      <aside className="summary-card"><span className="eyebrow">Live policy</span><h3>Payment summary</h3><dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Fee handling</dt><dd>{feeMode === "added" ? "Added" : "Included"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></aside>
     </div>
   </>;
 }
 
-function ReceiveAndScan({ asset, openSpend }: { asset: Sip010Asset; openSpend: () => void }) {
-  const [scanning, setScanning] = useState(false); const [scanned, setScanned] = useState(false);
-  const runScan = () => { setScanning(true); window.setTimeout(() => { setScanning(false); setScanned(true); }, 1200); };
-  return <><PageTitle eyebrow="Receive & discover" title="One public identity. Private arrivals." copy="Your wallet registers only P and V. Detection and spend-key derivation happen locally after you unlock your encrypted backup." action={<button className="primary-action" onClick={runScan} disabled={scanning}>{scanning ? <RefreshCw className="spin" size={16} /> : <Search size={16} />}{scanning ? "Scanning index…" : "Scan for payments"}</button>} />
-    <section className="setup-grid"><article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Privacy setup</span><h2>Ready to receive</h2></div><span className="ready-badge"><CircleCheck size={14} /> Registered</span></div><div className="setup-flow"><div><span><Wallet /></span><strong>Stacks wallet</strong><small>{short(walletAddress, 8, 6)}</small></div><ArrowRight /><div><span><KeyRound /></span><strong>Public P / V</strong><small>Registry epoch 1</small></div><ArrowRight /><div><span><FileKey /></span><strong>Encrypted backup</strong><small>Stored on device</small></div></div><div className="key-list"><div><span>Spending public key · P</span><code>03a81f…92c771</code><button><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>028c45…9ef024</code><button><Copy size={13} /></button></div></div><button className="light-button"><FileKey size={15} /> Export encrypted backup</button></article>
-      <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{scanned ? "1 new payment found" : "Your keys, your inbox"}</h2><p>{scanned ? "The indexed announcement matched your viewing key. The spending key stayed locked until needed." : "Privara downloads public announcements. Your device checks which one-time addresses belong to you."}</p><div className="scan-stat"><div><strong>{scanned ? "248" : "247"}</strong><small>Announcements checked</small></div><div><strong>{scanned ? "4" : "3"}</strong><small>Payments detected</small></div></div></article></section>
-    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">3 spendable</span></div><div className="private-payment"><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>0.25000000 {asset.symbol}</strong><small>ST24B2…XN6AY · detected 18 min ago</small></div><span className="zero-stx">0 STX</span><button onClick={openSpend}>Spend <ArrowUpRight size={14} /></button></div><div className="private-payment"><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>0.87500000 {asset.symbol}</strong><small>STF048…XJEB9 · detected Sep 4</small></div><span className="zero-stx">0 STX</span><button onClick={openSpend}>Spend <ArrowUpRight size={14} /></button></div></section>
+function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments, setPayments, notify, connect, openSpend }: {
+  asset: Sip010Asset; config: PublicRelayerConfig | null; wallet: string | null; identity: PrivacyIdentity | null;
+  setIdentity: (identity: PrivacyIdentity | null) => void; payments: LivePayment[]; setPayments: (payments: LivePayment[]) => void;
+  notify: (notice: Notice) => void; connect: () => void; openSpend: (payment: LivePayment) => void;
+}) {
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [checked, setChecked] = useState(0);
+  const backupExists = wallet ? hasPrivacyBackup(wallet) : false;
+
+  const privacyAction = async (kind: "create" | "unlock" | "register") => {
+    if (!wallet) return connect();
+    if (!config) return notify({ kind: "error", message: "Relayer configuration is unavailable." });
+    try {
+      setBusy(kind);
+      let active = identity;
+      if (kind === "create") active = (await createPrivacyIdentity(wallet, password)).identity;
+      if (kind === "unlock") active = await unlockPrivacyIdentity(wallet, password);
+      if (!active) throw new Error("Create or unlock the privacy identity first");
+      setIdentity(active);
+      if (kind === "register" || kind === "create") {
+        const result = await registerPrivacyIdentity(config, wallet, active);
+        if (result.txid) {
+          notify({ kind: "info", message: `Privacy registration broadcast: ${short(result.txid, 10, 8)}. Waiting for confirmation…` });
+          await waitForTransaction(result.txid);
+        }
+        notify({ kind: "success", message: result.alreadyRegistered ? "On-chain P/V registration already matches this backup." : "Privacy P/V registration confirmed on testnet." });
+      } else notify({ kind: "success", message: "Encrypted privacy identity unlocked for this browser session." });
+      setPassword("");
+    } catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
+  };
+
+  const importBackup = async (file: File | undefined) => {
+    if (!file || !wallet) return;
+    // Backups are encrypted with this password, so validate it before reading the file.
+    if (password.length < 12) {
+      notify({ kind: "error", message: "Enter the backup password first (minimum 12 characters), then choose the JSON backup." });
+      return;
+    }
+    try { setBusy("import"); const active = await importPrivacyIdentity(wallet, await file.text(), password); setIdentity(active); notify({ kind: "success", message: "Encrypted backup imported and unlocked. Verify its on-chain registration next." }); setPassword(""); }
+    catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
+  };
+
+  const scan = async () => {
+    if (!identity || !config) return notify({ kind: "error", message: "Unlock your privacy identity and connect the relayer first." });
+    try { setBusy("scan"); const result = await scanPrivatePayments(config, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` }); }
+    catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
+  };
+
+  return <>
+    <PageTitle eyebrow="Receive & discover" title="One public identity. Private arrivals." copy="The encrypted backup stays on this device. Unlocking happens locally; only P and V are registered on-chain." action={<button className="primary-action" onClick={scan} disabled={busy !== null || !identity}>{busy === "scan" ? <RefreshCw className="spin" size={16} /> : <Search size={16} />} Scan announcements</button>} />
+    {!wallet ? <section className="panel empty-state"><Wallet size={28} /><h2>Connect a testnet wallet</h2><p>Your privacy backup is stored separately for each wallet address.</p><button className="primary-action" onClick={connect}>Connect Leather or Xverse</button></section> : <section className="setup-grid">
+      <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Privacy identity</span><h2>{identity ? "Unlocked locally" : backupExists ? "Encrypted and locked" : "Not created on this device"}</h2></div><span className={`ready-badge ${identity ? "" : "locked"}`}>{identity ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity ? "Ready" : "Locked"}</span></div>
+        {!identity && <><label className="field-label">Backup password (minimum 12 characters)</label><div className="address-input compact"><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Never sent to Privara" /></div><small className="field-help">Enter the password used to create this backup, then choose its JSON file.</small><div className="privacy-actions">{backupExists ? <button className="dark-button" onClick={() => privacyAction("unlock")} disabled={password.length < 12 || busy !== null}>Unlock backup</button> : <button className="dark-button" onClick={() => privacyAction("create")} disabled={password.length < 12 || busy !== null}>Create and register P/V</button>}<label className="light-button file-button"><FileKey size={15} /> Import backup<input type="file" accept="application/json" onChange={(event) => { void importBackup(event.target.files?.[0]); event.target.value = ""; }} disabled={busy !== null} /></label></div></>}
+        {identity && <><div className="key-list"><div><span>Spending public key · P</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => navigator.clipboard?.writeText(publicKeyLabel(identity, "spending"))}><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => navigator.clipboard?.writeText(publicKeyLabel(identity, "viewing"))}><Copy size={13} /></button></div></div><div className="privacy-actions"><button className="dark-button" onClick={() => privacyAction("register")} disabled={busy !== null}><KeyRound size={15} /> Verify/register on-chain</button><button className="light-button" onClick={() => exportStoredBackup(wallet)}><FileKey size={15} /> Download encrypted backup</button></div></>}
+      </article>
+      <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
+    </section>}
+    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol}</strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><span className="zero-stx">0 STX</span><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
   </>;
 }
 
-function SponsoredSpend({ asset, close }: { asset: Sip010Asset; close: () => void }) {
-  const balance = 25_000_000n; const [kind, setKind] = useState<"send" | "withdraw">("send"); const [amount, setAmount] = useState("0.04"); const [done, setDone] = useState(false); const [submitting, setSubmitting] = useState(false);
-  const payment = kind === "withdraw" ? balance - asset.sponsorFeeAtomic : (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
-  const total = payment + asset.sponsorFeeAtomic; const valid = payment > 0n && total <= balance;
-  const confirm = () => { setSubmitting(true); window.setTimeout(() => { setSubmitting(false); setDone(true); }, 1250); };
-  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title"><button className="close-button" onClick={close} aria-label="Close"><X /></button>{done ? <SuccessState asset={asset} amount={formatUnits(payment, asset.decimals, asset.decimals)} tx="0x9b7d…12af" action={close} compact /> : <><span className="eyebrow">Sponsored v2 spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">Sign with the one-time key on this device. Privara pays the STX network fee.</p><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div><small>From one-time address</small><strong>ST24B2…XN6AY</strong></div></div><span><strong>{formatUnits(balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div><div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Withdraw all</button></div><label className="field-label">{kind === "send" ? "Destination" : "Connected wallet"}</label><div className="address-input compact"><input value={kind === "send" ? "ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG" : walletAddress} readOnly /></div>{kind === "send" && <><label className="field-label">Amount to send</label><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div></>}<div className="fee-breakdown"><div><span>{kind === "send" ? "Recipient gets" : "You receive"}</span><strong>{formatUnits(payment, asset.decimals, asset.decimals)} {asset.symbol}</strong></div><div><span>Privara sponsor fee</span><strong>{formatUnits(asset.sponsorFeeAtomic, asset.decimals, asset.decimals)} {asset.symbol}</strong></div><div><span>STX required from you</span><strong className="free">0 STX</strong></div><div className="total"><span>Total deducted</span><strong>{formatUnits(total, asset.decimals, asset.decimals)} {asset.symbol}</strong></div></div>{kind === "withdraw" && <div className="warning-box"><TriangleAlert size={17} /><p>Withdrawing directly to your public wallet may publicly link this stealth payment to that wallet.</p></div>}<div className="signed-fields"><ShieldCheck size={16} /><span>You sign the destination, payment, exact token fee, and expected sponsor. Privara cannot change them.</span></div><button className="primary-wide" disabled={!valid || submitting} onClick={confirm}>{submitting ? <><RefreshCw className="spin" size={16} /> Adding sponsor signature…</> : <><Zap size={16} /> Sign & request sponsorship</>}</button></>}</section></div>;
+function SponsoredSpend({ asset, config, wallet, payment, close, notify }: {
+  asset: Sip010Asset; config: PublicRelayerConfig; wallet: string; payment: LivePayment; close: () => void; notify: (notice: Notice) => void;
+}) {
+  const [kind, setKind] = useState<"send" | "withdraw">("send");
+  const [destination, setDestination] = useState("");
+  const [amount, setAmount] = useState("0.1");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ txid: string; paymentAmount: string; tokenSponsorFee: string; networkFeePaid: string } | null>(null);
+  const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
+  const submit = async () => {
+    try { setSubmitting(true); const response = await spendPrivatePayment({ config, payment, destination: kind === "withdraw" ? wallet : destination, fullBalance: kind === "withdraw", amount: kind === "send" ? paymentAmount : undefined }); setResult(response); }
+    catch (error) { notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
+  };
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && close()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title"><button className="close-button" onClick={close} aria-label="Close"><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">The one-time key signs locally. The relayer receives only the serialized origin-signed transaction.</p><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div><small>From one-time address</small><strong>{short(payment.stealthPrincipal, 10, 8)}</strong></div></div><span><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div><div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw"} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className="amount-input"><input value={amount} onChange={(event) => setAmount(event.target.value)} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={submit} disabled={submitting || (kind === "send" && (!destination || paymentAmount <= 0n))}>{submitting ? <><RefreshCw className="spin" size={16} /> Signing and sponsoring…</> : <><Zap size={16} /> Sign locally and sponsor</>}</button></> }</section></div>;
 }
 
-function ActivityRows({ rows }: { rows: typeof baseActivity }) { return <div className="activity-list">{rows.map((item) => <div className="activity-row" key={item.tx}><span className={`activity-type ${item.type}`}>{item.type === "receive" ? <ArrowDownLeft /> : <ArrowUpRight />}</span><div><strong>{item.title}</strong><small>{item.detail}</small></div><span className={`status-label ${item.status === "Spendable" ? "spendable" : ""}`}>{item.status}</span><strong className="row-amount">{item.amount} <small>{item.asset}</small></strong><button className="more-button"><MoreHorizontal /></button></div>)}</div>; }
+function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LivePayment[] }) {
+  return <><PageTitle eyebrow="Live on-chain history" title="Detected activity" copy="This list is rebuilt from public router announcements after you unlock and scan; Privara does not upload a private activity database." /><section className="panel activity-page">{payments.length === 0 ? <div className="inline-empty">No scanned activity in this session.</div> : payments.map((payment) => <a className="activity-live-row" href={explorer(payment.transactionId)} target="_blank" rel="noreferrer" key={payment.transactionId}><span className="activity-type"><ArrowDownLeft /></span><div><strong>Private payment detected</strong><small>{payment.stealthPrincipal}</small></div><strong>+{formatUnits(payment.receivedAmount, asset.decimals)} {asset.symbol}</strong><ExternalLink size={14} /></a>)}</section></>;
+}
 
-function ActivityView() { const [filter, setFilter] = useState("All"); return <><PageTitle eyebrow="On-chain history" title="Activity" copy="Every amount and one-time address is public. Privara keeps the long-term recipient relationship out of the settlement." /><section className="panel activity-page"><div className="activity-tools"><div className="filter-tabs">{["All", "Received", "Sent"].map((item) => <button key={item} onClick={() => setFilter(item)} className={filter === item ? "active" : ""}>{item}</button>)}</div><button className="light-button"><ExternalLink size={14} /> Explorer</button></div><ActivityRows rows={baseActivity.filter((item) => filter === "All" || (filter === "Received" ? item.type === "receive" : item.type === "send"))} /></section></>; }
+function Payouts({ asset, goSend }: { asset: Sip010Asset; goSend: () => void }) {
+  return <><PageTitle eyebrow="Teams & DAOs" title="Private contributor payouts." copy="The live base version executes one independently authorized private intent at a time. Batch orchestration will reuse the same verified single-payment path." /><section className="panel empty-state"><Users size={30} /><h2>Single live flow first</h2><p>Use Send privately for each registered contributor. This avoids presenting a simulated batch as a completed on-chain feature.</p><button className="primary-action" onClick={goSend}>Send a live {asset.symbol} payment <ArrowRight size={15} /></button></section></>;
+}
 
-function Payouts({ asset }: { asset: Sip010Asset }) { const [sent, setSent] = useState(false); return <><PageTitle eyebrow="Teams & DAOs" title="Private contributor payouts." copy="Pay normal Stacks identities while routing each payout to a fresh one-time address." action={<button className="primary-action"><Plus size={16} /> Add recipient</button>} /><section className="dao-metrics"><div><span><Building2 /></span><div><small>Batch total</small><strong>1.375 {asset.symbol}</strong></div></div><div><span><Users /></span><div><small>Recipients</small><strong>3 contributors</strong></div></div><div><span><LockKeyhole /></span><div><small>Private routing</small><strong>3 / 3 available</strong></div></div></section><section className="panel payout-card"><div className="payout-head"><span>Recipient</span><span>Private route</span><span>Amount</span><span /></div>{[["Amina O.", "ST3AMN…Q9D2", "0.500"], ["Kojo Labs", "ST2KJ0…81VV", "0.625"], ["Lena R.", "ST1LNA…4F8C", "0.250"]].map(([name, address, amount]) => <div className="payout-row" key={name}><div><span className="contributor-avatar">{name[0]}</span><div><strong>{name}</strong><small>{address}</small></div></div><span className="private-route"><ShieldCheck size={14} /> Fresh P′ ready</span><strong>{amount} {asset.symbol}</strong><button><MoreHorizontal /></button></div>)}<div className="batch-summary"><div><Info size={16} /><span>Each recipient gets a different one-time address. Amounts and your payer wallet remain public.</span></div><button className="primary-action" onClick={() => setSent(true)}>{sent ? <><CircleCheck size={16} /> Batch prepared</> : <>Review 3 payouts <ArrowRight size={16} /></>}</button></div></section></>; }
-
-function SuccessState({ asset, amount, tx, action, compact = false }: { asset: Sip010Asset; amount: string; tx: string; action: () => void; compact?: boolean }) { return <section className={`success-state ${compact ? "compact" : ""}`}><span className="success-mark"><Check /></span><span className="eyebrow">Broadcast accepted</span><h2>{amount} {asset.symbol} is on its way.</h2><p>The signed transaction was accepted by the testnet node. Track it to finality in the explorer.</p><div className="success-tx"><div><small>Transaction ID</small><strong>{tx}</strong></div><ExternalLink size={16} /></div><button className="primary-wide" onClick={action}>{compact ? "Done" : "View activity"}<ArrowRight size={16} /></button></section>; }
-
-export default App;
+function SuccessState({ asset, amount, tx, detail, action, compact = false }: { asset: Sip010Asset; amount: string; tx: string; detail?: string; action: () => void; compact?: boolean }) {
+  return <section className={`success-state ${compact ? "compact" : ""}`}><span className="success-mark"><Check /></span><span className="eyebrow">Broadcast accepted</span><h2>{amount} {asset.symbol} is on its way.</h2><p>{detail || "The testnet node accepted the transaction. Track it until final confirmation."}</p><a className="success-tx" href={explorer(tx)} target="_blank" rel="noreferrer"><div><small>Transaction ID</small><strong>{short(tx, 16, 12)}</strong></div><ExternalLink size={16} /></a><button className="primary-wide" onClick={action}>{compact ? "Done" : "View activity"}<ArrowRight size={16} /></button></section>;
+}

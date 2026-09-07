@@ -8,6 +8,8 @@ The reference service exposes the two Milestone 2 relayer operations:
   sponsor authorization, and broadcasts it.
 - `GET /v1/stealth/sponsor-policy` returns the exact token fee and treasury the client
   must display and sign.
+- `GET /v1/config` returns the public network, contracts, relayer address, asset, and
+  settlement fee configuration consumed by the React app.
 
 Neither endpoint accepts a privacy seed, backup password, viewing key, spending key, or
 derived one-time private key. Recipient scanning and origin signing stay client-side.
@@ -26,14 +28,43 @@ export PRIVARA_TOKEN_NAME=mock
 export PRIVARA_SPEND_CONTRACT=ST...DEPLOYER.privara-sponsored-spend-v2
 export PRIVARA_SPONSOR_FEE_RECIPIENT=ST...TREASURY
 export PRIVARA_TOKEN_SPONSOR_FEE=100
+export PRIVARA_ALLOWED_ORIGINS=http://127.0.0.1:5173
 export RELAYER_KEY="$RELAYER_PRIVATE_KEY"
 export SPONSOR_KEY="$SPONSOR_PRIVATE_KEY"
 npm run relayer:serve
 ```
 
-The server listens on `127.0.0.1:8787` by default. Put authenticated TLS ingress or a
+The server listens on `127.0.0.1:8787` by default. Put TLS ingress or a
 reverse proxy in front of it for a remote deployment; do not expose the raw development
 listener directly.
+
+## Container deployment
+
+Build the provider-neutral image from the repository root:
+
+```sh
+cp relayer/.env.example relayer.env
+# Fill the two keys, treasury address, and exact deployed app origin in relayer.env.
+docker build -f Dockerfile.relayer -t privara-relayer .
+```
+
+Run exactly one replica for the base testnet deployment and mount durable storage:
+
+```sh
+docker run --rm -p 8787:8787 \
+  --env-file relayer.env \
+  -v privara-relayer-data:/data \
+  privara-relayer
+```
+
+The hosting provider must supply HTTPS, persistent storage at `/data`, and secrets as
+environment variables. Set `HOST=0.0.0.0`, `PRIVARA_PROCESSED_STORE` to
+`/data/relayer-processed.json`, and `PRIVARA_ALLOWED_ORIGINS` to the exact deployed app
+origin. Do not use `*`; requests from scripts without an `Origin` header still work.
+
+For this base release keep one replica: sponsor nonce allocation is serialized inside
+one process. Horizontal replicas require a transactional shared replay store and a
+distributed lock before they are safe.
 
 Check health:
 
@@ -78,7 +109,9 @@ track the returned transaction ID to finality.
 | `PRIVARA_SPONSOR_RATE_LIMIT` | `10` | Sponsorships per one-time origin per window |
 | `PRIVARA_SPONSOR_RATE_WINDOW_MS` | `60000` | In-memory rate-limit window |
 | `STACKS_API_URL` | network default | Stacks API base URL override |
+| `HOST` | `127.0.0.1` | Bind host; use `0.0.0.0` inside a container |
 | `PORT` | `8787` | Local listen port |
+| `PRIVARA_ALLOWED_ORIGINS` | `http://localhost:5173` | Comma-separated exact browser origins |
 | `PRIVARA_PROCESSED_STORE` | `.privara/relayer-processed.json` | Durable accepted-request IDs |
 
 The sponsor additionally requires testnet/mainnet matching, sponsored single-signature

@@ -357,6 +357,70 @@ Explorer URL format:
 https://explorer.hiro.so/txid/0x<TX_ID>?chain=testnet
 ```
 
+## Phase 6 browser app and relayer deployment
+
+The React app now performs the live M2 flow. It does not accept wallet private keys.
+Leather/Xverse signs wallet operations; the independent privacy seed is encrypted in
+the browser and never sent to the relayer.
+
+### Relayer service
+
+Copy `relayer/.env.example` to the gitignored `relayer.env`, then set:
+
+- `RELAYER_KEY`: testnet account 2 key used for settlement transactions;
+- `SPONSOR_KEY`: the sponsor key that pays STX (it may equal account 2 for this demo);
+- `PRIVARA_SPONSOR_FEE_RECIPIENT`: the wallet receiving the fixed 100-atomic-MOCK fee;
+- `PRIVARA_ALLOWED_ORIGINS`: exact HTTPS React origin, without a trailing slash.
+
+The settlement/sponsor wallet must hold enough testnet STX. Never add either key to the
+React environment or any variable beginning with `VITE_`.
+
+Build and run the provider-neutral container:
+
+```sh
+docker build -f Dockerfile.relayer -t privara-relayer .
+docker run --rm -p 8787:8787 \
+  --env-file relayer.env \
+  -v privara-relayer-data:/data \
+  privara-relayer
+```
+
+The remote service must use HTTPS, a persistent `/data` volume, and one replica for the
+base release. Verify it before building the frontend:
+
+```sh
+curl --fail https://RELAYER_HOST/health
+curl --fail https://RELAYER_HOST/v1/config
+curl --fail https://RELAYER_HOST/v1/stealth/sponsor-policy
+```
+
+### React application
+
+Create `app/.env.local` from `app/.env.example` and set:
+
+```sh
+VITE_PRIVARA_RELAYER_URL=https://RELAYER_HOST
+VITE_STACKS_API_URL=https://api.testnet.hiro.so
+```
+
+Run `npm run app:build`, then deploy `app/dist/` to a static HTTPS host. If its final
+origin differs from `PRIVARA_ALLOWED_ORIGINS`, update the relayer variable and restart
+the service.
+
+### Required browser acceptance
+
+1. Bob connects a testnet wallet, imports/unlocks his existing encrypted backup, and
+   verifies that its P/V matches the registry.
+2. Alice connects a funded testnet wallet, mints MOCK, deposits it into the M2 router,
+   and waits for both confirmations.
+3. Alice enters Bob's normal address, chooses fee-added, signs the SIP-018 intent, and
+   records the returned settlement transaction ID.
+4. After confirmation, Bob scans and sees the new one-time address and MOCK balance.
+5. Bob pays another address from that balance, then withdraws any remainder. Record both
+   sponsored transaction IDs and confirm the one-time address spent zero STX.
+
+Add those transaction IDs above before declaring the Phase 6 exit complete.
+
 <!-- ## sBTC status
 
 The confirmed deployment above is the Milestone 1 mock-token acceptance environment.

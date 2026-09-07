@@ -112,28 +112,28 @@ The M1 SDK core (`sdk/`) provides:
 - `buildSettlementArgs` — formats a `SignedIntent` into the positional args for `settle-intent` (and `cancel-intent`, which shares the shape)
 
 M2 stealth identity, one-time address derivation, encrypted note, backup, announcement
-hashing, and local scanning primitives are implemented. Registry lookup, router-bound
-announcement emission, indexer, sponsored sweeps, and wallet integration remain.
+hashing, registry lookup, router-bound emission, indexed scanning, browser-wallet
+structured signing, and sponsored spends are implemented.
 
 ### Reference Relayer
 
-The relayer service will:
+The relayer service:
 
 - receive authorized settlement requests
 - validate intent structure and signatures
 - submit settlement transactions
-- track execution status
-- expose simple APIs for wallets and demo apps
+- publishes browser-safe public policy/configuration APIs
+- rejects unapproved browser origins and duplicate sponsored requests
+- supports a durable single-replica request store and container deployment
 
 ### Demo App
 
-The demo app will show:
+The React testnet app supports:
 
-- wallet-to-wallet SIP-010 intent creation
-- relayer-submitted settlement
-- fresh-address recipient flow
-- transaction status tracking
-- a simulated DAO payout flow
+- Leather/Xverse connection and contract-call approvals
+- locally encrypted privacy identity creation/import/unlock
+- on-chain P/V registration, MOCK mint/deposit, and SIP-018 private intent signing
+- relayer-submitted settlement, live scanning, and sponsored stealth spending
 
 ## Use Cases
 
@@ -195,8 +195,10 @@ Additional signs of success:
 
 ## Current Status
 
-Milestone 1 is implemented and the M2 stealth SDK core is now underway. All 63 tests pass
-(including 22 M2 stealth tests), and the standalone SDK builds successfully.
+Milestone 1 and the M2 protocol/SDK/relayer implementation are complete. The repository
+has 123 passing tests and the standalone SDK and React production bundle build
+successfully. The remaining Phase 6 acceptance work is deploying the relayer behind
+HTTPS and completing a manual two-wallet testnet flow through the browser UI.
 
 **Contracts (simnet, Clarity 4):**
 

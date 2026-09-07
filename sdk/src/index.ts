@@ -70,17 +70,23 @@ export {
   stealthDomainHash,
   stealthMessageDigest,
   signStealthIntent,
+  attachStealthIntentSignature,
+  stealthIntentDomainCV,
+  stealthIntentMessageCV,
   buildStealthSettlementArgs,
   buildStealthCancellationArgs,
   STEALTH_INTENT_VERSION,
 } from "./stealth-intent";
 export {
   createPrivateIntent,
+  preparePrivateIntent,
   privateIntentEnvelope,
   quoteSettlementFee,
   type SettlementFeeMode,
   type SettlementFeeQuote,
   type CreatePrivateIntentOptions,
+  type PreparePrivateIntentOptions,
+  type PreparedPrivateIntentResult,
   type PrivateIntentResult,
   type PrivateIntentEnvelope,
 } from "./private-intent";

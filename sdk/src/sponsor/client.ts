@@ -55,6 +55,10 @@ export interface SendFromStealthOptions extends SponsoredClientBase {
 
 export type WithdrawStealthBalanceOptions = SponsoredClientBase;
 
+export type SweepStealthOptions =
+  | (SponsoredClientBase & { fullBalance: true; amount?: never })
+  | (SponsoredClientBase & { fullBalance?: false; amount: bigint });
+
 function endpoint(base: string, path: string): string {
   return `${base.replace(/\/$/, "")}${path}`;
 }
@@ -166,4 +170,11 @@ export async function withdrawStealthBalance(
   options: WithdrawStealthBalanceOptions
 ): Promise<SponsoredSpendResult> {
   return submit(options);
+}
+
+/** One entry point for UI callers; fullBalance chooses net withdrawal vs partial spend. */
+export async function sweepStealthBalance(
+  options: SweepStealthOptions
+): Promise<SponsoredSpendResult> {
+  return options.fullBalance ? submit(options) : submit(options, options.amount);
 }

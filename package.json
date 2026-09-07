@@ -15,6 +15,7 @@
     "deploy:sponsored-spend:testnet": "tsx scripts/deploy-sponsored-spend.ts",
     "register:stealth-keys": "tsx scripts/register-stealth-keys.ts",
     "acceptance:stealth:testnet": "tsx scripts/testnet-stealth-acceptance.ts",
+    "acceptance:http-paid:testnet": "tsx scripts/testnet-http-paid-acceptance.ts",
     "scan:stealth:testnet": "tsx scripts/scan-testnet-announcements.ts",
     "create:sponsored-sweep": "tsx scripts/create-sponsored-sweep.ts",
     "sponsor:sweep:testnet": "tsx scripts/sponsor-sweep.ts",

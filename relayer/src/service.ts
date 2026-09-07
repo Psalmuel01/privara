@@ -17,9 +17,16 @@ import {
   hashIntent,
   messageDigest,
   fetchAnnouncementPage,
+  hashStealthAnnouncement,
+  hashStealthIntent,
+  stealthMessageDigest,
+  validateStealthAnnouncement,
   validateSponsoredSpend,
   type Intent,
   type Network,
+  type PrivateIntentEnvelope,
+  type StealthAnnouncementPayload,
+  type StealthIntent,
 } from "../../sdk/src";
 import { STACKS_MAINNET, STACKS_TESTNET } from "@stacks/network";
 import {
@@ -146,11 +153,26 @@ function cleanHex(value: string, bytes: number, label: string): string {
   return clean;
 }
 
+function cleanHexVariable(value: string, label: string): string {
+  if (typeof value !== "string") throw new RelayerError(`${label} must be hex`);
+  const clean = value.replace(/^0x/, "").toLowerCase();
+  if (!/^[0-9a-f]+$/.test(clean) || clean.length % 2 !== 0) {
+    throw new RelayerError(`${label} must be whole-byte hex`);
+  }
+  return clean;
+}
+
 function integer(value: string, label: string): bigint {
   if (typeof value !== "string" || !/^[0-9]+$/.test(value)) {
     throw new RelayerError(`${label} must be an unsigned integer string`);
   }
   return BigInt(value);
+}
+
+function maximumFee(amount: bigint, feeBps: number): bigint {
+  // Round the percentage ceiling up to one atomic unit, matching SDK fee quotes for
+  // very small payments where an exact fractional token unit cannot be represented.
+  return (amount * BigInt(feeBps) + 9_999n) / 10_000n;
 }
 
 function sameHex(left: string, right: Uint8Array): boolean {
@@ -161,6 +183,13 @@ export interface ValidatedSettlement {
   intent: Intent;
   user: string;
   userSig: Uint8Array;
+}
+
+export interface ValidatedStealthSettlement {
+  intent: StealthIntent;
+  user: string;
+  userSig: Uint8Array;
+  announcement: StealthAnnouncementPayload;
 }
 
 export function validateSettlementEnvelope(
@@ -185,7 +214,7 @@ export function validateSettlementEnvelope(
     throw new RelayerError(`amount exceeds relayer maximum ${config.maxIntentAmount}`);
   }
   if (relayerFee >= amount) throw new RelayerError("relayerFee must be less than amount");
-  if (relayerFee * 10_000n > amount * BigInt(config.maxRelayerFeeBps)) {
+  if (relayerFee > maximumFee(amount, config.maxRelayerFeeBps)) {
     throw new RelayerError(`relayerFee exceeds ${config.maxRelayerFeeBps} bps`);
   }
   const intent: Intent = {
@@ -221,6 +250,97 @@ export function validateSettlementEnvelope(
   }
   if (recovered !== envelope.user) throw new RelayerError("user does not match the recovered signer");
   return { intent, user: recovered, userSig: hexToBytes(signature) };
+}
+
+/** Validate every M2 field against both the signature and canonical announcement hash. */
+export function validateStealthSettlementEnvelope(
+  envelope: PrivateIntentEnvelope,
+  config: RelayerConfig
+): ValidatedStealthSettlement {
+  if (!envelope || envelope.kind !== "stealth") {
+    throw new RelayerError("stealth settlement envelope is required");
+  }
+  if (envelope.network !== config.network) throw new RelayerError("intent network is not supported");
+  if (envelope.asset !== config.assetContract) throw new RelayerError("intent asset is not allowed");
+  const expectedRelayer = getAddressFromPrivateKey(config.relayerPrivateKey, config.network);
+  if (envelope.relayer !== expectedRelayer) {
+    throw new RelayerError("intent is assigned to a different relayer");
+  }
+  if (!Number.isSafeInteger(envelope.expiry) || envelope.expiry <= 0) {
+    throw new RelayerError("expiry must be a positive safe integer");
+  }
+  const amount = integer(envelope.amount, "amount");
+  const relayerFee = integer(envelope.relayerFee, "relayerFee");
+  const nonce = integer(envelope.nonce, "nonce");
+  if (amount <= 0n || amount > config.maxIntentAmount) {
+    throw new RelayerError(`amount exceeds relayer maximum ${config.maxIntentAmount}`);
+  }
+  if (relayerFee >= amount) throw new RelayerError("relayerFee must be less than amount");
+  if (relayerFee > maximumFee(amount, config.maxRelayerFeeBps)) {
+    throw new RelayerError(`relayerFee exceeds ${config.maxRelayerFeeBps} bps`);
+  }
+
+  const publicAnnouncement = envelope.announcement;
+  if (!publicAnnouncement || publicAnnouncement.version !== 1) {
+    throw new RelayerError("unsupported stealth announcement version");
+  }
+  const ciphertextHex = cleanHexVariable(publicAnnouncement.ciphertext, "announcement ciphertext");
+  const announcement: StealthAnnouncementPayload = {
+    version: 1,
+    stealthPrincipal: publicAnnouncement.stealthPrincipal,
+    ephemeralPublicKey: hexToBytes(cleanHex(publicAnnouncement.ephemeralPublicKey, 33, "ephemeralPublicKey")),
+    nonce: hexToBytes(cleanHex(publicAnnouncement.nonce, 12, "announcement nonce")),
+    ciphertext: hexToBytes(ciphertextHex),
+    asset: publicAnnouncement.asset,
+    registryEpoch: integer(publicAnnouncement.registryEpoch, "registryEpoch"),
+  };
+  try {
+    validateStealthAnnouncement(announcement);
+  } catch (error) {
+    throw new RelayerError(error instanceof Error ? error.message : "invalid announcement");
+  }
+  if (announcement.asset !== envelope.asset || announcement.stealthPrincipal !== envelope.recipient) {
+    throw new RelayerError("announcement does not match the signed asset and recipient");
+  }
+  const announcementHash = hashStealthAnnouncement(announcement);
+  if (!sameHex(cleanHex(publicAnnouncement.hash, 32, "announcement hash"), announcementHash)) {
+    throw new RelayerError("announcement hash does not match its canonical payload");
+  }
+
+  const intent: StealthIntent = {
+    asset: envelope.asset,
+    amount,
+    recipient: envelope.recipient,
+    relayer: envelope.relayer,
+    relayerFee,
+    nonce,
+    expiry: envelope.expiry,
+    announcementHash,
+  };
+  const intentHash = hashStealthIntent(intent);
+  const digest = stealthMessageDigest(
+    intent,
+    config.network,
+    `${config.coreAddress}.privara-router-m2`
+  );
+  if (!sameHex(cleanHex(envelope.intentHash, 32, "intentHash"), intentHash)) {
+    throw new RelayerError("intentHash does not match the signed stealth fields");
+  }
+  if (!sameHex(cleanHex(envelope.digest, 32, "digest"), digest)) {
+    throw new RelayerError("digest does not match the M2 router signing domain");
+  }
+  const signature = cleanHex(envelope.userSig, 65, "userSig");
+  let recovered: string;
+  try {
+    recovered = getAddressFromPublicKey(
+      publicKeyFromSignatureRsv(bytesToHex(digest), signature),
+      config.network
+    );
+  } catch {
+    throw new RelayerError("userSig is not a recoverable signature");
+  }
+  if (recovered !== envelope.user) throw new RelayerError("user does not match the recovered signer");
+  return { intent, user: recovered, userSig: hexToBytes(signature), announcement };
 }
 
 class FixedWindowLimiter {
@@ -276,8 +396,15 @@ export class PrivaraRelayerService {
     };
   }
 
-  async settleIntent(envelope: SettlementEnvelope): Promise<RelayerResult> {
-    const validated = validateSettlementEnvelope(envelope, this.config);
+  async settleIntent(
+    envelope: SettlementEnvelope | PrivateIntentEnvelope
+  ): Promise<RelayerResult> {
+    // Keep one public endpoint: the explicit kind selects M2 while old M1 envelopes
+    // continue through the original backwards-compatible path.
+    if ((envelope as PrivateIntentEnvelope)?.kind === "stealth") {
+      return this.settleStealthIntent(envelope as PrivateIntentEnvelope);
+    }
+    const validated = validateSettlementEnvelope(envelope as SettlementEnvelope, this.config);
     let tip: number;
     try {
       tip = await this.dependencies.blockHeight(networkFor(this.config).client.baseUrl);
@@ -299,6 +426,51 @@ export class PrivaraRelayerService {
         uintCV(validated.intent.relayerFee),
         uintCV(validated.intent.nonce),
         uintCV(validated.intent.expiry),
+        bufferCV(validated.userSig),
+      ],
+      senderKey: this.config.relayerPrivateKey,
+      network: networkFor(this.config),
+      postConditionMode: "allow",
+    });
+    const response = await this.dependencies.broadcast({
+      transaction,
+      network: networkFor(this.config),
+    });
+    return this.result(txid(response));
+  }
+
+  private async settleStealthIntent(
+    envelope: PrivateIntentEnvelope
+  ): Promise<RelayerResult> {
+    const validated = validateStealthSettlementEnvelope(envelope, this.config);
+    let tip: number;
+    try {
+      tip = await this.dependencies.blockHeight(networkFor(this.config).client.baseUrl);
+    } catch {
+      throw new RelayerError("unable to verify intent expiry", 502, "stacks_api_unavailable");
+    }
+    if (tip >= validated.intent.expiry) {
+      throw new RelayerError("intent has expired", 409, "intent_expired");
+    }
+    const { intent, announcement } = validated;
+    const transaction = await makeContractCall({
+      contractAddress: this.config.coreAddress,
+      contractName: "privara-router-m2",
+      functionName: "settle-intent",
+      functionArgs: [
+        principalCV(intent.asset),
+        uintCV(intent.amount),
+        principalCV(intent.recipient),
+        principalCV(intent.relayer),
+        uintCV(intent.relayerFee),
+        uintCV(intent.nonce),
+        uintCV(intent.expiry),
+        bufferCV(intent.announcementHash),
+        uintCV(announcement.version),
+        bufferCV(announcement.ephemeralPublicKey),
+        bufferCV(announcement.nonce),
+        bufferCV(announcement.ciphertext),
+        uintCV(announcement.registryEpoch),
         bufferCV(validated.userSig),
       ],
       senderKey: this.config.relayerPrivateKey,

@@ -310,7 +310,32 @@ origin-signed transaction, not the derived private key.
 
 This first acceptance predates the token-paid helper and therefore charged no separate
 MOCK sponsorship fee. New sponsored-spend transactions use the deployed helper above;
-their paid live acceptance is recorded separately once completed.
+their paid live acceptance is recorded below.
+
+### Paid v2 HTTP acceptance flow
+
+Status: **confirmed on 2026-09-07**. Both settlement and sponsorship were submitted
+through the reference HTTP service, using the high-level SDK rather than hand-built
+transaction arguments.
+
+| Action | Result | Transaction ID |
+| --- | --- | --- |
+| Update acceptance P/V to epoch 2 | `(ok u2)` | [622bf42e…29a6](https://explorer.hiro.so/txid/0x622bf42e0be017a2b401fbc6ffb792b4c174fbf5c6aa24c3029c4269684c29a6?chain=testnet) |
+| Mint `120,000` MOCK | `(ok u120000)` | [e73003d8…a115](https://explorer.hiro.so/txid/0xe73003d8fd0ec596586f12984f9b1811707dc14b78a210d0630847b61e41a115?chain=testnet) |
+| Deposit `120,000` MOCK into M2 | `(ok u120000)` | [a1a489b5…d8a9](https://explorer.hiro.so/txid/0xa1a489b53c5f87354d6c934673316c6e36751ad01731160fb4f5ad2d9654d8a9?chain=testnet) |
+| HTTP settle fee-added M2 intent | `(ok 0xf8ddb679…137e)` | [8a3aa853…560d](https://explorer.hiro.so/txid/0x8a3aa8535da2e16a5b42a442bc458625a4bacb938f262ad18d2dd9fed01c560d?chain=testnet) |
+| HTTP paid full withdrawal | `(ok u99000)` | [8d4dcb85…aeb2](https://explorer.hiro.so/txid/0x8d4dcb85038232e02462f3b000dd59f6da136703692fd6c5c5b6309e5b9aaeb2?chain=testnet) |
+
+The fee-added settlement removed `99,990` MOCK from Alice's deposit: the fresh one-time
+address received exactly `99,000` and the settlement relayer received `990` (1% of the
+entered recipient amount). The one-time address was
+`ST24B2NYPBNEKXPY9HHY2WC8N436KHYZJWN4XN6AY` and held no STX.
+
+The subsequent v2 call withdrew the full token balance atomically: `98,900` MOCK went to
+`ST16H55CE41DBKFY9QDHESXQT2GD110WKT7VW9EPR`, `100` MOCK went to the separate Privara
+treasury, and sponsor `ST15SJ519YTDC54FP9NKZ239S59E5EKMYMSMC6QF2` paid the `549`
+micro-STX network fee. The stealth origin ended with `0` MOCK without ever being funded
+with STX.
 
 ### Local intent evidence files
 

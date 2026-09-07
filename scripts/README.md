@@ -133,6 +133,21 @@ Sweeping directly to the ordinary recipient address publicly links the one-time 
 to that wallet. This is acceptable for the MOCK acceptance test but should be an explicit
 user choice, not a silent SDK default.
 
+## Combined HTTP paid acceptance
+
+The Phase 4/5 runner exercises the real server adapter in one process: it registers a
+disposable acceptance P/V pair, uses the high-level fee-added private-intent API, settles
+through `POST /v1/intents/settle`, scans the indexed announcement, and withdraws through
+`POST /v1/stealth/sponsor` with the v2 token fee:
+
+```sh
+npm run acceptance:http-paid:testnet
+```
+
+It reads only the local testnet mnemonic already configured for this repository. It
+publishes testnet transactions and writes public evidence under the gitignored
+`.privara/` directory; it never prints the mnemonic, privacy seed, or derived p'.
+
 ## Wallets
 
 The demo uses three testnet accounts. Derive all three from a single fresh mnemonic:

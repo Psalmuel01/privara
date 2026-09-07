@@ -2,7 +2,8 @@
 
 The reference service exposes the two Milestone 2 relayer operations:
 
-- `POST /v1/intents/settle` validates and broadcasts a signed M1 intent.
+- `POST /v1/intents/settle` validates and broadcasts either a signed M1 intent or an
+  announcement-bound M2 private intent (`kind: "stealth"`).
 - `POST /v1/stealth/sponsor` validates an origin-signed stealth transfer, adds the
   sponsor authorization, and broadcasts it.
 - `GET /v1/stealth/sponsor-policy` returns the exact token fee and treasury the client
@@ -40,7 +41,7 @@ Check health:
 curl http://127.0.0.1:8787/health
 ```
 
-Submit an M1 signed intent:
+Submit an M1 signed intent or the JSON from `privateIntentEnvelope(...)`:
 
 ```sh
 curl --fail-with-body \

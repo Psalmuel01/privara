@@ -75,6 +75,16 @@ export {
   STEALTH_INTENT_VERSION,
 } from "./stealth-intent";
 export {
+  createPrivateIntent,
+  privateIntentEnvelope,
+  quoteSettlementFee,
+  type SettlementFeeMode,
+  type SettlementFeeQuote,
+  type CreatePrivateIntentOptions,
+  type PrivateIntentResult,
+  type PrivateIntentEnvelope,
+} from "./private-intent";
+export {
   parseStealthSettlementLog,
   fetchAnnouncementPage,
   MemoryAnnouncementStore,
@@ -102,8 +112,10 @@ export {
   fetchSip010Balance,
   sendFromStealth,
   withdrawStealthBalance,
+  sweepStealthBalance,
   type SponsorPolicyQuote,
   type SponsoredSpendResult,
   type SendFromStealthOptions,
   type WithdrawStealthBalanceOptions,
+  type SweepStealthOptions,
 } from "./sponsor/client";

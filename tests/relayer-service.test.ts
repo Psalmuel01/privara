@@ -7,12 +7,16 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import {
   buildSponsoredSpend,
+  createPrivateIntent,
   createIntent,
+  identityFromSeed,
+  privateIntentEnvelope,
   signIntent,
 } from "../sdk/src";
 import {
   PrivaraRelayerService,
   validateSettlementEnvelope,
+  validateStealthSettlementEnvelope,
   type RelayerConfig,
   type RelayerDependencies,
   type SettlementEnvelope,
@@ -137,6 +141,37 @@ describe("reference relayer service", () => {
     });
     expect(dependencies.broadcast).not.toHaveBeenCalled();
   });
+
+  it("validates and broadcasts an M2 private intent through the same endpoint", async () => {
+    const identity = identityFromSeed(new Uint8Array(32).fill(9));
+    const created = await createPrivateIntent({
+      registry: `${CORE}.privara-stealth-registry`,
+      recipient: DESTINATION,
+      recipientKeys: {
+        spendingPublicKey: identity.spendingPublicKey,
+        viewingPublicKey: identity.viewingPublicKey,
+        epoch: 2n,
+      },
+      network: "testnet",
+      router: `${CORE}.privara-router-m2`,
+      asset: ASSET,
+      relayer: getAddressFromPrivateKey(RELAYER_KEY, "testnet"),
+      enteredAmount: 99_000n,
+      settlementFeeBps: 100n,
+      feeMode: "added",
+      expiry: 999_999,
+      nonce: 77n,
+      payerPrivateKey: USER_KEY,
+      ephemeralPrivateKey: new Uint8Array(32).fill(8),
+    });
+    const envelope = privateIntentEnvelope(created, "testnet");
+    expect(validateStealthSettlementEnvelope(envelope, config).intent.nonce).toBe(77n);
+
+    const dependencies = fakeDependencies();
+    await expect(new PrivaraRelayerService(config, dependencies).settleIntent(envelope))
+      .resolves.toMatchObject({ status: "broadcast", txid: "ab".repeat(32) });
+    expect(dependencies.broadcast).toHaveBeenCalledOnce();
+  }, 10_000);
 
   it("validates, sponsors, and broadcasts an origin-signed sweep", async () => {
     const originSigned = await buildSponsoredSpend({

@@ -200,6 +200,19 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .field-help { display: block; margin-top: 7px; color: var(--muted); font-size: 9px; line-height: 1.5; }
 .file-button { position: relative; cursor: pointer; }
 .file-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-button.disabled { cursor: not-allowed; opacity: .48; }
+.file-button.active { border-color: #73957e; box-shadow: 0 0 0 3px rgb(78 122 93 / 9%); }
+.password-label { display: flex; justify-content: space-between; gap: 12px; }
+.password-label span { color: #8a6338; font-size: 9px; font-weight: 700; }
+.password-input.required { border-color: #d7ad71; background: #fffaf1; box-shadow: 0 0 0 3px rgb(190 137 62 / 8%); }
+.password-input.valid { border-color: #7da288; background: #f7fbf6; }
+.backup-mode-guide { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 18px 0 4px; }
+.backup-mode-guide > div { padding: 11px; border: 1px solid #e0e5e1; border-radius: 9px; background: #fafbfa; }
+.backup-mode-guide > div.active { border-color: #789881; background: #f0f7ed; box-shadow: inset 3px 0 #476b55; }
+.backup-mode-guide strong, .backup-mode-guide span, .backup-mode-guide em { display: block; }
+.backup-mode-guide strong { font-size: 10px; }
+.backup-mode-guide span { margin-top: 4px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.backup-mode-guide em { margin-top: 7px; color: #7b6648; font-size: 8px; font-style: normal; font-weight: 700; }
 .empty-state { display: grid; justify-items: center; gap: 12px; padding: 55px 30px; text-align: center; }
 .empty-state > svg { color: #356048; }
 .empty-state h2, .empty-state p { margin: 0; }

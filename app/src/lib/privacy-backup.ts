@@ -133,7 +133,8 @@ export async function restoreAndVerifyPrivacyBackup(
   address: string,
   encoded: string,
   password: string,
-  replaceExisting = false
+  replaceExisting = false,
+  validateCandidate?: (identity: PrivacyIdentity) => Promise<void>
 ): Promise<PrivacyIdentity> {
   const candidateSeed = await importPrivacySeed(decodeBackup(encoded), password);
   const candidate = identityFromSeed(candidateSeed);
@@ -154,6 +155,19 @@ export async function restoreAndVerifyPrivacyBackup(
       throw new PrivacyBackupConflictError(
         "This file contains a different privacy identity. The existing backup was not changed"
       );
+    }
+  }
+
+  // Browser callers use this hook to compare P/V with an existing on-chain
+  // registration before the candidate is ever persisted under this wallet.
+  if (validateCandidate) {
+    try {
+      await validateCandidate(candidate);
+    } catch (error) {
+      candidate.privacySeed.fill(0);
+      candidate.spendingPrivateKey.fill(0);
+      candidate.viewingPrivateKey.fill(0);
+      throw error;
     }
   }
 

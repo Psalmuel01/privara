@@ -442,6 +442,8 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   void backupRevision;
   const backupState = wallet ? privacyBackupStatus(wallet) : null;
   const backupVerified = Boolean(backupState?.exported && backupState.verified);
+  const passwordReady = password.length >= 12;
+  const registry = config?.registry ?? TESTNET_STEALTH_REGISTRY;
 
   const privacyAction = async (kind: "create" | "unlock" | "register") => {
     if (!wallet) return connect();
@@ -461,13 +463,12 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
         return;
       }
       let active = identity;
-      if (kind === "unlock") active = await unlockPrivacyIdentity(wallet, password);
+      if (kind === "unlock") active = await unlockPrivacyIdentity(wallet, password, registry);
       if (!active) throw new Error("Create or unlock the privacy identity first");
       setIdentity(active);
       if (kind === "register") {
         // Registration talks directly to the immutable registry through the wallet;
         // it must not fail merely because the optional relayer service is offline.
-        const registry = config?.registry ?? TESTNET_STEALTH_REGISTRY;
         const result = await registerPrivacyIdentity(registry, wallet, active);
         if (result.txid) {
           notify({ kind: "info", message: `Privacy registration broadcast: ${short(result.txid, 10, 8)}. Waiting for confirmation…` });
@@ -491,7 +492,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       setBusy("import");
       let active: PrivacyIdentity;
       try {
-        active = await importPrivacyIdentity(wallet, encoded, password);
+        active = await importPrivacyIdentity(wallet, encoded, password, false, registry);
       } catch (error) {
         if (!(error instanceof PrivacyBackupConflictError)) throw error;
         const replace = window.confirm(
@@ -499,7 +500,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
         );
         if (!replace) throw new Error("Import cancelled; the existing privacy identity was preserved");
         exportStoredBackup(wallet);
-        active = await importPrivacyIdentity(wallet, encoded, password, true);
+        active = await importPrivacyIdentity(wallet, encoded, password, true, registry);
       }
       setIdentity(active);
       setBackupRevision((value) => value + 1);
@@ -518,9 +519,9 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   return <>
     <PageTitle eyebrow="Receive & discover" title="Find payments to your one-time addresses." copy="Privara hides your long-term wallet from the on-chain settlement destination. Amounts, payer activity, network requests, and later withdrawal links are not hidden." action={<button className="primary-action" onClick={scan} disabled={busy !== null || !identity || !backupVerified}>{busy === "scan" ? <RefreshCw className="spin" size={16} /> : <Search size={16} />} Scan announcements</button>} />
     {!wallet ? <section className="panel empty-state"><Wallet size={28} /><h2>Connect a testnet wallet</h2><p>Your privacy backup is stored separately for each wallet address.</p><button className="primary-action" onClick={connect}>Connect Leather or Xverse</button></section> : <section className="setup-grid">
-      <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Independent privacy identity</span><h2>{identity && backupVerified ? "Verified and unlocked" : backupVerified ? "Verified and locked" : backupExists ? "Backup verification required" : "Not created on this device"}</h2></div><span className={`ready-badge ${identity && backupVerified ? "" : "locked"}`}>{identity && backupVerified ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity && backupVerified ? "Ready" : "Locked"}</span></div>
+      <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Independent privacy identity</span><h2>{identity && backupVerified ? "Backup verified locally and unlocked" : backupVerified ? "Backup verified locally and locked" : backupExists ? "Backup verification required" : "Not created on this device"}</h2></div><span className={`ready-badge ${identity && backupVerified ? "" : "locked"}`}>{identity && backupVerified ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity && backupVerified ? "Unlocked" : "Locked"}</span></div>
         <div className="warning-box"><TriangleAlert size={16} /><p>Stealth funds are controlled by your independent Privara privacy seed—not by Leather, Xverse, or a connected hardware wallet. Those wallets cannot recover these funds. Keep the encrypted JSON and its password safe.</p></div>
-        {!identity && <><label className="field-label">Backup password (minimum 12 characters)</label><div className="address-input compact"><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Never sent to Privara" /></div><small className="field-help">{backupExists && !backupVerified ? "Download the stored backup, then import that JSON to prove it can be restored." : "The password encrypts your independent Privara privacy seed locally."}</small><div className="privacy-actions">{!backupExists ? <button className="dark-button" onClick={() => privacyAction("create")} disabled={password.length < 12 || busy !== null}>Create & download backup</button> : backupVerified ? <button className="dark-button" onClick={() => privacyAction("unlock")} disabled={password.length < 12 || busy !== null}>Unlock verified backup</button> : <button className="light-button" onClick={() => { exportStoredBackup(wallet); setBackupRevision((value) => value + 1); notify({ kind: "success", message: "Encrypted backup downloaded. Import this JSON next to verify recovery." }); }} disabled={busy !== null}><FileKey size={15} /> Download stored backup</button>}<label className="light-button file-button"><FileKey size={15} /> {backupExists && !backupVerified ? "Verify downloaded JSON" : "Import backup"}<input type="file" accept="application/json" onChange={(event) => { void importBackup(event.target.files?.[0]); event.target.value = ""; }} disabled={busy !== null} /></label></div></>}
+        {!identity && <><div className="backup-mode-guide"><div className={!backupExists ? "active" : ""}><strong>Create</strong><span>Generate a new seed and download its encrypted JSON.</span><em>Password required</em></div><div className={backupExists && !backupVerified ? "active" : ""}><strong>Import & verify</strong><span>Restore an existing JSON and check it against this wallet’s registered P/V.</span><em>Password required</em></div><div className={backupVerified ? "active" : ""}><strong>Unlock</strong><span>Decrypt the verified backup already stored in this browser.</span><em>Password required</em></div><div><strong>Download</strong><span>Save another copy of the already-encrypted JSON.</span><em>No password required</em></div></div><label className="field-label password-label">Backup password <span>Required before Create, Import or Unlock</span></label><div className={`address-input compact password-input ${passwordReady ? "valid" : "required"}`}><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Enter at least 12 characters first" aria-describedby="privacy-password-help" /></div><small className="field-help" id="privacy-password-help">{passwordReady ? "Password ready. You can now use the highlighted action." : "Enter at least 12 characters before selecting an import file or using another password-protected action."}</small><div className="privacy-actions">{!backupExists ? <button className="dark-button" onClick={() => privacyAction("create")} disabled={!passwordReady || busy !== null}>Create & download backup</button> : backupVerified ? <button className="dark-button" onClick={() => privacyAction("unlock")} disabled={!passwordReady || busy !== null}>Unlock verified backup</button> : <button className="light-button" onClick={() => { exportStoredBackup(wallet); setBackupRevision((value) => value + 1); notify({ kind: "success", message: "Encrypted backup downloaded. Import this JSON next to verify recovery." }); }} disabled={busy !== null}><FileKey size={15} /> Download stored backup</button>}<label className={`light-button file-button ${!passwordReady || busy !== null ? "disabled" : "active"}`} aria-disabled={!passwordReady || busy !== null}><FileKey size={15} /> {backupExists && !backupVerified ? "Import JSON to verify" : "Import backup JSON"}<input type="file" accept="application/json" onChange={(event) => { void importBackup(event.target.files?.[0]); event.target.value = ""; }} disabled={busy !== null || !passwordReady} /></label></div></>}
         {identity && <><div className="key-list"><div><span>Spending public key · P</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "spending"), notify, "Spending public key")} aria-label="Copy spending public key"><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "viewing"), notify, "Viewing public key")} aria-label="Copy viewing public key"><Copy size={13} /></button></div></div><div className="privacy-actions"><button className="dark-button" onClick={() => privacyAction("register")} disabled={busy !== null || !backupVerified}><KeyRound size={15} /> Register keys on-chain</button><button className="light-button" onClick={() => { exportStoredBackup(wallet); setBackupRevision((value) => value + 1); notify({ kind: "success", message: "Encrypted privacy backup downloaded." }); }}><FileKey size={15} /> Download encrypted backup</button></div></>}
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>

@@ -142,16 +142,27 @@ export async function createPrivacyIdentity(
 
 export async function unlockPrivacyIdentity(
   address: string,
-  password: string
+  password: string,
+  registry = TESTNET_STEALTH_REGISTRY
 ): Promise<PrivacyIdentity> {
-  return unlockVerifiedPrivacyBackup(localStorage, NETWORK, address, password);
+  const identity = await unlockVerifiedPrivacyBackup(localStorage, NETWORK, address, password);
+  try {
+    await assertIdentityMatchesRegistration(registry, address, identity);
+    return identity;
+  } catch (error) {
+    identity.privacySeed.fill(0);
+    identity.spendingPrivateKey.fill(0);
+    identity.viewingPrivateKey.fill(0);
+    throw error;
+  }
 }
 
 export async function importPrivacyIdentity(
   address: string,
   encoded: string,
   password: string,
-  replaceExisting = false
+  replaceExisting = false,
+  registry = TESTNET_STEALTH_REGISTRY
 ): Promise<PrivacyIdentity> {
   return restoreAndVerifyPrivacyBackup(
     localStorage,
@@ -159,7 +170,8 @@ export async function importPrivacyIdentity(
     address,
     encoded,
     password,
-    replaceExisting
+    replaceExisting,
+    (candidate) => assertIdentityMatchesRegistration(registry, address, candidate)
   );
 }
 
@@ -180,6 +192,23 @@ export function exportStoredBackup(address: string): void {
 
 function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
   return left.length === right.length && left.every((byte, index) => byte === right[index]);
+}
+
+async function assertIdentityMatchesRegistration(
+  registry: string,
+  address: string,
+  identity: PrivacyIdentity
+): Promise<void> {
+  const current = await fetchStealthKeys({ registry, user: address, network: NETWORK });
+  if (
+    current &&
+    (!sameBytes(current.spendingPublicKey, identity.spendingPublicKey) ||
+      !sameBytes(current.viewingPublicKey, identity.viewingPublicKey))
+  ) {
+    throw new Error(
+      "This backup does not match this wallet's existing on-chain P/V registration. Nothing was overwritten"
+    );
+  }
 }
 
 export async function registerPrivacyIdentity(

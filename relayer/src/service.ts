@@ -37,6 +37,8 @@ import {
 export interface RelayerConfig {
   network: Network;
   coreAddress: string;
+  /** Exact M2 router principal; it is also part of the signed SIP-018 domain. */
+  routerContract: string;
   relayerPrivateKey: string;
   sponsorPrivateKey: string;
   assetContract: string;
@@ -124,6 +126,14 @@ function networkFor(config: RelayerConfig) {
     : base;
 }
 
+function splitContractPrincipal(value: string): [string, string] {
+  const separator = value.indexOf(".");
+  if (separator <= 0 || separator === value.length - 1) {
+    throw new RelayerError("configured router must be a contract principal", 500, "invalid_config");
+  }
+  return [value.slice(0, separator), value.slice(separator + 1)];
+}
+
 /** Scan confirmed public announcements without letting one hostile record deny service. */
 export async function findKnownStealthOrigin(
   origin: string,
@@ -137,7 +147,7 @@ export async function findKnownStealthOrigin(
   for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
     const page = await fetchAnnouncementPage({
       apiUrl: networkFor(config).client.baseUrl,
-      router: `${config.coreAddress}.privara-router-m2`,
+      router: config.routerContract,
       cursor,
       limit: 100,
       fetcher,
@@ -331,7 +341,7 @@ export function validateStealthSettlementEnvelope(
   const digest = stealthMessageDigest(
     intent,
     config.network,
-    `${config.coreAddress}.privara-router-m2`
+    config.routerContract
   );
   if (!sameHex(cleanHex(envelope.intentHash, 32, "intentHash"), intentHash)) {
     throw new RelayerError("intentHash does not match the signed stealth fields");
@@ -463,9 +473,10 @@ export class PrivaraRelayerService {
       throw new RelayerError("intent has expired", 409, "intent_expired");
     }
     const { intent, announcement } = validated;
+    const [routerAddress, routerName] = splitContractPrincipal(this.config.routerContract);
     const transaction = await makeContractCall({
-      contractAddress: this.config.coreAddress,
-      contractName: "privara-router-m2",
+      contractAddress: routerAddress,
+      contractName: routerName,
       functionName: "settle-intent",
       functionArgs: [
         principalCV(intent.asset),

@@ -231,6 +231,27 @@ Status: **deployed and confirmed on 2026-09-06**.
 The deployment used nonce `5` and a `100,000` micro-STX fee. It is a separate contract;
 the confirmed M1 `privara-router` and its version-1 signing domain were not modified.
 
+## Testnet — Milestone 2 sBTC router
+
+Status: **deployed and confirmed on 2026-09-08**.
+
+| Setting | Value |
+| --- | --- |
+| Deployer / core address | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0` |
+| Contract | `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2-sbtc` |
+| Whitelisted SIP-010 asset | `SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token` |
+| SIP-010 token name | `sbtc-token` |
+| Signing domain version | `2` |
+| Clarity version | 4 |
+| Deployment block | `291076` |
+| Deployment result | `(ok true)` |
+| Deployment transaction | [38eb9a76…ccb5](https://explorer.hiro.so/txid/0x38eb9a76394eaac2c5fc7d20a00566b1980337a2cf918287cbb4f250a5c9ccb5?chain=testnet) |
+
+This deployment used nonce `25` and a `100,000` micro-STX fee. The original core
+address, stealth registry, MOCK router, and historical intents were not changed. New
+sBTC intents are signed for the `privara-router-m2-sbtc` domain and cannot be replayed
+against the MOCK router.
+
 ## Testnet — Milestone 2 sponsored-spend helpers
 
 Status: **deployed and confirmed on 2026-09-07**.
@@ -371,7 +392,11 @@ Copy `relayer/.env.example` to the gitignored `relayer.env`, then set:
 
 - `RELAYER_KEY`: testnet account 2 key used for settlement transactions;
 - `SPONSOR_KEY`: the sponsor key that pays STX (it may equal account 2 for this demo);
-- `PRIVARA_SPONSOR_FEE_RECIPIENT`: the wallet receiving the fixed 100-atomic-MOCK fee;
+- `PRIVARA_ROUTER`: `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2-sbtc`;
+- `PRIVARA_ASSET`: `SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token`;
+- `PRIVARA_TOKEN_NAME`: `sbtc-token`;
+- `PRIVARA_SPONSOR_FEE_RECIPIENT`: the wallet receiving the signed sBTC sponsor fee;
+- `PRIVARA_TOKEN_SPONSOR_FEE`: `1200` atomic units (12 sats) for the testnet policy;
 - `PRIVARA_ALLOWED_ORIGINS`: exact HTTPS React origin, without a trailing slash.
 
 The settlement/sponsor wallet must hold enough testnet STX. Never add either key to the
@@ -417,12 +442,12 @@ the service.
 
 1. Bob connects a testnet wallet, creates and downloads an encrypted backup, restores
    that JSON in a fresh browser session, and only then registers/verifies P/V.
-2. Alice connects a funded testnet wallet and enters Bob's normal address and payment
-   amount. If necessary, the app requests the exact router-funding shortfall and proceeds
-   automatically after confirmation. MOCK minting remains an explicit testnet-only tool.
+2. Alice connects a wallet funded with testnet sBTC and enters Bob's normal address and
+   payment amount. If necessary, the app requests the exact router-funding shortfall and
+   proceeds automatically after confirmation.
 3. Alice chooses fee-added, reviews the exact payment, signs the SIP-018 intent, and
    records the returned settlement transaction ID.
-4. After confirmation, Bob scans and sees the new one-time address and MOCK balance.
+4. After confirmation, Bob scans and sees the new one-time address and sBTC balance.
 5. Bob pays another address from that balance, then withdraws any remainder. Record both
    sponsored transaction IDs and confirm the one-time address spent zero STX.
 
@@ -467,10 +492,24 @@ Remaining validation limitations and expected failure cases:
   sponsor-fee policy that safely covers volatile STX network costs. No mainnet deployment
   was attempted.
 
-<!-- ## sBTC status
+## sBTC acceptance status
 
-The confirmed deployment above is the Milestone 1 mock-token acceptance environment.
-The router compiled into that deployment whitelists `.mock-token`.
+Status: **complete through the real HTTP relayer path on 2026-09-08**.
 
-The sBTC path is deferred because no test tokens are currently available. No sBTC
-contract, deposit, settlement, or transaction ID is claimed for this run. -->
+The acceptance run used separate sender, recipient, and relayer/sponsor accounts. It
+exported and restored a fresh encrypted privacy seed before registration, deposited
+`120,000` sats, settled a fee-added private payment, detected its indexed announcement,
+derived the fresh spending key, and completed a sponsored withdrawal. The fresh address
+ended with zero sBTC and paid zero STX.
+
+| Action | Confirmed testnet transaction |
+| --- | --- |
+| Recipient P/V registration | [e1a782c7…447a](https://explorer.hiro.so/txid/0xe1a782c7722defcb773377d393483d480f0d9734a0d84d13ff698ab1d649447a?chain=testnet) |
+| Sender sBTC router deposit | [806c01a2…84d7](https://explorer.hiro.so/txid/0x806c01a2a5f55a72a4525b3122424d13aa9aef28b0de649b56d5a0308d1384d7?chain=testnet) |
+| Private sBTC settlement | [d0c86135…e854](https://explorer.hiro.so/txid/0xd0c86135e63072085457535125d083e4fc1efd29f5cecf97ab946ba7ebf3e854?chain=testnet) |
+| Sponsored sBTC withdrawal | [89ab391f…4bb9](https://explorer.hiro.so/txid/0x89ab391f7b8e22cfd7d2ae0656a3b60ff5df6a788df1a48fc73471134b454bb9?chain=testnet) |
+
+The sender authorized `99,990` sats total: `99,000` sats to the one-time address and
+`990` sats as the 1% settlement fee. The recipient later authorized `97,800` sats to the
+withdrawal destination plus the independently displayed `1,200`-sat sponsorship fee.
+The sponsor paid the `504` micro-STX network fee.

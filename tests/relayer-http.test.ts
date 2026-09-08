@@ -4,10 +4,12 @@ import { createRelayerHttpServer } from "../relayer/src/server";
 import { PrivaraRelayerService, type RelayerConfig } from "../relayer/src/service";
 
 const CORE = "ST000000000000000000002AMW42H";
+const ROUTER = `${CORE}.privara-router-m2-sbtc`;
 const KEY = "530d9f61984c888536871c6573073bdfc0058896dc1adfe9a6a10dfacadc209101";
 const config: RelayerConfig = {
   network: "testnet",
   coreAddress: CORE,
+  routerContract: ROUTER,
   relayerPrivateKey: KEY,
   sponsorPrivateKey: KEY,
   assetContract: `${CORE}.mock-token`,
@@ -52,7 +54,7 @@ describe("relayer HTTP production adapter", () => {
     await expect(response.json()).resolves.toMatchObject({
       version: 1,
       network: "testnet",
-      router: `${CORE}.privara-router-m2`,
+      router: ROUTER,
       settlementFeeBps: 100,
       sponsorFee: "100",
     });

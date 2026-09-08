@@ -36,14 +36,16 @@ import { PrivaraRelayerService, type RelayerConfig } from "../relayer/src/servic
 import { createRelayerHttpServer } from "../relayer/src/server";
 import { explorerTxUrl, stacksNetwork } from "./_config";
 
-const CORE = "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0";
-const ASSET = `${CORE}.mock-token`;
-const ROUTER = `${CORE}.privara-router-m2`;
+const CORE = process.env.PRIVARA_CORE_ADDRESS ?? "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0";
+const ASSET = process.env.PRIVARA_ASSET ?? `${CORE}.mock-token`;
+const ROUTER = process.env.PRIVARA_ROUTER ?? `${CORE}.privara-router-m2`;
 const REGISTRY = `${CORE}.privara-stealth-registry`;
 const SPEND_CONTRACT = `${CORE}.privara-sponsored-spend-v2`;
+const TOKEN_NAME = process.env.PRIVARA_TOKEN_NAME ?? "mock";
+const PAYER_INDEX = Number(process.env.PAYER_ACCOUNT_INDEX ?? "0");
 const ENTERED_RECIPIENT_AMOUNT = 99_000n;
 const SETTLEMENT_FEE_BPS = 100n;
-const TOKEN_SPONSOR_FEE = 100n;
+const TOKEN_SPONSOR_FEE = BigInt(process.env.PRIVARA_TOKEN_SPONSOR_FEE ?? "100");
 const DEPOSIT_AMOUNT = 120_000n;
 
 interface TxInfo {
@@ -134,7 +136,7 @@ async function waitForIndexedSettlement(txid: string) {
 async function main() {
   let wallet = await generateWallet({ secretKey: deploymentMnemonic(), password: "" });
   while (wallet.accounts.length < 4) wallet = generateNewAccount(wallet);
-  const payerKey = wallet.accounts[0].stxPrivateKey;
+  const payerKey = wallet.accounts[PAYER_INDEX].stxPrivateKey;
   const relayerKey = wallet.accounts[2].stxPrivateKey;
   // Account 3 is isolated acceptance-only state, so account 1's real registered backup
   // is never rotated or overwritten by this repeatable test.
@@ -202,26 +204,29 @@ async function main() {
   );
   transactions.registry = registration.txid;
 
-  transactions.mint = (
-    await submitDirect(
-      "mint MOCK",
-      await makeContractCall({
-        contractAddress: CORE,
-        contractName: "mock-token",
-        functionName: "mint",
-        functionArgs: [uintCV(DEPOSIT_AMOUNT), principalCV(payer)],
-        senderKey: payerKey,
-        network: "testnet",
-        postConditionMode: "allow",
-      })
-    )
-  ).txid;
+  if (ASSET === `${CORE}.mock-token`) {
+    transactions.mint = (
+      await submitDirect(
+        "mint MOCK",
+        await makeContractCall({
+          contractAddress: CORE,
+          contractName: "mock-token",
+          functionName: "mint",
+          functionArgs: [uintCV(DEPOSIT_AMOUNT), principalCV(payer)],
+          senderKey: payerKey,
+          network: "testnet",
+          postConditionMode: "allow",
+        })
+      )
+    ).txid;
+  }
+  const [routerAddress, routerName] = ROUTER.split(".");
   transactions.deposit = (
     await submitDirect(
       "deposit M2",
       await makeContractCall({
-        contractAddress: CORE,
-        contractName: "privara-router-m2",
+        contractAddress: routerAddress,
+        contractName: routerName,
         functionName: "deposit",
         functionArgs: [principalCV(ASSET), uintCV(DEPOSIT_AMOUNT)],
         senderKey: payerKey,
@@ -234,10 +239,11 @@ async function main() {
   const config: RelayerConfig = {
     network: "testnet",
     coreAddress: CORE,
+    routerContract: ROUTER,
     relayerPrivateKey: relayerKey,
     sponsorPrivateKey: relayerKey,
     assetContract: ASSET,
-    tokenName: "mock",
+    tokenName: TOKEN_NAME,
     spendContract: SPEND_CONTRACT,
     feeRecipient: payer,
     exactTokenSponsorFee: TOKEN_SPONSOR_FEE,
@@ -329,7 +335,7 @@ async function main() {
       network: "testnet",
       spendContract: SPEND_CONTRACT,
       assetContract: ASSET,
-      tokenName: "mock",
+      tokenName: TOKEN_NAME,
       destination: recipient,
       stealthPrivateKey: payment.stealthPrivateKey,
     } as const;
@@ -368,7 +374,7 @@ async function main() {
       principal: payer,
       network: "testnet",
     });
-    if (originAfter !== 0n) throw new Error(`full withdrawal left ${originAfter} MOCK`);
+    if (originAfter !== 0n) throw new Error(`full withdrawal left ${originAfter} atomic token units`);
     if (destinationAfter - destinationBefore !== ENTERED_RECIPIENT_AMOUNT - TOKEN_SPONSOR_FEE) {
       throw new Error("destination balance delta does not equal net sponsored withdrawal");
     }

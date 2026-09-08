@@ -132,7 +132,7 @@ The React testnet app supports:
 
 - Leather/Xverse connection and contract-call approvals
 - locally encrypted privacy identity creation, mandatory export/restore verification, import, and unlock
-- on-chain P/V registration, MOCK mint/deposit, and SIP-018 private intent signing
+- on-chain P/V registration, guided sBTC router funding, and SIP-018 private intent signing
 - relayer-submitted settlement, live scanning, and sponsored stealth spending
 
 ## Use Cases
@@ -225,11 +225,11 @@ the same flow manually through the browser UI.
 - [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
 - [docs/sponsorship.md](docs/sponsorship.md) — M2 sponsored-spend fee model, security policy, and privacy behavior.
 
-**Current testnet deployment:** the complete mock-token flow is confirmed under deployer
-`STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`: relayer registration, mint, deposit,
-successful intent settlement, replay rejection, and expiry rejection. Real-sBTC and
-USDC runs are deferred until funded test assets are available. See
-[docs/deployments.md](docs/deployments.md) for every transaction ID.
+**Current testnet deployment:** the complete MOCK flow and the sBTC-bound M2 router are
+confirmed under deployer `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`. The live sBTC
+router uses `SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token`; its complete
+funding-to-withdrawal acceptance sequence is still pending. See
+[docs/deployments.md](docs/deployments.md) for contract and transaction IDs.
 
 ## Build and Test
 

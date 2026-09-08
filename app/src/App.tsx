@@ -45,7 +45,7 @@ import {
   TESTNET_STEALTH_REGISTRY,
   connectWallet,
   createPrivacyIdentity,
-  depositMock,
+  depositAsset,
   disconnectWallet,
   exportStoredBackup,
   fetchPublicConfig,
@@ -104,7 +104,7 @@ function AssetIcon({ asset, small = false }: { asset: Sip010Asset; small?: boole
 
 export default function App() {
   const [view, setView] = useState<View>("overview");
-  const [assetId, setAssetId] = useState("mock");
+  const [assetId, setAssetId] = useState("sbtc");
   const [assetMenu, setAssetMenu] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(() => storedWalletAddress());
   const [config, setConfig] = useState<PublicRelayerConfig | null>(null);
@@ -123,6 +123,12 @@ export default function App() {
     const loadConfig = () => void fetchPublicConfig()
       .then((value) => {
         setConfig(value);
+        // The relayer is authoritative for the one asset/router pair it serves.
+        // This avoids ever labelling a MOCK-configured server as an sBTC payment flow.
+        const configuredAsset = SUPPORTED_ASSETS.find(
+          (item) => item.contract.testnet === value.asset
+        );
+        if (configuredAsset) setAssetId(configuredAsset.id);
         setConfigError(null);
         configErrorNotified.current = false;
       })
@@ -210,9 +216,9 @@ export default function App() {
               {assetMenu && <div className="asset-menu">
                 <span className="menu-label">SIP-010 assets</span>
                 {SUPPORTED_ASSETS.map((item) => (
-                  <button key={item.id} disabled={!item.liveTestnet} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
+                  <button key={item.id} disabled={item.contract.testnet !== config?.asset} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
                     <AssetIcon asset={item} small />
-                    <span><strong>{item.symbol}</strong><small>{item.liveTestnet ? "Live on current router" : "Requires sBTC router deployment"}</small></span>
+                    <span><strong>{item.symbol}</strong><small>{item.contract.testnet === config?.asset ? "Live on current router" : "Not served by this relayer"}</small></span>
                     {assetId === item.id && <Check size={15} />}
                   </button>
                 ))}
@@ -377,7 +383,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
       const required = paymentFundingShortfall(quote.totalAmount, currentDeposit);
       if (required > 0n) {
         notify({ kind: "info", message: `Approve funding of ${formatUnits(required, asset.decimals)} ${asset.symbol}. Privara will continue to payment review after confirmation.` });
-        const id = await depositMock(config, wallet, required);
+        const id = await depositAsset(config, wallet, required);
         notify({ kind: "info", message: `Payment funding broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
         await waitForTransaction(id);
         const fundedDeposit = await readRouterDeposit(config, wallet);
@@ -389,7 +395,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
       }
       setStage("review");
     } catch (error) {
-      notify({ kind: "error", message: `${message(error)} Testnet users can mint MOCK under Testnet tools if their wallet balance is insufficient.` });
+      notify({ kind: "error", message: `${message(error)}${asset.id === "mock" ? " Testnet users can mint MOCK under Testnet tools if their wallet balance is insufficient." : " Make sure your wallet has enough testnet sBTC."}` });
     } finally { setFunding(null); }
   };
 
@@ -417,7 +423,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
           <button className="primary-wide" disabled={!quote || route !== "found" || !config || funding !== null} onClick={continueToReview}>{funding === "payment" ? <><RefreshCw className="spin" size={16} /> Waiting for payment funding…</> : !wallet ? <>Connect wallet <ArrowRight size={16} /></> : shortfall > 0n ? <>Fund {format(shortfall)} {asset.symbol} & continue <ArrowRight size={16} /></> : <>Review payment <ArrowRight size={16} /></>}</button>
         </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh P′</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer then submits the settlement.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
-      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>Testnet tools & advanced details</summary><p>MOCK minting exists only for this testnet demo. Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p><div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div><dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
+      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>Testnet tools & advanced details</summary><p>Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
     </div>
   </>;
 }

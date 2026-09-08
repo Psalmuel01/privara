@@ -34,22 +34,20 @@ prefix.
    available Privara balance and, when necessary, requests one wallet approval for the
    exact funding shortfall. It waits for confirmation and continues automatically.
 5. Review the recipient amount and fee, sign the SIP-018 message in the wallet, and
-   submit it to the relayer. MOCK faucet minting is under **Testnet tools & advanced
-   details** and is not part of the production payment experience.
+   submit it to the relayer. Testnet sBTC must already be present in the sender wallet.
 6. The recipient imports/unlocks their own backup and scans. After the settlement is
    confirmed and indexed, the one-time balance appears.
 7. Select **Spend** to make a partial payment or withdraw all. The one-time key signs in
    the browser; the relayer adds its sponsor signature and pays the STX network fee.
 
-MOCK is the only live asset in this deployment because `privara-router-m2` currently
-whitelists that exact contract. sBTC remains visible but disabled until a separate
-sBTC-bound router/helper pair is reviewed and deployed.
+sBTC is the live asset served by `privara-router-m2-sbtc`. The earlier MOCK router and
+its transaction history remain on testnet, but the production relayer config serves one
+exact router/asset pair at a time.
 
 Wallet and live-chain approvals cannot be automated by the test suite. Always inspect
 the contract, arguments, amount, fee mode, and network displayed by the wallet.
 
 ## Adding another SIP-010 token
 
-Deploy a router/helper pair bound to the asset, configure the relayer with that exact
-contract and token name, then add its display metadata to `src/config/assets.ts` and set
-`liveTestnet` only after live acceptance succeeds.
+Deploy a router bound to the asset, configure the relayer with that exact router, asset
+contract and token name, then add its display metadata to `src/config/assets.ts`.

@@ -153,6 +153,7 @@ describe("announcement event indexer", () => {
     const config: RelayerConfig = {
       network: "testnet",
       coreAddress: ROUTER.split(".")[0],
+      routerContract: ROUTER,
       relayerPrivateKey: "01".repeat(32),
       sponsorPrivateKey: "02".repeat(32),
       assetContract: ASSET,

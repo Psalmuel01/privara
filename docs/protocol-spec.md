@@ -212,7 +212,7 @@ settlement, regardless of what the relayer passes.
 ;; simnet / tests
 (define-constant SBTC .mock-token)
 ;; testnet
-(define-constant SBTC 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token)
+(define-constant SBTC 'SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token)
 ;; mainnet
 (define-constant SBTC 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token)
 ```

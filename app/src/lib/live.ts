@@ -251,7 +251,8 @@ export async function mintMock(
   return transactionId(result);
 }
 
-export async function depositMock(
+/** Fund exactly the configured router/asset pair before the signed settlement. */
+export async function depositAsset(
   config: PublicRelayerConfig,
   address: string,
   amount: bigint

@@ -24,6 +24,7 @@ import {
 
 const CORE = "ST000000000000000000002AMW42H";
 const ASSET = `${CORE}.mock-token`;
+const ROUTER = `${CORE}.privara-router-m2-sbtc`;
 const RELAYER_KEY = "530d9f61984c888536871c6573073bdfc0058896dc1adfe9a6a10dfacadc209101";
 const USER_KEY = "4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f01";
 const ORIGIN_KEY = "0101010101010101010101010101010101010101010101010101010101010101";
@@ -33,6 +34,7 @@ const TREASURY = "ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG";
 const config: RelayerConfig = {
   network: "testnet",
   coreAddress: CORE,
+  routerContract: ROUTER,
   relayerPrivateKey: RELAYER_KEY,
   sponsorPrivateKey: RELAYER_KEY,
   assetContract: ASSET,
@@ -153,7 +155,7 @@ describe("reference relayer service", () => {
         epoch: 2n,
       },
       network: "testnet",
-      router: `${CORE}.privara-router-m2`,
+      router: ROUTER,
       asset: ASSET,
       relayer: getAddressFromPrivateKey(RELAYER_KEY, "testnet"),
       enteredAmount: 99_000n,

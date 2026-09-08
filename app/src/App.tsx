@@ -67,6 +67,7 @@ import {
   type PublicRelayerConfig,
 } from "./lib/live";
 import { PrivacyBackupConflictError } from "./lib/privacy-backup";
+import { paymentFundingShortfall } from "./lib/payment-funding";
 
 type View = "overview" | "send" | "receive" | "activity" | "payouts";
 type FeeMode = "added" | "included";
@@ -331,13 +332,14 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
   const [feeMode, setFeeMode] = useState<FeeMode>("added");
   const [stage, setStage] = useState<"edit" | "review" | "signing" | "done">("edit");
   const [route, setRoute] = useState<"idle" | "checking" | "found" | "missing">("idle");
-  const [funding, setFunding] = useState<"mint" | "deposit" | null>(null);
+  const [funding, setFunding] = useState<"mint" | "payment" | null>(null);
   const [txid, setTxid] = useState("");
   const [stealthPrincipal, setStealthPrincipal] = useState("");
   const quote = useMemo(() => {
     try { return quoteSettlementFee({ amount: parseUnits(amount, asset.decimals), feeBps: BigInt(config?.settlementFeeBps ?? 100), mode: feeMode }); } catch { return null; }
   }, [amount, asset.decimals, config?.settlementFeeBps, feeMode]);
   const format = (value?: bigint) => value === undefined ? "—" : formatUnits(value, asset.decimals, asset.decimals);
+  const shortfall = quote ? paymentFundingShortfall(quote.totalAmount, deposit) : 0n;
 
   useEffect(() => {
     setRoute("idle");
@@ -349,18 +351,45 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     return () => window.clearTimeout(timer);
   }, [config, recipient]);
 
-  const fund = async (kind: "mint" | "deposit") => {
+  const mintTestTokens = async () => {
     if (!wallet) return connect();
     if (!config) return notify({ kind: "error", message: "Relayer configuration is unavailable." });
     try {
-      setFunding(kind);
+      setFunding("mint");
       const atomic = parseUnits(fundAmount, asset.decimals);
-      const id = kind === "mint" ? await mintMock(config, wallet, atomic) : await depositMock(config, wallet, atomic);
-      notify({ kind: "info", message: `${kind === "mint" ? "Mint" : "Deposit"} broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
+      const id = await mintMock(config, wallet, atomic);
+      notify({ kind: "info", message: `Test MOCK mint broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
       await waitForTransaction(id);
-      if (kind === "deposit") setDeposit(await readRouterDeposit(config, wallet));
-      notify({ kind: "success", message: `${kind === "mint" ? "Mint" : "Deposit"} confirmed on testnet.` });
+      notify({ kind: "success", message: `${formatUnits(atomic, asset.decimals)} MOCK minted to your testnet wallet. You can now fund the payment.` });
     } catch (error) { notify({ kind: "error", message: message(error) }); } finally { setFunding(null); }
+  };
+
+  const continueToReview = async () => {
+    if (!wallet) return connect();
+    if (!config || !quote || route !== "found") return;
+    try {
+      setFunding("payment");
+      // Refresh immediately before funding so concurrent deposits never cause us to
+      // request more than the exact shortfall for this payment.
+      const currentDeposit = await readRouterDeposit(config, wallet);
+      setDeposit(currentDeposit);
+      const required = paymentFundingShortfall(quote.totalAmount, currentDeposit);
+      if (required > 0n) {
+        notify({ kind: "info", message: `Approve funding of ${formatUnits(required, asset.decimals)} ${asset.symbol}. Privara will continue to payment review after confirmation.` });
+        const id = await depositMock(config, wallet, required);
+        notify({ kind: "info", message: `Payment funding broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
+        await waitForTransaction(id);
+        const fundedDeposit = await readRouterDeposit(config, wallet);
+        setDeposit(fundedDeposit);
+        if (fundedDeposit < quote.totalAmount) {
+          throw new Error("Payment funding confirmed, but the available Privara balance is still insufficient");
+        }
+        notify({ kind: "success", message: "Payment funded. Review the exact recipient amount and settlement fee next." });
+      }
+      setStage("review");
+    } catch (error) {
+      notify({ kind: "error", message: `${message(error)} Testnet users can mint MOCK under Testnet tools if their wallet balance is insufficient.` });
+    } finally { setFunding(null); }
   };
 
   const submit = async () => {
@@ -376,21 +405,18 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
 
   if (stage === "done") return <SuccessState asset={asset} amount={format(quote?.recipientAmount)} tx={txid} detail={`Settling to fresh address ${short(stealthPrincipal, 9, 7)}`} action={onDone} />;
   return <>
-    <PageTitle eyebrow="Live one-time-address payment" title="Keep the recipient's long-term wallet out of the settlement destination." copy="Fund your router deposit, enter a registered recipient, then sign the exact SIP-018 intent in Leather or Xverse. Amount and payer activity are not hidden." />
-    <section className="funding-strip panel">
-      <div><span className="eyebrow">Router deposit</span><strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong><small>Both faucet mint and deposit are separate on-chain transactions.</small></div>
-      <div className="funding-actions"><div className="funding-controls"><input aria-label="Funding amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" /><button className="light-button" onClick={() => fund("mint")} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} 1. Mint to wallet</button><button className="dark-button" onClick={() => fund("deposit")} disabled={funding !== null}>{funding === "deposit" ? <RefreshCw className="spin" size={14} /> : null} 2. Deposit to router</button></div><small>The amount applies to either action. Each requires a separate wallet approval.</small></div>
-    </section>
+    <PageTitle eyebrow="Live one-time-address payment" title="Pay a registered recipient." copy="Choose who receives and how much. Privara calculates any funding needed and guides you through the wallet approvals. Amount and payer activity are not hidden." />
     <div className="flow-layout">
       <section className="flow-card">
         {stage === "edit" ? <>
-          <label className="field-label">Recipient’s Stacks testnet address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder="ST…" />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> P/V found</> : "Not registered"}</span>}</div>
-          <label className="field-label">Amount recipient should receive</label><div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div>
-          <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
-          <button className="primary-wide" disabled={!quote || route !== "found" || !wallet || !config || deposit < quote.totalAmount} onClick={() => setStage("review")}>{!wallet ? "Connect wallet first" : deposit < (quote?.totalAmount ?? 0n) ? "Deposit more MOCK" : "Review private payment"} <ArrowRight size={16} /></button>
-        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your router deposit</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh P′</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs a SIP-018 message, not a token transfer. The relayer verifies that signature and submits the bound settlement.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
+          <label className="field-label">Recipient’s Stacks testnet address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder="ST…" disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>
+          <label className="field-label">Amount recipient should receive</label><div className="amount-input"><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={funding !== null} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div>
+          <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")} disabled={funding !== null}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")} disabled={funding !== null}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
+          {shortfall > 0n && wallet && <div className="funding-note"><Wallet size={16} /><p><strong>One funding approval needed</strong><span>Privara will request exactly {format(shortfall)} {asset.symbol}, wait for confirmation, and continue automatically.</span></p></div>}
+          <button className="primary-wide" disabled={!quote || route !== "found" || !config || funding !== null} onClick={continueToReview}>{funding === "payment" ? <><RefreshCw className="spin" size={16} /> Waiting for payment funding…</> : !wallet ? <>Connect wallet <ArrowRight size={16} /></> : shortfall > 0n ? <>Fund {format(shortfall)} {asset.symbol} & continue <ArrowRight size={16} /></> : <>Review payment <ArrowRight size={16} /></>}</button>
+        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh P′</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer then submits the settlement.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
-      <aside className="summary-card"><span className="eyebrow">Live policy</span><h3>Payment summary</h3><dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Fee handling</dt><dd>{feeMode === "added" ? "Added" : "Included"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></aside>
+      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>Testnet tools & advanced details</summary><p>MOCK minting exists only for this testnet demo. Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p><div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div><dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
     </div>
   </>;
 }

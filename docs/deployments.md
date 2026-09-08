@@ -413,9 +413,10 @@ the service.
 
 1. Bob connects a testnet wallet, creates and downloads an encrypted backup, restores
    that JSON in a fresh browser session, and only then registers/verifies P/V.
-2. Alice connects a funded testnet wallet, mints MOCK, deposits it into the M2 router,
-   and waits for both confirmations.
-3. Alice enters Bob's normal address, chooses fee-added, signs the SIP-018 intent, and
+2. Alice connects a funded testnet wallet and enters Bob's normal address and payment
+   amount. If necessary, the app requests the exact router-funding shortfall and proceeds
+   automatically after confirmation. MOCK minting remains an explicit testnet-only tool.
+3. Alice chooses fee-added, reviews the exact payment, signs the SIP-018 intent, and
    records the returned settlement transaction ID.
 4. After confirmation, Bob scans and sees the new one-time address and MOCK balance.
 5. Bob pays another address from that balance, then withdraws any remainder. Record both

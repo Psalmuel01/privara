@@ -28,12 +28,14 @@ prefix.
 1. Start the relayer and app.
 2. Connect a Leather or Xverse **testnet** account.
 3. In **Receive & scan**, create a 12+ character backup password and create the privacy
-   identity. Approve the P/V registration transaction, then download the encrypted JSON
-   backup and keep another secure copy.
-4. In **Send privately**, mint demo MOCK. Wait for confirmation, then deposit MOCK and
-   wait for that confirmation.
-5. Enter a recipient whose P/V is registered. Choose fee-added or fee-inclusive, review,
-   sign the SIP-018 message in the wallet, and submit it to the relayer.
+   identity. Download the encrypted JSON, import it to prove recovery, and only then
+   approve P/V registration. Keep another secure copy.
+4. In **Send privately**, enter a registered recipient and amount. The app checks the
+   available Privara balance and, when necessary, requests one wallet approval for the
+   exact funding shortfall. It waits for confirmation and continues automatically.
+5. Review the recipient amount and fee, sign the SIP-018 message in the wallet, and
+   submit it to the relayer. MOCK faucet minting is under **Testnet tools & advanced
+   details** and is not part of the production payment experience.
 6. The recipient imports/unlocks their own backup and scans. After the settlement is
    confirmed and indexed, the one-time balance appears.
 7. Select **Spend** to make a partial payment or withdraw all. The one-time key signs in

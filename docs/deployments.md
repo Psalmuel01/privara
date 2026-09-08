@@ -387,6 +387,10 @@ docker run --rm -p 8787:8787 \
   privara-relayer
 ```
 
+For Railway, set the Dockerfile path to `Dockerfile.relayer`, leave the start command
+blank, and attach a Railway-managed volume at `/data`. Do not add a Dockerfile `VOLUME`
+instruction; persistent storage is configured on the Railway service instead.
+
 The remote service must use HTTPS, a persistent `/data` volume, and one replica for the
 base release. Verify it before building the frontend:
 

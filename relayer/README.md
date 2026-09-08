@@ -57,6 +57,14 @@ docker run --rm -p 8787:8787 \
   privara-relayer
 ```
 
+### Railway
+
+Set the service Dockerfile path to `Dockerfile.relayer` and leave the start command
+blank so the image `CMD` is used. Create a Railway-managed volume mounted at `/data`;
+the Dockerfile deliberately does not declare `VOLUME` because Railway manages
+persistent mounts through its service settings. The relayer stores accepted request
+IDs at `/data/relayer-processed.json`.
+
 The hosting provider must supply HTTPS, persistent storage at `/data`, and secrets as
 environment variables. Set `HOST=0.0.0.0`, `PRIVARA_PROCESSED_STORE` to
 `/data/relayer-processed.json`, and `PRIVARA_ALLOWED_ORIGINS` to the exact deployed app

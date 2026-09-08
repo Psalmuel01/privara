@@ -36,6 +36,9 @@ import {
 } from "./privacy-backup";
 
 export const NETWORK = "testnet" as const;
+/** Registration is an on-chain wallet action and remains available if the relayer is down. */
+export const TESTNET_STEALTH_REGISTRY =
+  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stealth-registry";
 export const STACKS_API_URL =
   import.meta.env.VITE_STACKS_API_URL?.replace(/\/$/, "") || "https://api.testnet.hiro.so";
 export const RELAYER_URL =
@@ -180,13 +183,13 @@ function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
 }
 
 export async function registerPrivacyIdentity(
-  config: PublicRelayerConfig,
+  registry: string,
   address: string,
   identity: PrivacyIdentity
 ): Promise<{ txid?: string; alreadyRegistered: boolean }> {
   // This local invariant prevents accidental registration before recoverability was proved.
   assertPrivacyBackupVerified(localStorage, NETWORK, address, identity);
-  const current = await fetchStealthKeys({ registry: config.registry, user: address, network: NETWORK });
+  const current = await fetchStealthKeys({ registry, user: address, network: NETWORK });
   if (
     current &&
     sameBytes(current.spendingPublicKey, identity.spendingPublicKey) &&
@@ -206,7 +209,7 @@ export async function registerPrivacyIdentity(
   const result = await request("stx_callContract", {
     address,
     network: NETWORK,
-    contract: config.registry as `${string}.${string}`,
+    contract: registry as `${string}.${string}`,
     functionName: "register-stealth-keys",
     functionArgs: [spendingKey, viewingKey],
     postConditionMode: "allow",

@@ -42,6 +42,7 @@ import {
 import {
   RELAYER_URL,
   STACKS_API_URL,
+  TESTNET_STEALTH_REGISTRY,
   connectWallet,
   createPrivacyIdentity,
   depositMock,
@@ -438,7 +439,6 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
 
   const privacyAction = async (kind: "create" | "unlock" | "register") => {
     if (!wallet) return connect();
-    if (kind === "register" && !config) return notify({ kind: "error", message: "Relayer configuration is unavailable." });
     try {
       setBusy(kind);
       if (kind === "create") {
@@ -459,8 +459,10 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       if (!active) throw new Error("Create or unlock the privacy identity first");
       setIdentity(active);
       if (kind === "register") {
-        if (!config) throw new Error("Relayer configuration is unavailable");
-        const result = await registerPrivacyIdentity(config, wallet, active);
+        // Registration talks directly to the immutable registry through the wallet;
+        // it must not fail merely because the optional relayer service is offline.
+        const registry = config?.registry ?? TESTNET_STEALTH_REGISTRY;
+        const result = await registerPrivacyIdentity(registry, wallet, active);
         if (result.txid) {
           notify({ kind: "info", message: `Privacy registration broadcast: ${short(result.txid, 10, 8)}. Waiting for confirmation…` });
           await waitForTransaction(result.txid);
@@ -513,7 +515,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Independent privacy identity</span><h2>{identity && backupVerified ? "Verified and unlocked" : backupVerified ? "Verified and locked" : backupExists ? "Backup verification required" : "Not created on this device"}</h2></div><span className={`ready-badge ${identity && backupVerified ? "" : "locked"}`}>{identity && backupVerified ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity && backupVerified ? "Ready" : "Locked"}</span></div>
         <div className="warning-box"><TriangleAlert size={16} /><p>Stealth funds are controlled by your independent Privara privacy seed—not by Leather, Xverse, or a connected hardware wallet. Those wallets cannot recover these funds. Keep the encrypted JSON and its password safe.</p></div>
         {!identity && <><label className="field-label">Backup password (minimum 12 characters)</label><div className="address-input compact"><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Never sent to Privara" /></div><small className="field-help">{backupExists && !backupVerified ? "Download the stored backup, then import that JSON to prove it can be restored." : "The password encrypts your independent Privara privacy seed locally."}</small><div className="privacy-actions">{!backupExists ? <button className="dark-button" onClick={() => privacyAction("create")} disabled={password.length < 12 || busy !== null}>Create & download backup</button> : backupVerified ? <button className="dark-button" onClick={() => privacyAction("unlock")} disabled={password.length < 12 || busy !== null}>Unlock verified backup</button> : <button className="light-button" onClick={() => { exportStoredBackup(wallet); setBackupRevision((value) => value + 1); notify({ kind: "success", message: "Encrypted backup downloaded. Import this JSON next to verify recovery." }); }} disabled={busy !== null}><FileKey size={15} /> Download stored backup</button>}<label className="light-button file-button"><FileKey size={15} /> {backupExists && !backupVerified ? "Verify downloaded JSON" : "Import backup"}<input type="file" accept="application/json" onChange={(event) => { void importBackup(event.target.files?.[0]); event.target.value = ""; }} disabled={busy !== null} /></label></div></>}
-        {identity && <><div className="key-list"><div><span>Spending public key · P</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "spending"), notify, "Spending public key")} aria-label="Copy spending public key"><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "viewing"), notify, "Viewing public key")} aria-label="Copy viewing public key"><Copy size={13} /></button></div></div><div className="privacy-actions"><button className="dark-button" onClick={() => privacyAction("register")} disabled={busy !== null || !backupVerified}><KeyRound size={15} /> Verify/register on-chain</button><button className="light-button" onClick={() => { exportStoredBackup(wallet); setBackupRevision((value) => value + 1); notify({ kind: "success", message: "Encrypted privacy backup downloaded." }); }}><FileKey size={15} /> Download encrypted backup</button></div></>}
+        {identity && <><div className="key-list"><div><span>Spending public key · P</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "spending"), notify, "Spending public key")} aria-label="Copy spending public key"><Copy size={13} /></button></div><div><span>Viewing public key · V</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "viewing"), notify, "Viewing public key")} aria-label="Copy viewing public key"><Copy size={13} /></button></div></div><div className="privacy-actions"><button className="dark-button" onClick={() => privacyAction("register")} disabled={busy !== null || !backupVerified}><KeyRound size={15} /> Register keys on-chain</button><button className="light-button" onClick={() => { exportStoredBackup(wallet); setBackupRevision((value) => value + 1); notify({ kind: "success", message: "Encrypted privacy backup downloaded." }); }}><FileKey size={15} /> Download encrypted backup</button></div></>}
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
     </section>}

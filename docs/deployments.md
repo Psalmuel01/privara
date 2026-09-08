@@ -205,9 +205,10 @@ Status: **deployed and confirmed on 2026-09-06**.
 | Deployment transaction | [8e026e77…9c1e](https://explorer.hiro.so/txid/0x8e026e77a43ff62d2858f773c949d4880f76f3fc45ec23f7fe28acc074c99c1e?chain=testnet) |
 
 The deployment uses nonce `4` and a `60,000` micro-STX fee. No recipient keys were
-registered as part of deployment. Key registration must be paired with an encrypted,
-recoverable privacy-seed backup; do not register disposable keys for a wallet that may
-later receive funds.
+registered as part of deployment. Key registration is blocked until the encrypted
+privacy-seed backup has been downloaded and successfully restored from its JSON. Do not
+register disposable keys for a wallet that may later receive funds. This independent
+Privara seed—not Leather, Xverse, or a hardware wallet—controls stealth funds.
 
 The backed-up test wallet registered P,V at epoch `1` in block `272459`:
 [070deff4…ba39](https://explorer.hiro.so/txid/0x070deff4af1aa221a5aacf3dabca6f1fbc075662659ea3bdda59ff3aa808ba39?chain=testnet).
@@ -360,8 +361,9 @@ https://explorer.hiro.so/txid/0x<TX_ID>?chain=testnet
 ## Phase 6 browser app and relayer deployment
 
 The React app now performs the live M2 flow. It does not accept wallet private keys.
-Leather/Xverse signs wallet operations; the independent privacy seed is encrypted in
-the browser and never sent to the relayer.
+Leather/Xverse signs wallet operations; a separate Privara privacy seed controls stealth
+funds, is encrypted in the browser, and is never sent to the relayer. Connected wallets
+and hardware wallets cannot recover that seed.
 
 ### Relayer service
 
@@ -409,8 +411,8 @@ the service.
 
 ### Required browser acceptance
 
-1. Bob connects a testnet wallet, imports/unlocks his existing encrypted backup, and
-   verifies that its P/V matches the registry.
+1. Bob connects a testnet wallet, creates and downloads an encrypted backup, restores
+   that JSON in a fresh browser session, and only then registers/verifies P/V.
 2. Alice connects a funded testnet wallet, mints MOCK, deposits it into the M2 router,
    and waits for both confirmations.
 3. Alice enters Bob's normal address, chooses fee-added, signs the SIP-018 intent, and
@@ -420,6 +422,45 @@ the service.
    sponsored transaction IDs and confirm the one-time address spent zero STX.
 
 Add those transaction IDs above before declaring the Phase 6 exit complete.
+
+### M2 hardening validation — 2026-09-08
+
+Local validation passed with `131/131` tests, SDK/script typechecking, and a production
+React build. The fresh-session recovery regression creates an encrypted backup in one
+isolated browser storage, restores it into empty storage, verifies identical P/V, and
+proves the registration gate opens only after export plus restore. A different backup is
+rejected without changing existing storage unless the UI receives separate explicit
+replacement confirmation.
+
+The strict live test used different normal wallets for sender and recipient, plus the
+operational relayer/sponsor account. It restored the recipient identity from an encrypted
+backup before P/V registration, settled to a derived one-time address, found the indexed
+announcement, derived the one-time spending key, approved a pinned `100` atomic MOCK
+sponsor fee, and withdrew `98,900` MOCK to the recipient. The stealth origin ended at
+zero MOCK and spent zero STX; the sponsor paid `541` micro-STX.
+
+| Action | Confirmed testnet transaction |
+| --- | --- |
+| Recipient P/V registration | [9318f741…5e90](https://explorer.hiro.so/txid/0x9318f741ffd7d42ee5e41700ec10abb1b27ce7dc0dc72450c4b743110f7f5e90?chain=testnet) |
+| Sender MOCK mint | [6798cdf7…ca8e](https://explorer.hiro.so/txid/0x6798cdf7ea44f34468b48440d8a4922698259619b3d4fd2701ea7b4e5e75ca8e?chain=testnet) |
+| Sender router deposit | [52a98e34…d73f](https://explorer.hiro.so/txid/0x52a98e34530c9d00122c6da25ee22d1813fff6d664a3b75e074cd09f355dd73f?chain=testnet) |
+| Private settlement | [6d369de8…d1f5](https://explorer.hiro.so/txid/0x6d369de865b577bf1b9573e3aafd9020e6f6eaed0225514cc902a9925ab4d1f5?chain=testnet) |
+| Sponsored withdrawal | [60f22695…b1e7](https://explorer.hiro.so/txid/0x60f22695e04e349cdbf754e6fd8b281362e44ac58b6b69556e9bd19909f0b1e7?chain=testnet) |
+
+Remaining validation limitations and expected failure cases:
+
+- The isolated fresh-storage recovery test passed, but a graphical fresh-browser wallet
+  walkthrough remains manual because no controllable browser/wallet session was connected
+  during this run.
+- A pinned sponsor quote is intentionally rejected if relayer policy changes before
+  submission; the user must fetch and approve a new quote.
+- Invalid announcement records are skipped, but complete Stacks API unavailability still
+  prevents scanning and sponsor-origin verification.
+- Mainnet remains blocked on sBTC-specific contract deployment and acceptance, an
+  independent security review, production HTTPS/secret management and monitoring,
+  durable/distributed abuse and nonce controls for any multi-replica relayer, and a
+  sponsor-fee policy that safely covers volatile STX network costs. No mainnet deployment
+  was attempted.
 
 <!-- ## sBTC status
 

@@ -1,7 +1,8 @@
-// Fresh Phase 4/5 acceptance flow using the real HTTP routes:
-// register P/V -> mint/deposit -> POST private M2 intent -> scan indexed announcement
-// -> POST origin-signed paid v2 withdrawal. No privacy or stealth private key is logged.
+// Fresh M2 acceptance flow using the real HTTP routes:
+// backup/export/restore -> register P/V -> mint/deposit -> private payment -> indexed
+// scan -> explicitly quoted and approved sponsored withdrawal. No private key is logged.
 
+import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { bytesToHex } from "@stacks/common";
@@ -10,7 +11,9 @@ import {
   broadcastTransaction,
   getAddressFromPrivateKey,
   makeContractCall,
+  makeSTXTokenTransfer,
   principalCV,
+  type StacksTransactionWire,
   uintCV,
 } from "@stacks/transactions";
 import {
@@ -19,10 +22,14 @@ import {
   fetchAnnouncementPage,
   fetchSip010Balance,
   fetchStealthKeys,
+  exportPrivacySeed,
   generateIdentity,
+  identityFromSeed,
+  importPrivacySeed,
+  prepareSponsoredSpend,
   privateIntentEnvelope,
   scanAnnouncements,
-  withdrawStealthBalance,
+  submitPreparedSponsoredSpend,
   type SponsoredSpendResult,
 } from "../sdk/src";
 import { PrivaraRelayerService, type RelayerConfig } from "../relayer/src/service";
@@ -81,7 +88,7 @@ async function waitForTx(txid: string): Promise<TxInfo> {
 
 async function submitDirect(
   label: string,
-  transaction: Awaited<ReturnType<typeof makeContractCall>>
+  transaction: StacksTransactionWire
 ) {
   const result = await broadcastTransaction({ transaction, network: stacksNetwork() });
   if ("error" in result) {
@@ -126,19 +133,57 @@ async function waitForIndexedSettlement(txid: string) {
 
 async function main() {
   let wallet = await generateWallet({ secretKey: deploymentMnemonic(), password: "" });
-  while (wallet.accounts.length < 3) wallet = generateNewAccount(wallet);
+  while (wallet.accounts.length < 4) wallet = generateNewAccount(wallet);
   const payerKey = wallet.accounts[0].stxPrivateKey;
-  const destinationKey = wallet.accounts[1].stxPrivateKey;
   const relayerKey = wallet.accounts[2].stxPrivateKey;
+  // Account 3 is isolated acceptance-only state, so account 1's real registered backup
+  // is never rotated or overwritten by this repeatable test.
+  const recipientKey = wallet.accounts[3].stxPrivateKey;
   const payer = getAddressFromPrivateKey(payerKey, "testnet");
-  const destination = getAddressFromPrivateKey(destinationKey, "testnet");
+  const recipient = getAddressFromPrivateKey(recipientKey, "testnet");
   const sponsor = getAddressFromPrivateKey(relayerKey, "testnet");
-  const identity = generateIdentity();
+  // Prove recoverability before any public keys are registered. The generated secret is
+  // cleared and every later action uses only the identity restored from encrypted bytes.
+  const generatedIdentity = generateIdentity();
+  const generatedSpendingPublicKey = generatedIdentity.spendingPublicKey.slice();
+  const generatedViewingPublicKey = generatedIdentity.viewingPublicKey.slice();
+  const backupPassword = randomBytes(24).toString("hex");
+  const encryptedBackup = await exportPrivacySeed(generatedIdentity.privacySeed, backupPassword);
+  generatedIdentity.privacySeed.fill(0);
+  generatedIdentity.spendingPrivateKey.fill(0);
+  generatedIdentity.viewingPrivateKey.fill(0);
+  const restoredSeed = await importPrivacySeed(encryptedBackup, backupPassword);
+  const identity = identityFromSeed(restoredSeed);
+  restoredSeed.fill(0);
+  if (
+    bytesToHex(identity.spendingPublicKey) !== bytesToHex(generatedSpendingPublicKey) ||
+    bytesToHex(identity.viewingPublicKey) !== bytesToHex(generatedViewingPublicKey)
+  ) {
+    throw new Error("encrypted privacy backup did not restore the original public identity");
+  }
+  console.log("Privacy backup export/restore verification: passed");
   const transactions: Record<string, string> = {};
 
-  // Account 0 is intentionally the acceptance recipient/fee treasury; the user's
-  // existing account-1 registry identity and encrypted backup remain untouched.
-  const existingKeys = await fetchStealthKeys({ registry: REGISTRY, user: payer, network: "testnet" });
+  const balancesResponse = await fetch(
+    `${stacksNetwork().client.baseUrl}/extended/v1/address/${recipient}/balances`
+  );
+  if (!balancesResponse.ok) throw new Error("unable to read acceptance recipient STX balance");
+  const balances = (await balancesResponse.json()) as { stx?: { balance?: string } };
+  if (BigInt(balances.stx?.balance ?? "0") < 100_000n) {
+    transactions.fundRecipientStx = (
+      await submitDirect(
+        "fund acceptance recipient STX",
+        await makeSTXTokenTransfer({
+          recipient,
+          amount: 250_000n,
+          senderKey: payerKey,
+          network: "testnet",
+        })
+      )
+    ).txid;
+  }
+
+  const existingKeys = await fetchStealthKeys({ registry: REGISTRY, user: recipient, network: "testnet" });
   const [spendingKey, viewingKey] = buildStealthKeyArgs(
     identity.spendingPublicKey,
     identity.viewingPublicKey
@@ -150,7 +195,7 @@ async function main() {
       contractName: "privara-stealth-registry",
       functionName: existingKeys ? "update-stealth-keys" : "register-stealth-keys",
       functionArgs: [spendingKey, viewingKey],
-      senderKey: payerKey,
+      senderKey: recipientKey,
       network: "testnet",
       postConditionMode: "allow",
     })
@@ -217,7 +262,7 @@ async function main() {
     };
     const created = await createPrivateIntent({
       registry: REGISTRY,
-      recipient: payer,
+      recipient,
       network: "testnet",
       router: ROUTER,
       asset: ASSET,
@@ -271,7 +316,7 @@ async function main() {
 
     const destinationBefore = await fetchSip010Balance({
       assetContract: ASSET,
-      principal: destination,
+      principal: recipient,
       network: "testnet",
     });
     const treasuryBefore = await fetchSip010Balance({
@@ -279,15 +324,26 @@ async function main() {
       principal: payer,
       network: "testnet",
     });
-    const sweep: SponsoredSpendResult = await withdrawStealthBalance({
+    const spendOptions = {
       endpoint,
       network: "testnet",
       spendContract: SPEND_CONTRACT,
       assetContract: ASSET,
       tokenName: "mock",
-      destination,
+      destination: recipient,
       stealthPrivateKey: payment.stealthPrivateKey,
+    } as const;
+    const approvedSponsorQuote = await prepareSponsoredSpend({
+      ...spendOptions,
+      fullBalance: true,
     });
+    console.log(
+      `Approved sponsor quote: payment ${approvedSponsorQuote.paymentAmount}, fee ${approvedSponsorQuote.sponsorFee}, total ${approvedSponsorQuote.totalAmount}`
+    );
+    const sweep: SponsoredSpendResult = await submitPreparedSponsoredSpend(
+      spendOptions,
+      approvedSponsorQuote
+    );
     transactions.sponsoredSpend = sweep.txid;
     console.log(`HTTP paid sponsored spend: ${sweep.txid}`);
     const swept = await waitForTx(sweep.txid);
@@ -304,7 +360,7 @@ async function main() {
     });
     const destinationAfter = await fetchSip010Balance({
       assetContract: ASSET,
-      principal: destination,
+      principal: recipient,
       network: "testnet",
     });
     const treasuryAfter = await fetchSip010Balance({
@@ -324,9 +380,9 @@ async function main() {
       version: 1,
       network: "testnet",
       core: CORE,
-      normalRecipient: payer,
+      normalRecipient: recipient,
       stealthOrigin: payment.stealthPrincipal,
-      withdrawalDestination: destination,
+      withdrawalDestination: recipient,
       tokenFeeTreasury: payer,
       stacksSponsor: sponsor,
       settlement: {

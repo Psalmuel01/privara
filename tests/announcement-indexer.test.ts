@@ -11,6 +11,7 @@ import {
   type HiroContractLog,
   type StealthAnnouncementPayload,
 } from "../sdk/src";
+import { findKnownStealthOrigin, type RelayerConfig } from "../relayer/src/service";
 
 const ROUTER = "ST000000000000000000002AMW42H.privara-router-m2";
 const ASSET = "ST000000000000000000002AMW42H.mock-token";
@@ -111,6 +112,71 @@ describe("announcement event indexer", () => {
     expect(requested[0].pathname).toContain("/extended/v2/smart-contracts/");
     expect(requested[0].searchParams.get("cursor")).toBe("old:cursor");
     expect(requested[0].searchParams.get("limit")).toBe("25");
+  });
+
+  it("skips malformed logs and malformed secp256k1 keys without aborting the page", async () => {
+    const malformedKey = settlementLog(
+      { ...payload(), ephemeralPublicKey: new Uint8Array(33) },
+      new Uint8Array(32)
+    );
+    malformedKey.tx_id = `0x${"cd".repeat(32)}`;
+    malformedKey.event_index = 4;
+    const invalidEncoding = settlementLog();
+    invalidEncoding.tx_id = `0x${"ef".repeat(32)}`;
+    invalidEncoding.event_index = 5;
+    invalidEncoding.contract_log.value.hex = "0x00";
+    const invalid = vi.fn();
+    const page = await fetchAnnouncementPage({
+      apiUrl: "https://api.test/",
+      router: ROUTER,
+      fetcher: vi.fn(async () => Response.json({
+        results: [malformedKey, invalidEncoding, settlementLog()],
+      })) as typeof fetch,
+      onInvalid: invalid,
+    });
+    expect(page.announcements).toHaveLength(1);
+    expect(invalid).toHaveBeenCalledTimes(2);
+    expect(invalid.mock.calls[0][0]).toEqual({
+      transactionId: malformedKey.tx_id,
+      eventIndex: 4,
+      reason: "invalid_announcement",
+    });
+    expect(JSON.stringify(invalid.mock.calls)).not.toContain("ciphertext");
+    expect(JSON.stringify(invalid.mock.calls)).not.toContain("ephemeral");
+  });
+
+  it("keeps sponsor known-origin verification alive across an invalid earlier log", async () => {
+    const broken = settlementLog();
+    broken.tx_id = `0x${"ef".repeat(32)}`;
+    broken.contract_log.value.hex = "0x00";
+    const invalid = vi.fn();
+    const config: RelayerConfig = {
+      network: "testnet",
+      coreAddress: ROUTER.split(".")[0],
+      relayerPrivateKey: "01".repeat(32),
+      sponsorPrivateKey: "02".repeat(32),
+      assetContract: ASSET,
+      tokenName: "mock",
+      spendContract: `${ROUTER.split(".")[0]}.privara-sponsored-spend-v2`,
+      feeRecipient: RELAYER,
+      exactTokenSponsorFee: 100n,
+      maxIntentAmount: 1_000_000n,
+      maxRelayerFeeBps: 100,
+      maxSweepAmount: 1_000_000n,
+      maxSponsorFee: 10_000n,
+      maxTransactionBytes: 4_096,
+      sponsorshipsPerWindow: 10,
+      sponsorshipWindowMs: 60_000,
+      stacksApiUrl: "https://api.test",
+    };
+    await expect(findKnownStealthOrigin(
+      RECIPIENT,
+      ASSET,
+      config,
+      vi.fn(async () => Response.json({ results: [broken, settlementLog()] })) as typeof fetch,
+      invalid
+    )).resolves.toBe(true);
+    expect(invalid).toHaveBeenCalledOnce();
   });
 
   it("stores only deduplicated public records", () => {

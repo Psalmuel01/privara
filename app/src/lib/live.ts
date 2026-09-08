@@ -10,23 +10,30 @@ import {
 import {
   attachStealthIntentSignature,
   buildStealthKeyArgs,
-  exportPrivacySeed,
   fetchAnnouncementPage,
   fetchSip010Balance,
   fetchStealthKeys,
-  generateIdentity,
-  identityFromSeed,
-  importPrivacySeed,
   preparePrivateIntent,
   privateIntentEnvelope,
   scanAnnouncements,
   stealthIntentDomainCV,
   stealthIntentMessageCV,
-  sweepStealthBalance,
-  type EncryptedPrivacySeedBackup,
+  prepareSponsoredSpend,
+  submitPreparedSponsoredSpend,
+  type PreparedSponsoredSpend,
   type PrivacyIdentity,
   type SettlementFeeMode,
 } from "@privara/sdk";
+import {
+  assertPrivacyBackupVerified,
+  createPendingPrivacyBackup,
+  markPrivacyBackupExported,
+  readPrivacyBackupStatus,
+  readStoredPrivacyBackup,
+  restoreAndVerifyPrivacyBackup,
+  unlockVerifiedPrivacyBackup,
+  type PrivacyBackupStatus,
+} from "./privacy-backup";
 
 export const NETWORK = "testnet" as const;
 export const STACKS_API_URL =
@@ -55,10 +62,6 @@ export interface LivePayment {
   transactionId: string;
   receivedAmount: bigint;
   plaintext: string;
-}
-
-function backupKey(address: string): string {
-  return `privara:privacy-backup:${NETWORK}:${address}`;
 }
 
 async function responseJson<T>(response: Response): Promise<T> {
@@ -120,45 +123,45 @@ function transactionId(result: { txid?: string }): string {
 }
 
 export function hasPrivacyBackup(address: string): boolean {
-  return localStorage.getItem(backupKey(address)) !== null;
+  return readStoredPrivacyBackup(localStorage, NETWORK, address) !== null;
+}
+
+export function privacyBackupStatus(address: string): PrivacyBackupStatus {
+  return readPrivacyBackupStatus(localStorage, NETWORK, address);
 }
 
 export async function createPrivacyIdentity(
   address: string,
   password: string
-): Promise<{ identity: PrivacyIdentity; backup: EncryptedPrivacySeedBackup }> {
-  if (hasPrivacyBackup(address)) {
-    throw new Error("An encrypted privacy backup already exists for this wallet on this device");
-  }
-  const identity = generateIdentity();
-  const backup = await exportPrivacySeed(identity.privacySeed, password);
-  localStorage.setItem(backupKey(address), JSON.stringify(backup));
-  return { identity, backup };
+): ReturnType<typeof createPendingPrivacyBackup> {
+  return createPendingPrivacyBackup(localStorage, NETWORK, address, password);
 }
 
 export async function unlockPrivacyIdentity(
   address: string,
   password: string
 ): Promise<PrivacyIdentity> {
-  const encoded = localStorage.getItem(backupKey(address));
-  if (!encoded) throw new Error("No privacy backup exists on this device. Import or create one first");
-  const seed = await importPrivacySeed(JSON.parse(encoded) as EncryptedPrivacySeedBackup, password);
-  return identityFromSeed(seed);
+  return unlockVerifiedPrivacyBackup(localStorage, NETWORK, address, password);
 }
 
 export async function importPrivacyIdentity(
   address: string,
   encoded: string,
-  password: string
+  password: string,
+  replaceExisting = false
 ): Promise<PrivacyIdentity> {
-  const backup = JSON.parse(encoded) as EncryptedPrivacySeedBackup;
-  const seed = await importPrivacySeed(backup, password);
-  localStorage.setItem(backupKey(address), JSON.stringify(backup));
-  return identityFromSeed(seed);
+  return restoreAndVerifyPrivacyBackup(
+    localStorage,
+    NETWORK,
+    address,
+    encoded,
+    password,
+    replaceExisting
+  );
 }
 
 export function exportStoredBackup(address: string): void {
-  const encoded = localStorage.getItem(backupKey(address));
+  const encoded = readStoredPrivacyBackup(localStorage, NETWORK, address);
   if (!encoded) throw new Error("No encrypted privacy backup exists on this device");
   const blob = new Blob([`${JSON.stringify(JSON.parse(encoded), null, 2)}\n`], {
     type: "application/json",
@@ -169,6 +172,7 @@ export function exportStoredBackup(address: string): void {
   anchor.download = `privara-privacy-${NETWORK}-${address}.json`;
   anchor.click();
   URL.revokeObjectURL(url);
+  markPrivacyBackupExported(localStorage, NETWORK, address);
 }
 
 function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
@@ -180,6 +184,8 @@ export async function registerPrivacyIdentity(
   address: string,
   identity: PrivacyIdentity
 ): Promise<{ txid?: string; alreadyRegistered: boolean }> {
+  // This local invariant prevents accidental registration before recoverability was proved.
+  assertPrivacyBackupVerified(localStorage, NETWORK, address, identity);
   const current = await fetchStealthKeys({ registry: config.registry, user: address, network: NETWORK });
   if (
     current &&
@@ -325,6 +331,7 @@ export async function scanPrivatePayments(
       router: config.router,
       cursor,
       limit: 100,
+      onInvalid: (metadata) => console.warn("Skipped invalid public announcement", metadata),
     });
     announcements.push(...page.announcements);
     if (!page.nextCursor) break;
@@ -353,7 +360,8 @@ export async function scanPrivatePayments(
     identity.viewingPrivateKey,
     identity.spendingPublicKey,
     NETWORK,
-    identity.spendingPrivateKey
+    identity.spendingPrivateKey,
+    (metadata) => console.warn("Skipped invalid scan candidate", metadata)
   );
   const payments = await Promise.all(
     detected.map(async (payment): Promise<LivePayment> => {
@@ -380,14 +388,16 @@ export async function scanPrivatePayments(
   return { checked: announcements.length, payments };
 }
 
-export async function spendPrivatePayment(options: {
+export interface PrivateSpendRequest {
   config: PublicRelayerConfig;
   payment: LivePayment;
   destination: string;
   fullBalance: boolean;
   amount?: bigint;
-}) {
-  const base = {
+}
+
+function privateSpendBase(options: PrivateSpendRequest) {
+  return {
     endpoint: RELAYER_URL,
     network: NETWORK,
     spendContract: `${options.config.coreAddress}.privara-sponsored-spend-v2`,
@@ -397,9 +407,24 @@ export async function spendPrivatePayment(options: {
     stealthPrivateKey: options.payment.stealthPrivateKey,
     stacksApiUrl: STACKS_API_URL,
   } as const;
+}
+
+/** Fetch the exact sponsor terms once, before the confirmation screen is shown. */
+export async function preparePrivateSpend(
+  options: PrivateSpendRequest
+): Promise<PreparedSponsoredSpend> {
+  const base = privateSpendBase(options);
   return options.fullBalance
-    ? sweepStealthBalance({ ...base, fullBalance: true })
-    : sweepStealthBalance({ ...base, fullBalance: false, amount: options.amount! });
+    ? prepareSponsoredSpend({ ...base, fullBalance: true })
+    : prepareSponsoredSpend({ ...base, fullBalance: false, amount: options.amount! });
+}
+
+/** Sign the already-approved terms; this path deliberately performs no quote refresh. */
+export async function spendPrivatePayment(
+  options: PrivateSpendRequest,
+  approved: PreparedSponsoredSpend
+) {
+  return submitPreparedSponsoredSpend(privateSpendBase(options), approved);
 }
 
 export function publicKeyLabel(identity: PrivacyIdentity | null, kind: "spending" | "viewing") {

@@ -1,10 +1,10 @@
 # Privara
 
-Privacy-preserving SIP-010 payment infrastructure for Stacks.
+One-time-recipient-address infrastructure for SIP-010 payments on Stacks.
 
-Privara is a SIP-010 privacy execution layer that enables intent-based transfers with reduced wallet traceability. It introduces a router-based settlement flow where users create signed payment intents that can be executed by relayers, separating payment authorization from onchain transaction submission.
+Privara is a SIP-010 payment layer that uses one-time settlement addresses so the recipient's long-term wallet is not the on-chain settlement destination. It introduces a router-based settlement flow where users create signed payment intents that can be executed by relayers.
 
-The goal is practical privacy for Stacks today: less direct wallet-to-wallet traceability, better payment hygiene for SIP-010 and sBTC flows, and reusable developer infrastructure for wallets, DAO tools, and DeFi protocols.
+This is a narrow recipient-address property. Privara does not hide amounts, make the payer anonymous, hide network/API activity, or prevent linkage created by later spending or withdrawal.
 
 ## Why Privara
 
@@ -20,7 +20,7 @@ Privara addresses this gap by providing:
 - a reusable TypeScript SDK for wallet and protocol integration
 - a reference relayer service for testnet execution
 
-Privara is intentionally scoped as a practical privacy layer, not a fully trustless mixer. It improves wallet-graph privacy within current Clarity constraints while leaving a clear path toward stronger cryptographic privacy as the Stacks runtime evolves.
+Privara is intentionally scoped as a one-time-recipient-address layer, not a fully trustless mixer or anonymity system.
 
 ## What Privara Is Not
 
@@ -30,7 +30,7 @@ In Clarity today, normal SIP-010 settlement requires the contract to know the re
 
 Privara v1 also does not claim a fully trustless Tornado-style shielded pool. A trustless pool requires a private membership proof so a withdrawal can prove it belongs to a prior deposit without revealing which deposit it spends. That requires ZK proofs, ring signatures, blind-signature infrastructure, or another private membership mechanism that is not currently practical as a pure Clarity v1 deliverable.
 
-Instead, Privara focuses on reduced traceability, relayer execution, encrypted note delivery, fresh-address workflows, and an explicitly scoped research path for stronger shielded-note designs.
+Instead, Privara focuses on hiding the recipient's long-term wallet from the settlement destination, relayer execution, encrypted note delivery, and one-time-address workflows.
 
 ## Core Flow
 
@@ -131,7 +131,7 @@ The relayer service:
 The React testnet app supports:
 
 - Leather/Xverse connection and contract-call approvals
-- locally encrypted privacy identity creation/import/unlock
+- locally encrypted privacy identity creation, mandatory export/restore verification, import, and unlock
 - on-chain P/V registration, MOCK mint/deposit, and SIP-018 private intent signing
 - relayer-submitted settlement, live scanning, and sponsored stealth spending
 
@@ -141,9 +141,9 @@ The React testnet app supports:
 
 Users can create signed SIP-010 payment intents and have a relayer execute settlement instead of submitting direct transfers from their long-term wallet.
 
-### DAO Payroll
+### DAO Payout Routing
 
-DAO treasuries can prepare payment instructions for contributors while reducing the visibility of direct treasury-to-contributor wallet relationships.
+DAO treasuries can settle to contributors' one-time addresses instead of using their long-term wallets as settlement destinations. Amounts, payer activity, and later spending remain observable.
 
 ### DeFi Preparation Flows
 
@@ -196,9 +196,10 @@ Additional signs of success:
 ## Current Status
 
 Milestone 1 and the M2 protocol/SDK/relayer implementation are complete. The repository
-has 123 passing tests and the standalone SDK and React production bundle build
-successfully. The remaining Phase 6 acceptance work is deploying the relayer behind
-HTTPS and completing a manual two-wallet testnet flow through the browser UI.
+has 131 passing tests and the standalone SDK and React production bundle build
+successfully. A strict terminal-driven two-wallet flow is confirmed on testnet. The
+remaining Phase 6 acceptance work is deploying the relayer behind HTTPS and completing
+the same flow manually through the browser UI.
 
 **Contracts (simnet, Clarity 4):**
 

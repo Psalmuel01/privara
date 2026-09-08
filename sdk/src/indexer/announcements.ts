@@ -46,6 +46,14 @@ export interface FetchAnnouncementPageOptions {
   cursor?: string;
   limit?: number;
   fetcher?: typeof fetch;
+  /** Receives public identifiers only; never ciphertext, keys, notes, or parser errors. */
+  onInvalid?: (metadata: InvalidAnnouncementMetadata) => void;
+}
+
+export interface InvalidAnnouncementMetadata {
+  transactionId?: string;
+  eventIndex?: number;
+  reason: "invalid_announcement";
 }
 
 export interface AnnouncementPage {
@@ -95,6 +103,10 @@ function uint(data: TupleCV["value"], name: string): bigint {
 
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
   return left.length === right.length && left.every((byte, index) => byte === right[index]);
+}
+
+function safeTransactionId(value: unknown): string | undefined {
+  return typeof value === "string" && /^0x[0-9a-f]{64}$/i.test(value) ? value : undefined;
 }
 
 export function parseStealthSettlementLog(
@@ -164,9 +176,19 @@ export async function fetchAnnouncementPage(
 
   const announcements: IndexedStealthAnnouncement[] = [];
   for (const log of page.results) {
-    if (log.contract_log?.contract_id !== options.router) continue;
-    const parsed = parseStealthSettlementLog(log);
-    if (parsed) announcements.push(parsed);
+    try {
+      if (log?.contract_log?.contract_id !== options.router) continue;
+      const parsed = parseStealthSettlementLog(log);
+      if (parsed) announcements.push(parsed);
+    } catch {
+      // Treat every log as an independent untrusted record. Reporting is restricted to
+      // safe public chain identifiers and must not expose key/ciphertext/error details.
+      options.onInvalid?.({
+        transactionId: safeTransactionId(log?.tx_id),
+        eventIndex: Number.isSafeInteger(log?.event_index) ? log.event_index : undefined,
+        reason: "invalid_announcement",
+      });
+    }
   }
   return {
     announcements,

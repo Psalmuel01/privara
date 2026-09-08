@@ -48,6 +48,7 @@ export {
   scanAnnouncements,
   type StealthAnnouncement,
   type DetectedStealthPayment,
+  type InvalidScanCandidateMetadata,
 } from "./stealth/scanning";
 export {
   serializeStealthAnnouncement,
@@ -99,6 +100,7 @@ export {
   type HiroContractLog,
   type FetchAnnouncementPageOptions,
   type AnnouncementPage,
+  type InvalidAnnouncementMetadata,
 } from "./indexer/announcements";
 export {
   buildSponsoredSweep,
@@ -116,10 +118,13 @@ export {
 export {
   fetchSponsorPolicy,
   fetchSip010Balance,
+  prepareSponsoredSpend,
+  submitPreparedSponsoredSpend,
   sendFromStealth,
   withdrawStealthBalance,
   sweepStealthBalance,
   type SponsorPolicyQuote,
+  type PreparedSponsoredSpend,
   type SponsoredSpendResult,
   type SendFromStealthOptions,
   type WithdrawStealthBalanceOptions,

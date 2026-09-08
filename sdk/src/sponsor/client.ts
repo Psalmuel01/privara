@@ -36,6 +36,21 @@ export interface SponsoredSpendResult {
   networkFeePaid: string;
 }
 
+/**
+ * Immutable facts shown to the user before their one-time key signs.
+ * Submission consumes this object without fetching a replacement quote.
+ */
+export interface PreparedSponsoredSpend {
+  version: 1;
+  origin: string;
+  destination: string;
+  paymentAmount: bigint;
+  sponsorFee: bigint;
+  totalAmount: bigint;
+  balance: bigint;
+  policy: Readonly<SponsorPolicyQuote>;
+}
+
 interface SponsoredClientBase {
   endpoint: string;
   network: Network;
@@ -47,6 +62,7 @@ interface SponsoredClientBase {
   nonce?: bigint;
   stacksApiUrl?: string;
   fetchFn?: typeof fetch;
+  balanceFn?: typeof fetchSip010Balance;
 }
 
 export interface SendFromStealthOptions extends SponsoredClientBase {
@@ -107,9 +123,7 @@ export async function fetchSip010Balance(options: {
   return BigInt(result.value.value);
 }
 
-async function submit(options: SponsoredClientBase, requestedAmount?: bigint) {
-  const fetchFn = options.fetchFn ?? fetch;
-  const policy = await fetchSponsorPolicy(options.endpoint, fetchFn);
+function validatePolicy(options: SponsoredClientBase, policy: SponsorPolicyQuote): void {
   // Pin the quote to the contract and asset selected by the application. A malicious
   // or misconfigured endpoint must not silently redirect the user to another contract.
   if (policy.version !== 1) throw new Error(`unsupported sponsor policy version ${policy.version}`);
@@ -118,23 +132,64 @@ async function submit(options: SponsoredClientBase, requestedAmount?: bigint) {
   if (policy.asset !== options.assetContract || policy.tokenName !== options.tokenName) {
     throw new Error("sponsor asset policy mismatch");
   }
+}
+
+/** Fetch and calculate the exact spend that the UI must show for approval. */
+export async function prepareSponsoredSpend(
+  options: SweepStealthOptions
+): Promise<PreparedSponsoredSpend> {
+  const fetchFn = options.fetchFn ?? fetch;
+  const policy = await fetchSponsorPolicy(options.endpoint, fetchFn);
+  validatePolicy(options, policy);
   const sponsorFee = BigInt(policy.sponsorFee);
   const origin = getAddressFromPrivateKey(options.stealthPrivateKey, options.network);
-  const balance = await fetchSip010Balance({
+  const balance = await (options.balanceFn ?? fetchSip010Balance)({
     assetContract: options.assetContract,
     principal: origin,
     network: options.network,
     stacksApiUrl: options.stacksApiUrl,
   });
   const paymentAmount =
-    requestedAmount === undefined
+    options.fullBalance
       ? fullWithdrawalPaymentAmount(balance, sponsorFee)
-      : requestedAmount;
+      : options.amount;
   if (paymentAmount <= 0n || paymentAmount > BigInt(policy.maxPaymentAmount)) {
     throw new Error("payment amount is outside sponsor policy");
   }
   if (paymentAmount + sponsorFee > balance) {
     throw new Error("insufficient stealth balance for payment and sponsor fee");
+  }
+  return Object.freeze({
+    version: 1 as const,
+    origin,
+    destination: options.destination,
+    paymentAmount,
+    sponsorFee,
+    totalAmount: paymentAmount + sponsorFee,
+    balance,
+    policy: Object.freeze({ ...policy }),
+  });
+}
+
+/** Sign and submit exactly the quote that the user reviewed; never refresh it here. */
+export async function submitPreparedSponsoredSpend(
+  options: SponsoredClientBase,
+  prepared: PreparedSponsoredSpend
+): Promise<SponsoredSpendResult> {
+  const fetchFn = options.fetchFn ?? fetch;
+  validatePolicy(options, prepared.policy);
+  const origin = getAddressFromPrivateKey(options.stealthPrivateKey, options.network);
+  if (prepared.version !== 1 || prepared.origin !== origin) {
+    throw new Error("approved sponsor quote does not match the stealth origin");
+  }
+  if (prepared.destination !== options.destination) {
+    throw new Error("destination changed after sponsor fee approval");
+  }
+  if (
+    prepared.sponsorFee !== BigInt(prepared.policy.sponsorFee) ||
+    prepared.totalAmount !== prepared.paymentAmount + prepared.sponsorFee
+  ) {
+    throw new Error("approved sponsor quote is internally inconsistent");
   }
   // All policy-controlled values become signed contract arguments. The relayer receives
   // only this public serialized transaction, never the stealth private key.
@@ -143,10 +198,10 @@ async function submit(options: SponsoredClientBase, requestedAmount?: bigint) {
     assetContract: options.assetContract,
     tokenName: options.tokenName,
     destination: options.destination,
-    paymentAmount,
-    feeRecipient: policy.feeRecipient,
-    sponsorFee,
-    expectedSponsor: policy.sponsorAddress,
+    paymentAmount: prepared.paymentAmount,
+    feeRecipient: prepared.policy.feeRecipient,
+    sponsorFee: prepared.sponsorFee,
+    expectedSponsor: prepared.policy.sponsorAddress,
     stealthPrivateKey: options.stealthPrivateKey,
     network: options.network,
     nonce: options.nonce,
@@ -163,18 +218,21 @@ async function submit(options: SponsoredClientBase, requestedAmount?: bigint) {
 export async function sendFromStealth(
   options: SendFromStealthOptions
 ): Promise<SponsoredSpendResult> {
-  return submit(options, options.amount);
+  const prepared = await prepareSponsoredSpend({ ...options, fullBalance: false });
+  return submitPreparedSponsoredSpend(options, prepared);
 }
 
 export async function withdrawStealthBalance(
   options: WithdrawStealthBalanceOptions
 ): Promise<SponsoredSpendResult> {
-  return submit(options);
+  const prepared = await prepareSponsoredSpend({ ...options, fullBalance: true });
+  return submitPreparedSponsoredSpend(options, prepared);
 }
 
 /** One entry point for UI callers; fullBalance chooses net withdrawal vs partial spend. */
 export async function sweepStealthBalance(
   options: SweepStealthOptions
 ): Promise<SponsoredSpendResult> {
-  return options.fullBalance ? submit(options) : submit(options, options.amount);
+  const prepared = await prepareSponsoredSpend(options);
+  return submitPreparedSponsoredSpend(options, prepared);
 }

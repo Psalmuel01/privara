@@ -1,52 +1,44 @@
 # Privacy Model
 
-Privara v1 focuses on reduced wallet traceability rather than full cryptographic privacy.
+Privara's privacy claim is deliberately narrow: it hides the recipient's long-term wallet
+from the on-chain settlement destination by paying a derived one-time address.
 
 ## What Privara v1 Improves
 
-- separates payment authorization from transaction submission
-- allows relayers to submit settlement transactions
-- keeps the authorizing principal out of plaintext calldata — `settle-intent` takes
-  no `user` argument and emits none in its print event; the payer is recovered from
-  the signature inside the contract. Casual observers, block explorers, and
-  token-event feeds therefore do not see who paid; recovering the payer takes
-  deliberate `secp256k1-recover?` work per settlement (see What Remains Public)
-- supports encrypted offchain payment instructions
-- encourages fresh-address recipient flows
-- gives wallets and protocols reusable privacy-aware payment tooling
+- derives a fresh settlement destination from the recipient's registered public keys
+- lets the recipient discover and spend that output with an independent Privara seed
+- avoids putting the recipient's long-term wallet in the settlement destination field
 
 ## What Remains Public
 
 Normal SIP-010 settlement still exposes information onchain.
 
-Plaintext (visible to any casual observer or explorer):
+Public or recoverable from public data:
 
 - settlement transaction
 - asset
 - amount
-- recipient address
+- one-time recipient address
 - timing
 - relayer address
-
-Recoverable with effort (not plaintext, but not hidden):
-
-- **the payer.** The payer is not a calldata field, so it does not appear in the
-  transaction args, the print event, or token-transfer feeds. But the 65-byte signature
-  is public, so anyone willing to reconstruct the SIP-018 digest and run
-  `secp256k1-recover?` over each settlement can derive the payer. v1 raises the *cost*
-  of linking a payment to its payer; it does not make the payer unlinkable against a
-  determined indexer.
+- payer identity/activity; Privara makes no payer-anonymity claim
+- API requests, IP/network metadata, and scanner access patterns
+- links created when a one-time address later pays or withdraws to a known address
 
 ## What Privara v1 Does Not Claim
 
 Privara v1 does not claim:
 
 - hidden amounts
-- hidden settlement recipients
+- payer anonymity
+- network or API anonymity
+- unlinkability after later spending or withdrawal
 - fully trustless Tornado-style shielded pools
 - complete timing privacy
 
-## Research Direction
+## Key custody
 
-The longer-term research direction is stronger shielded-note infrastructure using private membership proofs, blind-signature patterns, federated attestation, or future Stacks cryptographic improvements.
-
+Stealth funds are controlled by the independent Privara privacy seed. Leather, Xverse,
+and connected hardware wallets do not hold, recover, or authorize with that seed. The
+wallet registers public P/V keys and handles payer-side wallet operations only. Users
+must export and successfully restore-verify the encrypted JSON before P/V registration.

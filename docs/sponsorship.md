@@ -52,3 +52,10 @@ reduce simple correlation but are heuristics, not cryptographic privacy guarante
 
 The UI must show the sponsor fee and total deduction before the recipient signs, state
 that the user needs `0 STX`, and show the public-wallet linkage warning for withdrawals.
+It fetches one quote for the confirmation screen and signs that exact fee, fee recipient,
+destination, and amount. Submission never refreshes the quote. If server policy changes
+in the meantime, the relayer rejects the old signed transaction and the user must request
+and approve a new quote.
+
+The one-time spending key comes from the independent Privara privacy seed. Leather,
+Xverse, and connected hardware wallets cannot recover or control stealth funds.

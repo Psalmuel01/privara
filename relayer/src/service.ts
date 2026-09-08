@@ -114,27 +114,7 @@ const defaultDependencies: RelayerDependencies = {
     if (!Number.isSafeInteger(info.stacks_tip_height)) throw new Error("invalid Stacks info response");
     return info.stacks_tip_height!;
   },
-  knownStealthOrigin: async (origin, asset, config) => {
-    let cursor: string | undefined;
-    for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
-      const page = await fetchAnnouncementPage({
-        apiUrl: networkFor(config).client.baseUrl,
-        router: `${config.coreAddress}.privara-router-m2`,
-        cursor,
-        limit: 100,
-      });
-      if (
-        page.announcements.some(
-          (record) => record.stealthPrincipal === origin && record.asset === asset
-        )
-      ) {
-        return true;
-      }
-      if (!page.nextCursor) return false;
-      cursor = page.nextCursor;
-    }
-    throw new Error("announcement history exceeded safety limit");
-  },
+  knownStealthOrigin: findKnownStealthOrigin,
 };
 
 function networkFor(config: RelayerConfig) {
@@ -142,6 +122,36 @@ function networkFor(config: RelayerConfig) {
   return config.stacksApiUrl
     ? ({ ...base, client: { baseUrl: config.stacksApiUrl } } as typeof base)
     : base;
+}
+
+/** Scan confirmed public announcements without letting one hostile record deny service. */
+export async function findKnownStealthOrigin(
+  origin: string,
+  asset: string,
+  config: RelayerConfig,
+  fetcher: typeof fetch = fetch,
+  onInvalid: Parameters<typeof fetchAnnouncementPage>[0]["onInvalid"] = (metadata) =>
+    console.warn("Skipped invalid public announcement", metadata)
+): Promise<boolean> {
+  let cursor: string | undefined;
+  for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
+    const page = await fetchAnnouncementPage({
+      apiUrl: networkFor(config).client.baseUrl,
+      router: `${config.coreAddress}.privara-router-m2`,
+      cursor,
+      limit: 100,
+      fetcher,
+      onInvalid,
+    });
+    if (
+      page.announcements.some(
+        (record) => record.stealthPrincipal === origin && record.asset === asset
+      )
+    ) return true;
+    if (!page.nextCursor) return false;
+    cursor = page.nextCursor;
+  }
+  throw new Error("announcement history exceeded safety limit");
 }
 
 function cleanHex(value: string, bytes: number, label: string): string {

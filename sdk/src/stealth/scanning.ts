@@ -23,6 +23,18 @@ export interface DetectedStealthPayment {
   stealthPrivateKey?: Uint8Array;
 }
 
+export interface InvalidScanCandidateMetadata {
+  index: number;
+  stealthPrincipal?: string;
+  reason: "invalid_announcement";
+}
+
+function safePrincipal(value: unknown): string | undefined {
+  return typeof value === "string" && /^[A-Z0-9]{28,50}(?:\.[a-zA-Z0-9_-]{1,40})?$/.test(value)
+    ? value
+    : undefined;
+}
+
 export async function scanAnnouncement(
   announcement: StealthAnnouncement,
   viewingPrivateKey: Uint8Array,
@@ -35,16 +47,13 @@ export async function scanAnnouncement(
     throw new Error("announcement context does not match stealth principal");
   }
 
-  let candidatePublicKey: Uint8Array;
-  try {
-    candidatePublicKey = deriveStealthPublicKeyForRecipient(
-      viewingPrivateKey,
-      spendingPublicKey,
-      announcement.ephemeralPublicKey
-    );
-  } catch {
-    return null;
-  }
+  // Invalid curve points are parser failures, not ordinary non-matches. Let the batch
+  // scanner catch this candidate, report safe metadata, and continue with later entries.
+  const candidatePublicKey = deriveStealthPublicKeyForRecipient(
+    viewingPrivateKey,
+    spendingPublicKey,
+    announcement.ephemeralPublicKey
+  );
   const candidateAddress = stealthPublicKeyToAddress(candidatePublicKey, network);
   if (candidateAddress !== announcement.stealthPrincipal) return null;
 
@@ -76,10 +85,11 @@ export async function scanAnnouncements(
   viewingPrivateKey: Uint8Array,
   spendingPublicKey: Uint8Array,
   network: StacksNetworkName,
-  spendingPrivateKey?: Uint8Array
+  spendingPrivateKey?: Uint8Array,
+  onInvalid?: (metadata: InvalidScanCandidateMetadata) => void
 ): Promise<DetectedStealthPayment[]> {
   const detected: DetectedStealthPayment[] = [];
-  for (const announcement of announcements) {
+  for (const [index, announcement] of announcements.entries()) {
     try {
       const payment = await scanAnnouncement(
         announcement,
@@ -91,6 +101,11 @@ export async function scanAnnouncements(
       if (payment) detected.push(payment);
     } catch {
       // A malformed or unauthentic candidate must not stop scanning later entries.
+      onInvalid?.({
+        index,
+        stealthPrincipal: safePrincipal(announcement?.stealthPrincipal),
+        reason: "invalid_announcement",
+      });
     }
   }
   return detected;

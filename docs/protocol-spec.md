@@ -302,45 +302,37 @@ principal. A relayer not in the registry can still settle any intent that names 
 
 ---
 
-## Privacy assumptions — honest account
+## Privacy assumptions — narrow claim
 
 ### What improves
 
-- The settlement transaction is submitted by the relayer, not the user. The
-  recipient's transaction history shows the router contract as the counterparty, not
-  the user's wallet address.
-- Payment authorization is decoupled from on-chain submission. The user's wallet
-  never appears as the direct sender of a transfer to the recipient.
-- **The payer is not named in calldata.** `settle-intent` takes no `user` argument
-  and emits no `user` field in its print event. The authorizing principal is recovered
-  from the signature inside the contract and never handed to the chain in plaintext.
+- The on-chain settlement destination is a derived one-time address, not the
+  recipient's registered long-term wallet.
+- The recipient can discover and spend the output using an independent Privara
+  privacy seed without publishing that seed or its private spending/viewing keys.
 
 ### What does not improve
 
-- **The signer is still cryptographically recoverable — but no longer trivially.**
-  Because the payer is not a calldata field, block explorers, token-transfer event
-  feeds, and anyone casually reading the transaction do **not** see the payer: the
-  settlement args and print event name only the recipient, relayer, asset, and amount.
-  Recovering the payer takes deliberate work — reconstruct the SIP-018 digest from the
-  intent fields and run `secp256k1-recover?` + `principal-of?` per settlement. So the
-  design genuinely *reduces* casual and plaintext linkability (a real improvement over
-  a normal SIP-010 transfer, where the sender is the tx principal); it does **not**
-  achieve unlinkability against a determined indexer willing to run recovery over every
-  settlement. Full payer anonymity (commitment/nullifier pool, fixed denominations) is
-  M2 scope.
+- **Privara makes no payer-anonymity claim.** Authorization and public chain activity
+  can expose or permit recovery/correlation of the payer.
 - **Amounts are public.** The settlement amount and relayer fee appear in the
   transaction arguments and in the `settle-intent` print event.
 - **Recipients are public.** The recipient principal is a settlement argument.
 - **Timing is public.** Block height and transaction ordering are visible.
 - **The relayer is public.** The relayer's address appears in both the intent and the
   transaction sender field.
+- **Network/API activity is not anonymous.** RPC providers and relayer infrastructure
+  may observe IP addresses, timing, and request metadata.
+- **Later spending can create links.** Paying or withdrawing from a one-time address
+  to a known address can associate that destination with the stealth payment.
 
-Privara v1 reduces wallet-graph traceability on two axes: it removes the direct
-sender-to-recipient link that a normal SIP-010 transfer exposes (the payer is never the
-tx sender), and it keeps the payer out of plaintext calldata so casual observers and
-explorers do not see who paid. It does not hide amounts or recipients, and it does not
-defeat an indexer determined enough to run signature recovery over every settlement —
-that stronger guarantee is the M2 privacy-pool track.
+The protocol claim is therefore only that the recipient's long-term wallet is hidden
+from the on-chain settlement destination. It does not extend to amount secrecy, payer
+anonymity, network anonymity, or unlinkability after withdrawal.
+
+Stealth funds are controlled by the independent Privara privacy seed. Leather, Xverse,
+and connected hardware wallets cannot recover them. Clients must require encrypted
+backup export and successful restore verification before registering public P/V keys.
 
 ---
 
@@ -364,7 +356,9 @@ that stronger guarantee is the M2 privacy-pool track.
 ## Non-goals and upgrade path
 
 Privara v1 does not provide:
-- Hidden amounts or hidden recipients
+- Hidden amounts
+- Payer, network, or API anonymity
+- Protection from links created by later spending or withdrawal
 - Trustless Tornado-style shielded pools (requires ZK proofs or blind-signature
   infrastructure not currently practical in Clarity)
 - Complete timing privacy

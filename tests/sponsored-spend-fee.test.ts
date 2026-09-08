@@ -1,6 +1,8 @@
 import { bytesToHex } from "@stacks/common";
 import {
   AuthType,
+  Cl,
+  PayloadType,
   PostConditionMode,
   deserializeTransaction,
   getAddressFromPrivateKey,
@@ -93,6 +95,18 @@ describe("token-paid sponsored stealth spending", () => {
         validateSponsoredSpend(tx, policy)
       )
     ).rejects.toThrow("fee recipient");
+  });
+
+  it("rejects destination or amount changes made after user signing", async () => {
+    const changedDestination = await transaction();
+    if (changedDestination.payload.payloadType !== PayloadType.ContractCall) throw new Error("expected contract call");
+    changedDestination.payload.functionArgs[1] = Cl.principal(WRONG_TREASURY);
+    expect(() => validateSponsoredSpend(changedDestination, policy)).toThrow();
+
+    const changedAmount = await transaction();
+    if (changedAmount.payload.payloadType !== PayloadType.ContractCall) throw new Error("expected contract call");
+    changedAmount.payload.functionArgs[2] = Cl.uint(39_999n);
+    expect(() => validateSponsoredSpend(changedAmount, policy)).toThrow();
   });
 
   it("rejects wrong helper contracts and permissive post-condition mode", async () => {

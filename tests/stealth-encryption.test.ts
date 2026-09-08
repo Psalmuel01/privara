@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { bytesToHex } from "@stacks/common";
 import { utils } from "@noble/secp256k1";
 import { getAddressFromPrivateKey } from "@stacks/transactions";
@@ -230,13 +230,21 @@ describe("announcement scanning", () => {
       context: payment.context,
     };
     const malformed = { ...valid, ephemeralPublicKey: new Uint8Array(33) };
+    const invalid = vi.fn();
     const detected = await scanAnnouncements(
       [malformed, valid],
       payment.recipient.viewingPrivateKey,
       payment.recipient.spendingPublicKey,
-      NETWORK
+      NETWORK,
+      undefined,
+      invalid
     );
     expect(detected).toHaveLength(1);
+    expect(invalid).toHaveBeenCalledWith({
+      index: 0,
+      stealthPrincipal: malformed.stealthPrincipal,
+      reason: "invalid_announcement",
+    });
   });
 
   it("partitions 200 mixed announcements so only each intended recipient detects them", async () => {

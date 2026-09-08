@@ -39,6 +39,10 @@ export const NETWORK = "testnet" as const;
 /** Registration is an on-chain wallet action and remains available if the relayer is down. */
 export const TESTNET_STEALTH_REGISTRY =
   "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stealth-registry";
+export const TESTNET_MOCK_ROUTER =
+  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2";
+export const TESTNET_MOCK_ASSET =
+  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.mock-token";
 export const STACKS_API_URL =
   import.meta.env.VITE_STACKS_API_URL?.replace(/\/$/, "") || "https://api.testnet.hiro.so";
 export const RELAYER_URL =
@@ -323,7 +327,7 @@ export async function submitPrivatePayment(options: {
 }
 
 export async function scanPrivatePayments(
-  config: PublicRelayerConfig,
+  config: Pick<PublicRelayerConfig, "router" | "asset">,
   identity: PrivacyIdentity
 ): Promise<{ checked: number; payments: LivePayment[] }> {
   const announcements: Awaited<ReturnType<typeof fetchAnnouncementPage>>["announcements"] = [];

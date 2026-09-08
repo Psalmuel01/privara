@@ -42,6 +42,8 @@ import {
 import {
   RELAYER_URL,
   STACKS_API_URL,
+  TESTNET_MOCK_ASSET,
+  TESTNET_MOCK_ROUTER,
   TESTNET_STEALTH_REGISTRY,
   connectWallet,
   createPrivacyIdentity,
@@ -504,8 +506,12 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   };
 
   const scan = async () => {
-    if (!identity || !backupVerified || !config) return notify({ kind: "error", message: "Restore-verify your privacy backup and connect the relayer first." });
-    try { setBusy("scan"); const result = await scanPrivatePayments(config, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` }); }
+    if (!backupVerified) return notify({ kind: "error", message: "Import and verify your encrypted privacy backup before scanning." });
+    if (!identity) return notify({ kind: "error", message: "Enter your backup password and unlock the verified privacy identity before scanning." });
+    // Discovery is client-side and reads public chain data directly. A relayer outage
+    // must not prevent a recipient from finding an existing MOCK payment.
+    const scanConfig = config ?? { router: TESTNET_MOCK_ROUTER, asset: TESTNET_MOCK_ASSET };
+    try { setBusy("scan"); const result = await scanPrivatePayments(scanConfig, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` }); }
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
   };
 

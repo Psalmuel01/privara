@@ -145,6 +145,20 @@ Users can create signed SIP-010 payment intents and have a relayer execute settl
 
 DAO treasuries can settle to contributors' one-time addresses instead of using their long-term wallets as settlement destinations. Amounts, payer activity, and later spending remain observable.
 
+The testnet app includes a live DAO payout workflow for up to 25 contributors. A
+treasury operator can add rows manually or import a CSV whose header contains
+`name,address,amount`. Before approval, the app verifies that every address has
+registered Privara privacy keys and shows the aggregate recipient amount,
+settlement fees, total outflow, and exact router-funding shortfall.
+
+The batch is a client-side orchestration of existing independently authorized
+Privara intents; it is not a new pooled-signature protocol. The treasury makes at
+most one funding transaction and then signs one exact SIP-018 intent per
+contributor. Privara submits and confirms each settlement before requesting the
+next signature. If any payout cannot be confirmed, processing stops and retains
+available transaction IDs for manual review, preventing the interface from
+blindly retrying a payment that might already have been broadcast.
+
 ### DeFi Preparation Flows
 
 Users can route funds to fresh addresses before entering public DeFi positions, reducing the direct link between their long-term funding wallet and later protocol activity.

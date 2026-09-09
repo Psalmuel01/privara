@@ -136,6 +136,39 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 .activity-page { padding: 26px; }.activity-tools { display: flex; align-items: center; justify-content: space-between; }.filter-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 8px; background: #edf1ed; }.filter-tabs button { padding: 7px 12px; color: var(--muted); border: 0; border-radius: 6px; background: transparent; font-size: 8px; }.filter-tabs button.active { color: var(--ink); background: white; box-shadow: 0 2px 7px rgb(17 26 23 / 6%); }.activity-page .activity-row { min-height: 72px; }
 .dao-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 17px; }.dao-metrics > div { display: flex; align-items: center; gap: 12px; padding: 17px; border: 1px solid #dfe4e0; border-radius: 12px; background: white; }.dao-metrics > div > span { display: grid; place-items: center; width: 34px; height: 34px; color: #2d5940; border-radius: 9px; background: #eaf5e5; }.dao-metrics svg { width: 16px; }.dao-metrics small, .dao-metrics strong { display: block; }.dao-metrics small { color: var(--muted); font-size: 7px; }.dao-metrics strong { margin-top: 4px; font-size: 11px; }.payout-card { padding: 0 24px; }.payout-head, .payout-row { display: grid; grid-template-columns: minmax(180px, 1.3fr) 1fr 1fr 24px; gap: 15px; align-items: center; }.payout-head { min-height: 43px; color: #8a938e; font: 500 7px var(--mono); text-transform: uppercase; }.payout-row { min-height: 68px; border-top: 1px solid #e9edea; }.payout-row > div { display: flex; align-items: center; gap: 10px; }.contributor-avatar { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 9px; background: var(--cream); font-size: 10px; font-weight: 700; }.payout-row strong, .payout-row small { display: block; }.payout-row strong { font-size: 9px; }.payout-row small { margin-top: 3px; color: var(--muted); font: 400 7px var(--mono); }.private-route { display: flex; align-items: center; gap: 5px; color: #39634a; font-size: 8px; }.batch-summary { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 0 -24px; padding: 17px 24px; border-top: 1px solid #e2e7e3; background: #f8faf7; }.batch-summary > div { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 8px; }
+.dao-builder { overflow: hidden; }
+.dao-toolbar, .dao-review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 0 18px; }
+.dao-toolbar h2, .dao-review-head h2 { margin: 0; font-size: 19px; letter-spacing: -.04em; }
+.dao-toolbar p { margin: 7px 0 0; color: var(--muted); font-size: 10px; }
+.dao-toolbar code { font: 500 9px var(--mono); }
+.dao-toolbar > div:last-child { display: flex; gap: 8px; }
+.csv-button { position: relative; cursor: pointer; }
+.csv-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.payout-editor input { width: 100%; min-width: 0; height: 38px; padding: 0 10px; border: 1px solid #dce2de; border-radius: 8px; outline: none; background: #fbfcfb; font-size: 10px; }
+.payout-editor input:focus { border-color: #91aa99; box-shadow: 0 0 0 3px rgb(78 122 93 / 8%); }
+.payout-editor .mono-input { font-family: var(--mono); font-size: 9px; }
+.payout-amount { position: relative; }
+.payout-amount input { padding-right: 48px; font-weight: 650; }
+.payout-amount > span { position: absolute; right: 9px; color: var(--muted); font-size: 8px; font-weight: 700; }
+.dao-fee-choice { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; border-top: 1px solid #e9edea; }
+.dao-fee-choice > span { color: var(--muted); font-size: 10px; font-weight: 650; }
+.dao-fee-choice .segmented { width: min(360px, 100%); margin: 0; }
+.batch-error { display: flex; align-items: center; gap: 7px; margin: 0 0 15px; color: #8a4c35; font-size: 9px; }
+.dao-review { padding-top: 0; padding-bottom: 24px; overflow: hidden; }
+.dao-review-head .back-link { margin: 7px 0 0; }
+.payout-route-cell { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
+.payout-tx { display: inline-flex; align-items: center; gap: 4px; color: #42604e; font-size: 8px; text-decoration: none; }
+.payout-failure { max-width: 260px; color: #8a4c35 !important; line-height: 1.35; }
+.payout-status { display: grid; place-items: center; width: 23px; height: 23px; color: #7d8782; border-radius: 50%; background: #eef1ef; font: 600 8px var(--mono); }
+.payout-status svg { width: 13px; }
+.payout-status.signing, .payout-status.confirming { color: #315540; background: #e8f5e3; }
+.payout-status.confirmed { color: #24593b; background: var(--mint); }
+.payout-status.failed { color: #884a34; background: #fff0e9; }
+.dao-total { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 18px 0; overflow: hidden; border: 1px solid #e0e5e1; border-radius: 10px; background: #e0e5e1; }
+.dao-total > div { padding: 14px; background: #f8faf7; }
+.dao-total span, .dao-total strong { display: block; }
+.dao-total span { color: var(--muted); font-size: 8px; }
+.dao-total strong { margin-top: 5px; font: 500 10px var(--mono); }
 
 @keyframes fade-in { from { opacity: 0; } } @keyframes slide-in { from { transform: translateX(40px); opacity: .7; } }
 
@@ -174,6 +207,14 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .setup-flow { gap: 4px; }.setup-flow > svg { width: 11px; }
   .private-payment { grid-template-columns: 37px 1fr auto; padding: 10px 0; }.private-payment .zero-stx { display: none; }
   .dao-metrics { grid-template-columns: 1fr; }.payout-head { display: none; }.payout-row { grid-template-columns: 1fr auto 22px; }.private-route { display: none; }.batch-summary { align-items: flex-start; flex-direction: column; }
+  .dao-toolbar, .dao-review-head { flex-direction: column; }
+  .dao-toolbar > div:last-child { width: 100%; flex-wrap: wrap; }
+  .payout-editor { grid-template-columns: minmax(0, 1fr) 105px 24px; gap: 8px; padding: 12px 0; }
+  .payout-editor > div:first-child { grid-column: 1 / -1; }
+  .payout-row > .payout-route-cell { display: none; }
+  .dao-fee-choice { align-items: flex-start; flex-direction: column; }
+  .dao-fee-choice .segmented { width: 100%; }
+  .dao-total { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

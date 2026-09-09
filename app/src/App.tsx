@@ -17,12 +17,15 @@ import {
   LayoutDashboard,
   LockKeyhole,
   LogOut,
+  Plus,
   Radio,
   RefreshCw,
   Search,
   Send,
   ShieldCheck,
+  Trash2,
   TriangleAlert,
+  Upload,
   Users,
   Wallet,
   X,
@@ -76,6 +79,12 @@ import {
   maximumTransferAmount,
   paymentFundingShortfall,
 } from "./lib/payment-funding";
+import {
+  parseDaoPayoutCsv,
+  quoteDaoPayoutBatch,
+  type DaoPayoutBatchQuote,
+  type DaoPayoutInput,
+} from "./lib/dao-payouts";
 
 type View = "overview" | "send" | "receive" | "activity" | "payouts";
 type FeeMode = "added" | "included";
@@ -123,6 +132,7 @@ export default function App() {
   const [tip, setTip] = useState<number | null>(null);
   const [notice, setNotice] = useState<Notice>(null);
   const [connecting, setConnecting] = useState(false);
+  const [batchProcessing, setBatchProcessing] = useState(false);
   const configErrorNotified = useRef(false);
   const asset = SUPPORTED_ASSETS.find((item) => item.id === assetId)!;
 
@@ -192,13 +202,13 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button className="brand" onClick={() => setView("overview")} aria-label="Privara overview">
+        <button className="brand" onClick={() => setView("overview")} aria-label="Privara overview" disabled={batchProcessing}>
           <span className="brand-mark">P</span><span>privara</span>
         </button>
         <div className="demo-chip"><span />Live testnet app</div>
         <nav className="nav-list" aria-label="Main navigation">
           {navItems.map(({ id, label, icon: Icon }) => (
-            <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => setView(id)}>
+            <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => setView(id)} disabled={batchProcessing && id !== "payouts"}>
               <Icon size={17} strokeWidth={1.8} /><span>{label}</span>
             </button>
           ))}
@@ -208,7 +218,7 @@ export default function App() {
             <span className={`status-dot ${identity ? "" : "inactive"}`} />
             <div><strong>{identity ? "Privacy keys unlocked" : "Privacy keys locked"}</strong><small>{identity ? "Held in this browser session" : "Unlock from Receive & scan"}</small></div>
           </div>
-          {walletAddress && <button className="settings-link" onClick={disconnect}><LogOut size={16} /> Disconnect</button>}
+          {walletAddress && <button className="settings-link" onClick={disconnect} disabled={batchProcessing}><LogOut size={16} /> Disconnect</button>}
         </div>
       </aside>
 
@@ -249,7 +259,7 @@ export default function App() {
         {view === "send" && <SendPrivate asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onDone={() => setView("activity")} />}
         {view === "receive" && <ReceiveAndScan asset={asset} config={config} wallet={walletAddress} identity={identity} setIdentity={setIdentity} payments={payments} setPayments={setPayments} notify={setNotice} connect={connect} openSpend={setSelectedPayment} />}
         {view === "activity" && <ActivityView asset={asset} payments={payments} />}
-        {view === "payouts" && <Payouts asset={asset} goSend={() => setView("send")} />}
+        {view === "payouts" && <Payouts asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onProcessingChange={setBatchProcessing} />}
       </main>
 
       {selectedPayment && config && walletAddress && (
@@ -707,8 +717,204 @@ function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LiveP
   return <><PageTitle eyebrow="Live on-chain history" title="Detected activity" copy="This list is rebuilt from public router announcements after you unlock and scan; Privara does not upload a private activity database." /><section className="panel activity-page">{payments.length === 0 ? <div className="inline-empty">No scanned activity in this session.</div> : payments.map((payment) => <a className="activity-live-row" href={explorer(payment.transactionId)} target="_blank" rel="noreferrer" key={payment.transactionId}><span className="activity-type"><ArrowDownLeft /></span><div><strong>Private payment detected</strong><small>{payment.stealthPrincipal}</small></div><strong>+{formatUnits(payment.receivedAmount, asset.decimals)} {asset.symbol}</strong><ExternalLink size={14} /></a>)}</section></>;
 }
 
-function Payouts({ asset, goSend }: { asset: Sip010Asset; goSend: () => void }) {
-  return <><PageTitle eyebrow="Teams & DAOs" title="One-time-address contributor payouts." copy="The live base version executes one independently authorized intent at a time. It does not hide amounts or payer activity." /><section className="panel empty-state"><Users size={30} /><h2>Single live flow first</h2><p>Use Send privately for each registered contributor. This avoids presenting a simulated batch as a completed on-chain feature.</p><button className="primary-action" onClick={goSend}>Send a live {asset.symbol} payment <ArrowRight size={15} /></button></section></>;
+type DaoPayoutProgress = "queued" | "signing" | "confirming" | "confirmed" | "failed";
+type DaoPayoutResult = { status: DaoPayoutProgress; txid?: string; error?: string };
+
+function newPayout(): DaoPayoutInput {
+  return { id: `payout-${Date.now()}-${Math.random()}`, name: "", recipient: "", amount: "" };
+}
+
+function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, onProcessingChange }: {
+  asset: Sip010Asset; config: PublicRelayerConfig | null; wallet: string | null; deposit: bigint;
+  setDeposit: (value: bigint) => void; notify: (notice: Notice) => void; connect: () => void;
+  onProcessingChange: (processing: boolean) => void;
+}) {
+  const [payouts, setPayouts] = useState<DaoPayoutInput[]>([newPayout()]);
+  const [feeMode, setFeeMode] = useState<FeeMode>("added");
+  const [stage, setStage] = useState<"edit" | "validating" | "review" | "processing" | "done">("edit");
+  const [walletBalance, setWalletBalance] = useState<bigint | null>(null);
+  const [approved, setApproved] = useState<{ quote: DaoPayoutBatchQuote; config: PublicRelayerConfig; feeMode: FeeMode } | null>(null);
+  const [results, setResults] = useState<Record<string, DaoPayoutResult>>({});
+
+  const draft = useMemo(() => {
+    try {
+      if (!config) throw new Error("Relayer configuration is unavailable");
+      return {
+        quote: quoteDaoPayoutBatch({
+          payouts,
+          decimals: asset.decimals,
+          feeBps: BigInt(config.settlementFeeBps),
+          feeMode,
+          maxIntentAmount: config.maxIntentAmount ? BigInt(config.maxIntentAmount) : undefined,
+        }),
+        error: null,
+      };
+    } catch (error) { return { quote: null, error: message(error) }; }
+  }, [asset.decimals, config, feeMode, payouts]);
+  const available = walletBalance === null ? null : walletBalance + deposit;
+  const shortfall = draft.quote ? paymentFundingShortfall(draft.quote.totalAmount, deposit) : 0n;
+
+  const refreshWalletBalance = async (activeConfig = config) => {
+    if (!activeConfig || !wallet) { setWalletBalance(null); return null; }
+    const balance = await readWalletAssetBalance(activeConfig, wallet);
+    setWalletBalance(balance);
+    return balance;
+  };
+
+  useEffect(() => {
+    let current = true;
+    if (!config || !wallet) { setWalletBalance(null); return; }
+    setWalletBalance(null);
+    void readWalletAssetBalance(config, wallet)
+      .then((balance) => current && setWalletBalance(balance))
+      .catch(() => current && setWalletBalance(null));
+    return () => { current = false; };
+  }, [config, wallet]);
+
+  useEffect(() => {
+    if (stage !== "processing") return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [stage]);
+
+  const updatePayout = (id: string, field: "name" | "recipient" | "amount", value: string) => {
+    setPayouts((current) => current.map((payout) => payout.id === id
+      ? { ...payout, [field]: field === "recipient" ? value.trim() : value }
+      : payout));
+  };
+
+  const importCsv = async (file?: File) => {
+    if (!file) return;
+    try {
+      const parsed = parseDaoPayoutCsv(await file.text());
+      if (parsed.length > 25) throw new Error("A batch can contain at most 25 contributors");
+      const imported = parsed.map((payout) => ({ ...payout, id: newPayout().id }));
+      const onlyBlank = payouts.length === 1 && !payouts[0].name && !payouts[0].recipient && !payouts[0].amount;
+      if (!onlyBlank && payouts.length + imported.length > 25) {
+        throw new Error("Import would exceed the 25-contributor batch limit");
+      }
+      setPayouts((current) => onlyBlank ? imported : [...current, ...imported]);
+      notify({ kind: "success", message: `${imported.length} contributor payout${imported.length === 1 ? "" : "s"} imported from CSV.` });
+    } catch (error) { notify({ kind: "error", message: message(error) }); }
+  };
+
+  const review = async () => {
+    if (!wallet) return connect();
+    if (!config || !draft.quote) return notify({ kind: "error", message: draft.error || "Complete every payout row" });
+    setStage("validating");
+    try {
+      // Resolve the entire list before approval. One unregistered contributor blocks
+      // the batch instead of falling back to their public wallet address.
+      const registrations = await Promise.all(draft.quote.payouts.map((payout) => resolveRecipient(config, payout.recipient)));
+      const missing = draft.quote.payouts.filter((_, index) => !registrations[index]).map((payout) => payout.name);
+      if (missing.length) throw new Error(`Not registered for private receiving: ${missing.join(", ")}`);
+      const [currentDeposit, currentWalletBalance] = await Promise.all([
+        readRouterDeposit(config, wallet),
+        readWalletAssetBalance(config, wallet),
+      ]);
+      setDeposit(currentDeposit);
+      setWalletBalance(currentWalletBalance);
+      if (draft.quote.totalAmount > currentDeposit + currentWalletBalance) {
+        throw new Error(`Batch total exceeds the ${asset.symbol} available across your wallet and Privara balance`);
+      }
+      // Pin both the exact quote and relayer policy used to display it. Execution never
+      // silently refreshes fees after this approval screen.
+      setApproved({ quote: draft.quote, config, feeMode });
+      setStage("review");
+    } catch (error) {
+      setStage("edit");
+      notify({ kind: "error", message: message(error) });
+    }
+  };
+
+  const execute = async () => {
+    if (!wallet) return connect();
+    if (!approved) return;
+    setStage("processing");
+    onProcessingChange(true);
+    const initial = Object.fromEntries(approved.quote.payouts.map((payout) => [payout.id, { status: "queued" as const }]));
+    setResults(initial);
+    try {
+      const currentDeposit = await readRouterDeposit(approved.config, wallet);
+      const required = paymentFundingShortfall(approved.quote.totalAmount, currentDeposit);
+      if (required > 0n) {
+        const currentWalletBalance = await refreshWalletBalance(approved.config);
+        if (currentWalletBalance === null || currentWalletBalance < required) {
+          throw new Error(`Your wallet does not have the ${formatUnits(required, asset.decimals)} ${asset.symbol} required to fund this batch`);
+        }
+        notify({ kind: "info", message: `Approve one funding transaction for ${formatUnits(required, asset.decimals)} ${asset.symbol}. Individual payout signatures follow.` });
+        const fundingTxid = await depositAsset(approved.config, wallet, required);
+        await waitForTransaction(fundingTxid);
+        setDeposit(await readRouterDeposit(approved.config, wallet));
+      }
+
+      for (const payout of approved.quote.payouts) {
+        setResults((current) => ({ ...current, [payout.id]: { status: "signing" } }));
+        notify({ kind: "info", message: `Approve ${payout.name}'s exact payout in your wallet.` });
+        let submittedTxid: string | undefined;
+        try {
+          const result = await submitPrivatePayment({
+            config: approved.config,
+            walletAddress: wallet,
+            recipient: payout.recipient,
+            enteredAmount: payout.enteredAmount,
+            feeMode: approved.feeMode,
+          });
+          submittedTxid = result.txid;
+          setResults((current) => ({ ...current, [payout.id]: { status: "confirming", txid: result.txid } }));
+          await waitForTransaction(result.txid);
+          setResults((current) => ({ ...current, [payout.id]: { status: "confirmed", txid: result.txid } }));
+        } catch (error) {
+          setResults((current) => ({ ...current, [payout.id]: { status: "failed", txid: submittedTxid, error: message(error) } }));
+          throw new Error(`${payout.name}'s payout needs review: ${message(error)}. Processing stopped to prevent an accidental duplicate.`);
+        }
+      }
+      setDeposit(await readRouterDeposit(approved.config, wallet));
+      await refreshWalletBalance(approved.config);
+      setStage("done");
+      notify({ kind: "success", message: `All ${approved.quote.payouts.length} private contributor payouts confirmed on testnet.` });
+    } catch (error) {
+      setDeposit(await readRouterDeposit(approved.config, wallet).catch(() => deposit));
+      setStage("done");
+      notify({ kind: "error", message: message(error) });
+    } finally {
+      onProcessingChange(false);
+    }
+  };
+
+  const activeQuote = approved?.quote ?? draft.quote;
+  const confirmedCount = Object.values(results).filter((result) => result.status === "confirmed").length;
+  return <>
+    <PageTitle eyebrow="Teams & DAOs" title="Private contributor payouts." copy="Prepare and review several payouts together. Privara funds the total once, then asks for one explicit wallet signature per contributor before settling to fresh one-time addresses." />
+    {stage === "edit" || stage === "validating" ? <>
+      <section className="dao-metrics">
+        <div><span><Users /></span><div><small>Contributors</small><strong>{payouts.length}</strong></div></div>
+        <div><span><Wallet /></span><div><small>Available balance</small><strong>{available === null ? "Checking…" : `${formatUnits(available, asset.decimals, asset.decimals)} ${asset.symbol}`}</strong></div></div>
+        <div><span><Zap /></span><div><small>Estimated total</small><strong>{draft.quote ? `${formatUnits(draft.quote.totalAmount, asset.decimals, asset.decimals)} ${asset.symbol}` : "Complete the list"}</strong></div></div>
+      </section>
+      <section className="panel payout-card dao-builder">
+        <div className="dao-toolbar"><div><h2>Contributor list</h2><p>Add payouts manually or import a CSV with <code>name,address,amount</code>.</p></div><div><label className="light-button csv-button"><Upload size={14} /> Import CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><button className="light-button" onClick={() => setPayouts((current) => current.length < 25 ? [...current, newPayout()] : current)} disabled={payouts.length >= 25}><Plus size={14} /> Add contributor</button></div></div>
+        <div className="payout-head"><span>Contributor</span><span>Registered address</span><span>Amount</span><span /></div>
+        {payouts.map((payout, index) => <div className="payout-row payout-editor" key={payout.id}><div><span className="contributor-avatar">{payout.name.trim().slice(0, 1).toUpperCase() || index + 1}</span><input aria-label={`Contributor ${index + 1} name`} placeholder="Contributor name" value={payout.name} onChange={(event) => updatePayout(payout.id, "name", event.target.value)} /></div><input aria-label={`${payout.name || `Contributor ${index + 1}`} address`} className="mono-input" placeholder="ST…" value={payout.recipient} onChange={(event) => updatePayout(payout.id, "recipient", event.target.value)} /><div className="payout-amount"><input aria-label={`${payout.name || `Contributor ${index + 1}`} amount`} inputMode="decimal" placeholder="0.00" value={payout.amount} onChange={(event) => updatePayout(payout.id, "amount", event.target.value)} /><span>{asset.symbol}</span></div><button aria-label={`Remove ${payout.name || `contributor ${index + 1}`}`} onClick={() => setPayouts((current) => current.filter((item) => item.id !== payout.id))} disabled={payouts.length === 1}><Trash2 /></button></div>)}
+        <div className="dao-fee-choice"><span>Settlement fee</span><div className="segmented"><button className={feeMode === "added" ? "active" : ""} onClick={() => setFeeMode("added")}>Add fee on top</button><button className={feeMode === "included" ? "active" : ""} onClick={() => setFeeMode("included")}>Include in amounts</button></div></div>
+        {draft.error && <p className="batch-error"><TriangleAlert size={14} /> {draft.error}</p>}
+        <div className="batch-summary"><div><Info size={15} /><span>{shortfall > 0n ? `One funding approval for ${formatUnits(shortfall, asset.decimals)} ${asset.symbol}, then ${payouts.length} payout signature${payouts.length === 1 ? "" : "s"}.` : `No funding approval needed; ${payouts.length} payout signature${payouts.length === 1 ? "" : "s"} required.`}</span></div><button className="primary-action" onClick={() => void review()} disabled={stage === "validating" || !draft.quote || available === null || Boolean(draft.quote && available !== null && draft.quote.totalAmount > available)}>{stage === "validating" ? <><RefreshCw className="spin" size={15} /> Checking registrations…</> : <>Review batch <ArrowRight size={15} /></>}</button></div>
+      </section>
+    </> : <section className="panel payout-card dao-review">
+      <div className="dao-review-head"><div><span className="eyebrow">{stage === "review" ? "Final approval" : stage === "processing" ? "Processing batch" : "Batch result"}</span><h2>{stage === "done" ? `${confirmedCount} of ${approved?.quote.payouts.length ?? 0} payouts confirmed` : `${approved?.quote.payouts.length ?? 0} independently signed payouts`}</h2></div>{stage === "review" && <button className="back-link" onClick={() => { setApproved(null); setStage("edit"); }}>← Edit contributor list</button>}</div>
+      <div className="payout-head"><span>Contributor</span><span>Private route</span><span>Authorized total</span><span /></div>
+      {approved?.quote.payouts.map((payout, index) => { const result = results[payout.id]; return <div className="payout-row" key={payout.id}><div><span className="contributor-avatar">{payout.name.slice(0, 1).toUpperCase()}</span><span><strong>{payout.name}</strong><small>{short(payout.recipient, 8, 6)}</small></span></div><div className="payout-route-cell"><span className="private-route"><LockKeyhole size={13} /> Fresh one-time address</span>{result?.txid && <a className="payout-tx" href={explorer(result.txid)} target="_blank" rel="noreferrer">View transaction <ExternalLink size={12} /></a>}{result?.error && <small className="payout-failure">{result.error}</small>}</div><span><strong>{formatUnits(payout.recipientAmount, asset.decimals, asset.decimals)} {asset.symbol}</strong><small>+ {formatUnits(payout.settlementFee, asset.decimals)} fee</small></span><span className={`payout-status ${result?.status ?? "queued"}`}>{result?.status === "signing" || result?.status === "confirming" ? <RefreshCw className="spin" /> : result?.status === "confirmed" ? <CircleCheck /> : result?.status === "failed" ? <TriangleAlert /> : index + 1}</span></div>; })}
+      <div className="dao-total"><div><span>Contributors receive</span><strong>{activeQuote ? formatUnits(activeQuote.recipientTotal, asset.decimals, asset.decimals) : "—"} {asset.symbol}</strong></div><div><span>Settlement fees</span><strong>{activeQuote ? formatUnits(activeQuote.feeTotal, asset.decimals, asset.decimals) : "—"} {asset.symbol}</strong></div><div><span>Total authorized</span><strong>{activeQuote ? formatUnits(activeQuote.totalAmount, asset.decimals, asset.decimals) : "—"} {asset.symbol}</strong></div></div>
+      <div className="warning-box"><TriangleAlert size={16} /><p>Amounts and DAO payer activity remain public. Each contributor receives through a fresh address, but later withdrawals can create new links.</p></div>
+      {stage === "review" && <button className="primary-wide" onClick={() => void execute()}><Wallet size={16} /> Start {approved?.quote.payouts.length} individually signed payouts</button>}
+      {stage === "processing" && <button className="primary-wide" disabled><RefreshCw className="spin" size={16} /> Keep this page open while payouts confirm</button>}
+      {stage === "done" && <button className="primary-wide" onClick={() => { setPayouts([newPayout()]); setApproved(null); setResults({}); setStage("edit"); }}>Create another batch</button>}
+    </section>}
+  </>;
 }
 
 function SuccessState({ asset, amount, tx, detail, action, compact = false }: { asset: Sip010Asset; amount: string; tx: string; detail?: string; action: () => void; compact?: boolean }) {

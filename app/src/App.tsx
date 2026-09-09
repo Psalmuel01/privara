@@ -658,10 +658,10 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Independent privacy identity</span><h2>{receivingEnabled ? "Private receiving enabled" : backupVerified ? "Recovery backup verified" : backupExists ? "Complete your recovery check" : registration === "registered" ? "Restore your registered identity" : "Not set up on this device"}</h2></div><span className={`ready-badge ${identity && registration === "matched" ? "" : "locked"}`}>{identity && registration === "matched" ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity && registration === "matched" ? "Unlocked" : receivingEnabled ? "Enabled · locked" : "Not enabled"}</span></div>
         <div className="warning-box"><TriangleAlert size={16} /><p>Stealth funds are controlled by your independent Privara privacy seed—not by Leather, Xverse, or a connected hardware wallet. Those wallets cannot recover these funds. Keep the encrypted JSON and its password safe.</p></div>
         {!backupExists && setupMode === "choose" && <div className="setup-stage"><p>{registration === "registered" ? "This wallet already has public privacy keys registered on Stacks. Restore the matching encrypted recovery file to regain access; creating a different identity would not control existing private balances." : "Create a private receiving identity to accept payments through fresh one-time addresses. If you have used Privara with this wallet before, restore the encrypted recovery file instead."}</p><div className="choice-actions">{registration !== "registered" && <button className="dark-button" onClick={() => setSetupMode("create")}>Create new identity</button>}<button className={registration === "registered" ? "dark-button" : "light-button"} onClick={() => setSetupMode("restore")}><FileKey size={15} /> Restore existing identity</button></div></div>}
-        {!backupExists && setupMode === "create" && <div className="setup-stage"><button className="back-link" onClick={() => { setSetupMode("choose"); clearPasswordFields(); }}>← Back</button><span className="step-label">Step 1 of 4</span><h3>Protect your privacy backup</h3><p>Create a password for the encrypted Privara recovery file. The privacy identity will be generated locally only after both password entries match.</p>{passwordField(true)}<button className="primary-wide" onClick={() => privacyAction("create")} disabled={!passwordReady || password !== confirmPassword || busy !== null}>{busy === "create" ? <RefreshCw className="spin" size={16} /> : null} Continue</button></div>}
+        {!backupExists && setupMode === "create" && <div className="setup-stage"><button className="back-link setup-back" onClick={() => { setSetupMode("choose"); clearPasswordFields(); }}>← Back</button><span className="step-label">Step 1 of 4</span><h3>Protect your privacy backup</h3><p>Create a password for the encrypted Privara recovery file. The privacy identity will be generated locally only after both password entries match.</p>{passwordField(true)}<button className="primary-wide" onClick={() => privacyAction("create")} disabled={!passwordReady || password !== confirmPassword || busy !== null}>{busy === "create" ? <RefreshCw className="spin" size={16} /> : null} Continue</button></div>}
         {backupExists && !backupState?.exported && <div className="setup-stage"><span className="step-label">Step 2 of 4</span><h3>Save your recovery backup</h3><p>Your privacy identity was created locally. Download its encrypted recovery file before private receiving can be enabled.</p><button className="primary-wide" onClick={() => downloadBackup("Encrypted recovery backup downloaded. Verify this exact file to continue.")} disabled={busy !== null}><FileKey size={16} /> Download encrypted backup</button></div>}
         {backupExists && backupState?.exported && !backupVerified && <div className="setup-stage"><span className="step-label">Step 3 of 4</span><h3>Verify your recovery backup</h3><p>Select the file you downloaded and enter its password. Privara will decrypt it locally, derive the public privacy keys again, and confirm that the recovered identity is an exact match.</p>{fileField}{passwordField()}<button className="primary-wide" onClick={() => void importBackup()} disabled={!selectedBackup || !passwordReady || busy !== null}>{busy === "import" ? <RefreshCw className="spin" size={16} /> : <ShieldCheck size={16} />} Verify backup</button></div>}
-        {setupMode === "restore" && (!backupExists || backupVerified) && !identity && <div className="setup-stage"><button className="back-link" onClick={() => { setSetupMode("choose"); clearPasswordFields(); }}>← Back</button><h3>Restore Privara identity</h3><p>Select an encrypted recovery file and enter its password. Privara will verify it locally and compare its public privacy keys with any identity already registered to this wallet. A mismatch will stop the restore without overwriting anything.</p>{fileField}{passwordField()}<button className="primary-wide" onClick={() => void importBackup()} disabled={!selectedBackup || !passwordReady || busy !== null}>{busy === "import" ? <RefreshCw className="spin" size={16} /> : <FileKey size={16} />} Restore and verify</button></div>}
+        {setupMode === "restore" && (!backupExists || backupVerified) && !identity && <div className="setup-stage"><button className="back-link setup-back" onClick={() => { setSetupMode("choose"); clearPasswordFields(); }}>← Back</button><h3>Restore Privara identity</h3><p>Select an encrypted recovery file and enter its password. Privara will verify it locally and compare its public privacy keys with any identity already registered to this wallet. A mismatch will stop the restore without overwriting anything.</p>{fileField}{passwordField()}<button className="primary-wide" onClick={() => void importBackup()} disabled={!selectedBackup || !passwordReady || busy !== null}>{busy === "import" ? <RefreshCw className="spin" size={16} /> : <FileKey size={16} />} Restore and verify</button></div>}
         {backupVerified && !identity && setupMode !== "restore" && <div className="setup-stage"><div className="recovery-status"><div><CircleCheck size={16} /><span><strong>Recovery backup</strong><small>Verified on this device</small></span></div><div>{registration === "registered" ? <CircleCheck size={16} /> : <LockKeyhole size={16} />}<span><strong>Private receiving</strong><small>{registration === "registered" ? "Public privacy keys registered" : registration === "unregistered" ? "Unlock to finish registration" : "Checking on-chain registration"}</small></span></div></div><h3>{registration === "registered" ? "Unlock private payments" : "Unlock to continue setup"}</h3><p>Enter the backup password to decrypt your independent privacy identity for this browser session.</p>{passwordField()}<button className="primary-wide" onClick={() => privacyAction("unlock")} disabled={!passwordReady || busy !== null}>{busy === "unlock" ? <RefreshCw className="spin" size={16} /> : <KeyRound size={16} />} Unlock privacy identity</button><details className="backup-manage"><summary>Manage recovery backup</summary><div><button className="light-button" onClick={() => downloadBackup("A new copy of the encrypted recovery backup was downloaded.")}><FileKey size={15} /> Download another copy</button><button className="light-button" onClick={() => { clearPasswordFields(); setSetupMode("restore"); }}>Restore a backup file</button></div></details></div>}
         {identity && registration !== "matched" && <div className="setup-stage"><span className="step-label">Step 4 of 4</span><div className="verified-callout"><CircleCheck size={18} /><span><strong>Recovery backup verified</strong><small>This file can restore your Privara privacy identity.</small></span></div><h3>Enable private receiving</h3><p>Privara will ask your connected wallet to register the public privacy keys on Stacks. Your privacy seed and private keys remain on this device and are never sent on-chain.</p><button className="primary-wide" onClick={() => privacyAction("register")} disabled={busy !== null || !backupVerified || registration === "checking" || registration === "unavailable"}>{busy === "register" ? <RefreshCw className="spin" size={16} /> : <KeyRound size={16} />} Enable private receiving</button>{registration === "unavailable" && <small className="field-help">The Stacks API is temporarily unavailable, so registration status cannot be confirmed yet.</small>}</div>}
         {identity && registration === "matched" && <div className="setup-stage enabled-stage"><div className="verified-callout"><CircleCheck size={18} /><span><strong>Private receiving enabled</strong><small>Your verified recovery identity matches the public privacy keys registered to this wallet.</small></span></div><p>Your privacy identity is unlocked only for this browser session. You can now scan for payments sent to your one-time addresses.</p><div className="privacy-actions"><button className="dark-button" onClick={scan} disabled={busy !== null}><Search size={15} /> Scan for payments</button><button className="light-button" onClick={lockIdentity}><LockKeyhole size={15} /> Lock identity</button></div><details className="backup-manage"><summary>Recovery and public-key details</summary><div className="key-list"><div><span>Spending public key</span><code>{short(publicKeyLabel(identity, "spending"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "spending"), notify, "Spending public key")} aria-label="Copy spending public key"><Copy size={13} /></button></div><div><span>Viewing public key</span><code>{short(publicKeyLabel(identity, "viewing"), 12, 10)}</code><button onClick={() => void copyText(publicKeyLabel(identity, "viewing"), notify, "Viewing public key")} aria-label="Copy viewing public key"><Copy size={13} /></button></div><button className="light-button" onClick={() => downloadBackup("A new copy of the encrypted recovery backup was downloaded.")}><FileKey size={15} /> Download encrypted backup</button></div></details></div>}
@@ -718,7 +718,11 @@ function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LiveP
 }
 
 type DaoPayoutProgress = "queued" | "signing" | "confirming" | "confirmed" | "failed";
-type DaoPayoutResult = { status: DaoPayoutProgress; txid?: string; error?: string };
+type DaoPayoutResult = { status: DaoPayoutProgress; txid?: string; stealthPrincipal?: string; error?: string };
+type DaoRegistrationCheck = {
+  address: string;
+  status: "idle" | "checking" | "registered" | "unregistered" | "error";
+};
 
 function newPayout(): DaoPayoutInput {
   return { id: `payout-${Date.now()}-${Math.random()}`, name: "", recipient: "", amount: "" };
@@ -735,6 +739,8 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
   const [walletBalance, setWalletBalance] = useState<bigint | null>(null);
   const [approved, setApproved] = useState<{ quote: DaoPayoutBatchQuote; config: PublicRelayerConfig; feeMode: FeeMode } | null>(null);
   const [results, setResults] = useState<Record<string, DaoPayoutResult>>({});
+  const [registrationChecks, setRegistrationChecks] = useState<Record<string, DaoRegistrationCheck>>({});
+  const [fundingTxid, setFundingTxid] = useState("");
 
   const draft = useMemo(() => {
     try {
@@ -753,6 +759,12 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
   }, [asset.decimals, config, feeMode, payouts]);
   const available = walletBalance === null ? null : walletBalance + deposit;
   const shortfall = draft.quote ? paymentFundingShortfall(draft.quote.totalAmount, deposit) : 0n;
+  const addressSignature = payouts.map((payout) => `${payout.id}:${payout.recipient.trim()}`).join("|");
+  const everyRecipientRegistered = Boolean(draft.quote && draft.quote.payouts.every((payout) => {
+    const check = registrationChecks[payout.id];
+    return check?.address === payout.recipient && check.status === "registered";
+  }));
+  const checkingRecipient = payouts.some((payout) => registrationChecks[payout.id]?.status === "checking");
 
   const refreshWalletBalance = async (activeConfig = config) => {
     if (!activeConfig || !wallet) { setWalletBalance(null); return null; }
@@ -772,6 +784,37 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
   }, [config, wallet]);
 
   useEffect(() => {
+    let current = true;
+    const timers: number[] = [];
+    if (!config) return;
+    for (const payout of payouts) {
+      const address = payout.recipient.trim();
+      if (!address || address.length < 38) {
+        setRegistrationChecks((checks) => ({ ...checks, [payout.id]: { address, status: "idle" } }));
+        continue;
+      }
+      setRegistrationChecks((checks) => ({ ...checks, [payout.id]: { address, status: "checking" } }));
+      timers.push(window.setTimeout(() => {
+        void resolveRecipient(config, address)
+          .then((record) => {
+            if (!current) return;
+            setRegistrationChecks((checks) => checks[payout.id]?.address === address
+              ? { ...checks, [payout.id]: { address, status: record ? "registered" : "unregistered" } }
+              : checks);
+          })
+          .catch(() => {
+            if (!current) return;
+            setRegistrationChecks((checks) => checks[payout.id]?.address === address
+              ? { ...checks, [payout.id]: { address, status: "error" } }
+              : checks);
+          });
+      }, 350));
+    }
+    return () => { current = false; timers.forEach((timer) => window.clearTimeout(timer)); };
+    // The serialized address list prevents name or amount edits from repeating key lookups.
+  }, [addressSignature, config]);
+
+  useEffect(() => {
     if (stage !== "processing") return;
     const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -782,6 +825,9 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
   }, [stage]);
 
   const updatePayout = (id: string, field: "name" | "recipient" | "amount", value: string) => {
+    if (field === "recipient") {
+      setRegistrationChecks((checks) => ({ ...checks, [id]: { address: value.trim(), status: "idle" } }));
+    }
     setPayouts((current) => current.map((payout) => payout.id === id
       ? { ...payout, [field]: field === "recipient" ? value.trim() : value }
       : payout));
@@ -836,6 +882,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
     if (!approved) return;
     setStage("processing");
     onProcessingChange(true);
+    setFundingTxid("");
     const initial = Object.fromEntries(approved.quote.payouts.map((payout) => [payout.id, { status: "queued" as const }]));
     setResults(initial);
     try {
@@ -847,8 +894,9 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
           throw new Error(`Your wallet does not have the ${formatUnits(required, asset.decimals)} ${asset.symbol} required to fund this batch`);
         }
         notify({ kind: "info", message: `Approve one funding transaction for ${formatUnits(required, asset.decimals)} ${asset.symbol}. Individual payout signatures follow.` });
-        const fundingTxid = await depositAsset(approved.config, wallet, required);
-        await waitForTransaction(fundingTxid);
+        const fundingTransaction = await depositAsset(approved.config, wallet, required);
+        setFundingTxid(fundingTransaction);
+        await waitForTransaction(fundingTransaction);
         setDeposit(await readRouterDeposit(approved.config, wallet));
       }
 
@@ -856,6 +904,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
         setResults((current) => ({ ...current, [payout.id]: { status: "signing" } }));
         notify({ kind: "info", message: `Approve ${payout.name}'s exact payout in your wallet.` });
         let submittedTxid: string | undefined;
+        let submittedStealthPrincipal: string | undefined;
         try {
           const result = await submitPrivatePayment({
             config: approved.config,
@@ -865,11 +914,12 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
             feeMode: approved.feeMode,
           });
           submittedTxid = result.txid;
-          setResults((current) => ({ ...current, [payout.id]: { status: "confirming", txid: result.txid } }));
+          submittedStealthPrincipal = result.stealthPrincipal;
+          setResults((current) => ({ ...current, [payout.id]: { status: "confirming", txid: result.txid, stealthPrincipal: result.stealthPrincipal } }));
           await waitForTransaction(result.txid);
-          setResults((current) => ({ ...current, [payout.id]: { status: "confirmed", txid: result.txid } }));
+          setResults((current) => ({ ...current, [payout.id]: { status: "confirmed", txid: result.txid, stealthPrincipal: result.stealthPrincipal } }));
         } catch (error) {
-          setResults((current) => ({ ...current, [payout.id]: { status: "failed", txid: submittedTxid, error: message(error) } }));
+          setResults((current) => ({ ...current, [payout.id]: { status: "failed", txid: submittedTxid, stealthPrincipal: submittedStealthPrincipal, error: message(error) } }));
           throw new Error(`${payout.name}'s payout needs review: ${message(error)}. Processing stopped to prevent an accidental duplicate.`);
         }
       }
@@ -888,6 +938,32 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
 
   const activeQuote = approved?.quote ?? draft.quote;
   const confirmedCount = Object.values(results).filter((result) => result.status === "confirmed").length;
+  const batchSucceeded = Boolean(stage === "done" && approved && confirmedCount === approved.quote.payouts.length);
+  const resetBatch = () => {
+    setPayouts([newPayout()]);
+    setApproved(null);
+    setResults({});
+    setFundingTxid("");
+    setStage("edit");
+  };
+
+  if (batchSucceeded && approved) return <>
+    <PageTitle eyebrow="DAO payout complete" title="Every contributor payout is confirmed." copy={`${approved.quote.payouts.length} independently authorized ${asset.symbol} settlements are now confirmed on Stacks testnet.`} />
+    <section className="panel dao-success">
+      <span className="success-mark"><Check /></span>
+      <span className="eyebrow">Batch completed</span>
+      <h2>{formatUnits(approved.quote.recipientTotal, asset.decimals, asset.decimals)} {asset.symbol} delivered privately.</h2>
+      <p>Each registered contributor received their payout at a fresh one-time address. Save these transaction links with your treasury records.</p>
+      <div className="dao-success-summary"><div><span>Contributors paid</span><strong>{approved.quote.payouts.length}</strong></div><div><span>Settlement fees</span><strong>{formatUnits(approved.quote.feeTotal, asset.decimals, asset.decimals)} {asset.symbol}</strong></div><div><span>Total authorized</span><strong>{formatUnits(approved.quote.totalAmount, asset.decimals, asset.decimals)} {asset.symbol}</strong></div></div>
+      <div className="dao-success-transactions">
+        {fundingTxid && <a className="funding-transaction" href={explorer(fundingTxid)} target="_blank" rel="noreferrer"><span><strong>Router funding</strong><small>{short(fundingTxid, 14, 10)}</small></span><ExternalLink size={15} /></a>}
+        {approved.quote.payouts.map((payout) => { const result = results[payout.id]; return <a href={explorer(result.txid!)} target="_blank" rel="noreferrer" key={payout.id}><span className="contributor-avatar">{payout.name.slice(0, 1).toUpperCase()}</span><span><strong>{payout.name}</strong><small>{formatUnits(payout.recipientAmount, asset.decimals, asset.decimals)} {asset.symbol} · {short(result.stealthPrincipal!, 8, 6)}</small></span><span className="confirmed-label"><CircleCheck size={13} /> Confirmed</span><ExternalLink size={15} /></a>; })}
+      </div>
+      <div className="info-box"><Info size={16} /><p>The settlement destinations do not reveal contributors' registered wallets. Amounts, DAO payer activity, and links created by later withdrawals remain observable.</p></div>
+      <button className="primary-wide" onClick={resetBatch}>Create another payout batch <ArrowRight size={16} /></button>
+    </section>
+  </>;
+
   return <>
     <PageTitle eyebrow="Teams & DAOs" title="Private contributor payouts." copy="Prepare and review several payouts together. Privara funds the total once, then asks for one explicit wallet signature per contributor before settling to fresh one-time addresses." />
     {stage === "edit" || stage === "validating" ? <>
@@ -899,10 +975,10 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
       <section className="panel payout-card dao-builder">
         <div className="dao-toolbar"><div><h2>Contributor list</h2><p>Add payouts manually or import a CSV with <code>name,address,amount</code>.</p></div><div><label className="light-button csv-button"><Upload size={14} /> Import CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><button className="light-button" onClick={() => setPayouts((current) => current.length < 25 ? [...current, newPayout()] : current)} disabled={payouts.length >= 25}><Plus size={14} /> Add contributor</button></div></div>
         <div className="payout-head"><span>Contributor</span><span>Registered address</span><span>Amount</span><span /></div>
-        {payouts.map((payout, index) => <div className="payout-row payout-editor" key={payout.id}><div><span className="contributor-avatar">{payout.name.trim().slice(0, 1).toUpperCase() || index + 1}</span><input aria-label={`Contributor ${index + 1} name`} placeholder="Contributor name" value={payout.name} onChange={(event) => updatePayout(payout.id, "name", event.target.value)} /></div><input aria-label={`${payout.name || `Contributor ${index + 1}`} address`} className="mono-input" placeholder="ST…" value={payout.recipient} onChange={(event) => updatePayout(payout.id, "recipient", event.target.value)} /><div className="payout-amount"><input aria-label={`${payout.name || `Contributor ${index + 1}`} amount`} inputMode="decimal" placeholder="0.00" value={payout.amount} onChange={(event) => updatePayout(payout.id, "amount", event.target.value)} /><span>{asset.symbol}</span></div><button aria-label={`Remove ${payout.name || `contributor ${index + 1}`}`} onClick={() => setPayouts((current) => current.filter((item) => item.id !== payout.id))} disabled={payouts.length === 1}><Trash2 /></button></div>)}
+        {payouts.map((payout, index) => { const check = registrationChecks[payout.id]; const checkStatus = check?.address === payout.recipient ? check.status : "idle"; return <div className="payout-row payout-editor" key={payout.id}><div><span className="contributor-avatar">{payout.name.trim().slice(0, 1).toUpperCase() || index + 1}</span><input aria-label={`Contributor ${index + 1} name`} placeholder="Contributor name" value={payout.name} onChange={(event) => updatePayout(payout.id, "name", event.target.value)} /></div><div className={`payout-address-field ${checkStatus}`}><input aria-label={`${payout.name || `Contributor ${index + 1}`} address`} className="mono-input" placeholder="ST…" value={payout.recipient} onChange={(event) => updatePayout(payout.id, "recipient", event.target.value)} aria-invalid={checkStatus === "unregistered" || checkStatus === "error"} />{payout.recipient && <span role="status">{checkStatus === "checking" ? <><RefreshCw className="spin" /> Checking P/V…</> : checkStatus === "registered" ? <><CircleCheck /> P/V registered</> : checkStatus === "unregistered" ? <><TriangleAlert /> Not registered</> : checkStatus === "error" ? <><TriangleAlert /> Check failed</> : "Enter full address"}</span>}</div><div className="payout-amount"><input aria-label={`${payout.name || `Contributor ${index + 1}`} amount`} inputMode="decimal" placeholder="0.00" value={payout.amount} onChange={(event) => updatePayout(payout.id, "amount", event.target.value)} /><span>{asset.symbol}</span></div><button aria-label={`Remove ${payout.name || `contributor ${index + 1}`}`} onClick={() => setPayouts((current) => current.filter((item) => item.id !== payout.id))} disabled={payouts.length === 1}><Trash2 /></button></div>; })}
         <div className="dao-fee-choice"><span>Settlement fee</span><div className="segmented"><button className={feeMode === "added" ? "active" : ""} onClick={() => setFeeMode("added")}>Add fee on top</button><button className={feeMode === "included" ? "active" : ""} onClick={() => setFeeMode("included")}>Include in amounts</button></div></div>
         {draft.error && <p className="batch-error"><TriangleAlert size={14} /> {draft.error}</p>}
-        <div className="batch-summary"><div><Info size={15} /><span>{shortfall > 0n ? `One funding approval for ${formatUnits(shortfall, asset.decimals)} ${asset.symbol}, then ${payouts.length} payout signature${payouts.length === 1 ? "" : "s"}.` : `No funding approval needed; ${payouts.length} payout signature${payouts.length === 1 ? "" : "s"} required.`}</span></div><button className="primary-action" onClick={() => void review()} disabled={stage === "validating" || !draft.quote || available === null || Boolean(draft.quote && available !== null && draft.quote.totalAmount > available)}>{stage === "validating" ? <><RefreshCw className="spin" size={15} /> Checking registrations…</> : <>Review batch <ArrowRight size={15} /></>}</button></div>
+        <div className="batch-summary"><div><Info size={15} /><span>{shortfall > 0n ? `One funding approval for ${formatUnits(shortfall, asset.decimals)} ${asset.symbol}, then ${payouts.length} payout signature${payouts.length === 1 ? "" : "s"}.` : `No funding approval needed; ${payouts.length} payout signature${payouts.length === 1 ? "" : "s"} required.`}</span></div><button className="primary-action" onClick={() => void review()} disabled={stage === "validating" || !draft.quote || !everyRecipientRegistered || available === null || Boolean(draft.quote && available !== null && draft.quote.totalAmount > available)}>{stage === "validating" ? <><RefreshCw className="spin" size={15} /> Rechecking registrations…</> : checkingRecipient ? <><RefreshCw className="spin" size={15} /> Checking recipient keys…</> : draft.quote && !everyRecipientRegistered ? <>All recipients need registered P/V keys</> : <>Review batch <ArrowRight size={15} /></>}</button></div>
       </section>
     </> : <section className="panel payout-card dao-review">
       <div className="dao-review-head"><div><span className="eyebrow">{stage === "review" ? "Final approval" : stage === "processing" ? "Processing batch" : "Batch result"}</span><h2>{stage === "done" ? `${confirmedCount} of ${approved?.quote.payouts.length ?? 0} payouts confirmed` : `${approved?.quote.payouts.length ?? 0} independently signed payouts`}</h2></div>{stage === "review" && <button className="back-link" onClick={() => { setApproved(null); setStage("edit"); }}>← Edit contributor list</button>}</div>
@@ -912,7 +988,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
       <div className="warning-box"><TriangleAlert size={16} /><p>Amounts and DAO payer activity remain public. Each contributor receives through a fresh address, but later withdrawals can create new links.</p></div>
       {stage === "review" && <button className="primary-wide" onClick={() => void execute()}><Wallet size={16} /> Start {approved?.quote.payouts.length} individually signed payouts</button>}
       {stage === "processing" && <button className="primary-wide" disabled><RefreshCw className="spin" size={16} /> Keep this page open while payouts confirm</button>}
-      {stage === "done" && <button className="primary-wide" onClick={() => { setPayouts([newPayout()]); setApproved(null); setResults({}); setStage("edit"); }}>Create another batch</button>}
+      {stage === "done" && <button className="primary-wide" onClick={resetBatch}>Create another batch after reviewing failures</button>}
     </section>}
   </>;
 }

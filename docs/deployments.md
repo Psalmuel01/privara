@@ -396,7 +396,8 @@ Copy `relayer/.env.example` to the gitignored `relayer.env`, then set:
 - `PRIVARA_ASSET`: `SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token`;
 - `PRIVARA_TOKEN_NAME`: `sbtc-token`;
 - `PRIVARA_SPONSOR_FEE_RECIPIENT`: the wallet receiving the signed sBTC sponsor fee;
-- `PRIVARA_TOKEN_SPONSOR_FEE`: `1200` atomic units (12 sats) for the testnet policy;
+- `PRIVARA_TOKEN_SPONSOR_FEE`: `1200` atomic units (1,200 sats, or `0.00001200 sBTC`)
+  for the testnet policy;
 - `PRIVARA_ALLOWED_ORIGINS`: exact HTTPS React origin, without a trailing slash.
 
 The settlement/sponsor wallet must hold enough testnet STX. Never add either key to the

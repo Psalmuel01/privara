@@ -34,20 +34,35 @@ import {
   unlockVerifiedPrivacyBackup,
   type PrivacyBackupStatus,
 } from "./privacy-backup";
+import {
+  defaultStacksApiUrl,
+  parsePrivaraNetwork,
+  stacksAddressPrefix,
+} from "../config/network";
 
-export const NETWORK = "testnet" as const;
+export const NETWORK = parsePrivaraNetwork(import.meta.env.VITE_PRIVARA_NETWORK);
+const ADDRESS_PREFIX = stacksAddressPrefix(NETWORK);
 /** Registration is an on-chain wallet action and remains available if the relayer is down. */
-export const TESTNET_STEALTH_REGISTRY =
-  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stealth-registry";
-/** Static production-testnet pair used when discovery is available but the relayer is not. */
-export const TESTNET_LIVE_ROUTER =
-  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2-sbtc";
-export const TESTNET_LIVE_ASSET =
-  "SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token";
+export const FALLBACK_STEALTH_REGISTRY = requiredNetworkContract(
+  "VITE_PRIVARA_FALLBACK_REGISTRY",
+  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stealth-registry"
+);
+export const FALLBACK_LIVE_ROUTER = requiredNetworkContract(
+  "VITE_PRIVARA_FALLBACK_ROUTER",
+  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2-sbtc"
+);
+export const FALLBACK_LIVE_ASSET = requiredNetworkContract(
+  "VITE_PRIVARA_FALLBACK_ASSET",
+  "SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token"
+);
 export const STACKS_API_URL =
-  import.meta.env.VITE_STACKS_API_URL?.replace(/\/$/, "") || "https://api.testnet.hiro.so";
-export const RELAYER_URL =
-  import.meta.env.VITE_PRIVARA_RELAYER_URL?.replace(/\/$/, "") || "http://127.0.0.1:8787";
+  import.meta.env.VITE_STACKS_API_URL?.replace(/\/$/, "") || defaultStacksApiUrl(NETWORK);
+export const RELAYER_URL = (() => {
+  const configured = import.meta.env.VITE_PRIVARA_RELAYER_URL?.replace(/\/$/, "");
+  if (configured) return configured;
+  if (NETWORK === "testnet") return "http://127.0.0.1:8787";
+  throw new Error("VITE_PRIVARA_RELAYER_URL is required for a mainnet build");
+})();
 
 export interface PublicRelayerConfig {
   version: 1;
@@ -63,6 +78,19 @@ export interface PublicRelayerConfig {
   maxIntentAmount?: string;
   /** Fixed token fee charged when spending from a one-time address. */
   sponsorFee?: string;
+}
+
+function requiredNetworkContract(name: keyof ImportMetaEnv, testnetDefault: string): string {
+  const value = import.meta.env[name]?.trim() || (NETWORK === "testnet" ? testnetDefault : "");
+  if (!value) throw new Error(`${name} is required for a mainnet build`);
+  const address = value.split(".", 1)[0];
+  const valid = NETWORK === "mainnet"
+    ? address.startsWith("SP") || address.startsWith("SM")
+    : address.startsWith("ST") || address.startsWith("SN");
+  if (!valid || !value.includes(".")) {
+    throw new Error(`${name} is not a Stacks ${NETWORK} contract principal`);
+  }
+  return value;
 }
 
 export interface LivePayment {
@@ -83,7 +111,14 @@ async function responseJson<T>(response: Response): Promise<T> {
 export async function fetchPublicConfig(): Promise<PublicRelayerConfig> {
   const config = await responseJson<PublicRelayerConfig>(await fetch(`${RELAYER_URL}/v1/config`));
   if (config.version !== 1 || config.network !== NETWORK) {
-    throw new Error("The configured relayer is not a supported Privara testnet service");
+    throw new Error(`The configured relayer is not a supported Privara ${NETWORK} service`);
+  }
+  if (
+    config.registry !== FALLBACK_STEALTH_REGISTRY ||
+    config.router !== FALLBACK_LIVE_ROUTER ||
+    config.asset !== FALLBACK_LIVE_ASSET
+  ) {
+    throw new Error("The relayer contract configuration does not match this app build");
   }
   return config;
 }
@@ -113,13 +148,13 @@ export async function resolveRecipient(config: PublicRelayerConfig, recipient: s
 }
 
 export function storedWalletAddress(): string | null {
-  return getLocalStorage()?.addresses.stx.find((entry) => entry.address.startsWith("ST"))?.address ?? null;
+  return getLocalStorage()?.addresses.stx.find((entry) => entry.address.startsWith(ADDRESS_PREFIX))?.address ?? null;
 }
 
 export async function connectWallet(): Promise<string> {
   const result = await connect({ network: NETWORK });
-  const address = result.addresses.find((entry) => entry.address.startsWith("ST"))?.address;
-  if (!address) throw new Error("The selected wallet did not return a Stacks testnet address");
+  const address = result.addresses.find((entry) => entry.address.startsWith(ADDRESS_PREFIX))?.address;
+  if (!address) throw new Error(`The selected wallet did not return a Stacks ${NETWORK} address`);
   return address;
 }
 
@@ -150,7 +185,7 @@ export async function createPrivacyIdentity(
 export async function unlockPrivacyIdentity(
   address: string,
   password: string,
-  registry = TESTNET_STEALTH_REGISTRY
+  registry = FALLBACK_STEALTH_REGISTRY
 ): Promise<PrivacyIdentity> {
   const identity = await unlockVerifiedPrivacyBackup(localStorage, NETWORK, address, password);
   try {
@@ -169,7 +204,7 @@ export async function importPrivacyIdentity(
   encoded: string,
   password: string,
   replaceExisting = false,
-  registry = TESTNET_STEALTH_REGISTRY
+  registry = FALLBACK_STEALTH_REGISTRY
 ): Promise<PrivacyIdentity> {
   return restoreAndVerifyPrivacyBackup(
     localStorage,
@@ -309,6 +344,7 @@ export async function mintMock(
   address: string,
   amount: bigint
 ): Promise<string> {
+  if (NETWORK !== "testnet") throw new Error("MOCK minting is disabled on mainnet");
   const result = await request("stx_callContract", {
     address,
     network: NETWORK,

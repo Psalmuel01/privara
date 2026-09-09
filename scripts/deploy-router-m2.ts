@@ -13,6 +13,10 @@ import {
   serializeTransactionBytes,
 } from "@stacks/transactions";
 import {
+  assertDeploymentAuthorized,
+  assertExpectedDeployer,
+  deploymentFee,
+  deploymentSettingsPath,
   explorerTxUrl,
   network,
   stacksNetwork,
@@ -22,28 +26,26 @@ const CONTRACT_PATH = "contracts/privara-router-m2.clar";
 const BASE_ROUTER_NAME = "privara-router-m2";
 const CONTRACT_NAME = process.env.PRIVARA_ROUTER_NAME ?? BASE_ROUTER_NAME;
 const ASSET_CONTRACT = process.env.PRIVARA_ASSET;
-const DEPLOYMENT_FEE = 100_000n;
+const DEPLOYMENT_FEE = deploymentFee(100_000n);
 const ACCOUNT_INDEX = Number(process.env.DEPLOYER_ACCOUNT_INDEX ?? "0");
 const DRY_RUN = process.env.DRY_RUN === "1";
 
 function readMnemonic(): string {
-  const config = readFileSync("settings/Testnet.toml", "utf8");
+  const path = deploymentSettingsPath();
+  const config = readFileSync(path, "utf8");
   const match = config.match(/^mnemonic\s*=\s*"([^"]+)"/m);
-  if (!match) throw new Error("settings/Testnet.toml has no active deployer mnemonic");
+  if (!match || match[1].startsWith("<")) throw new Error(`${path} has no active deployer mnemonic`);
   return match[1];
 }
 
 async function main() {
-  if (network() !== "testnet") throw new Error("deploy-router-m2 is testnet-only");
+  assertDeploymentAuthorized(DRY_RUN);
 
   let wallet = await generateWallet({ secretKey: readMnemonic(), password: "" });
   while (wallet.accounts.length <= ACCOUNT_INDEX) wallet = generateNewAccount(wallet);
   const senderKey = wallet.accounts[ACCOUNT_INDEX].stxPrivateKey;
-  const deployer = getAddressFromPrivateKey(senderKey, "testnet");
-  const expected = process.env.PRIVARA_DEPLOYER_ADDRESS;
-  if (expected && deployer !== expected) {
-    throw new Error(`configured deployer ${deployer} does not match ${expected}`);
-  }
+  const deployer = getAddressFromPrivateKey(senderKey, network());
+  assertExpectedDeployer(deployer);
 
   const apiBase = stacksNetwork().client.baseUrl;
   const existing = await fetch(`${apiBase}/v2/contracts/interface/${deployer}/${CONTRACT_NAME}`);

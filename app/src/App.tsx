@@ -44,11 +44,12 @@ import {
   type Sip010Asset,
 } from "./config/assets";
 import {
+  FALLBACK_LIVE_ASSET,
+  FALLBACK_LIVE_ROUTER,
+  FALLBACK_STEALTH_REGISTRY,
+  NETWORK,
   RELAYER_URL,
   STACKS_API_URL,
-  TESTNET_LIVE_ASSET,
-  TESTNET_LIVE_ROUTER,
-  TESTNET_STEALTH_REGISTRY,
   connectWallet,
   createPrivacyIdentity,
   depositAsset,
@@ -86,6 +87,7 @@ import {
   type DaoPayoutBatchQuote,
   type DaoPayoutInput,
 } from "./lib/dao-payouts";
+import { explorerTransactionUrl } from "./config/network";
 
 type View = "overview" | "send" | "receive" | "activity" | "payouts" | "guide";
 type FeeMode = "added" | "included";
@@ -94,8 +96,9 @@ type SpendResult = { txid: string; paymentAmount: string; tokenSponsorFee: strin
 
 const short = (value: string, start = 6, end = 5) =>
   `${value.slice(0, start)}…${value.slice(-end)}`;
-const explorer = (txid: string) =>
-  `https://explorer.hiro.so/txid/0x${txid.replace(/^0x/, "")}?chain=testnet`;
+const explorer = (txid: string) => explorerTransactionUrl(NETWORK, txid);
+const assetContract = (asset: Sip010Asset) => asset.contract[NETWORK];
+const networkLabel = NETWORK === "mainnet" ? "Mainnet" : "Testnet";
 const viewFromPath = (): View => window.location.pathname.replace(/\/+$/, "") === "/guide"
   ? "guide"
   : "overview";
@@ -162,7 +165,7 @@ export default function App() {
         // The relayer is authoritative for the one asset/router pair it serves.
         // This avoids ever labelling a MOCK-configured server as an sBTC payment flow.
         const configuredAsset = SUPPORTED_ASSETS.find(
-          (item) => item.contract.testnet === value.asset
+          (item) => assetContract(item) === value.asset
         );
         if (configuredAsset) setAssetId(configuredAsset.id);
         setConfigError(null);
@@ -199,7 +202,7 @@ export default function App() {
       setWalletAddress(address);
       setIdentity(null);
       setPayments([]);
-      setNotice({ kind: "success", message: "Wallet connected to Stacks testnet." });
+      setNotice({ kind: "success", message: `Wallet connected to Stacks ${NETWORK}.` });
     } catch (error) {
       setNotice({ kind: "error", message: message(error) });
     } finally {
@@ -224,7 +227,7 @@ export default function App() {
         <button className="brand" onClick={() => navigate("overview")} aria-label="Privara overview" disabled={batchProcessing}>
           <span className="brand-mark">P</span><span>privara</span>
         </button>
-        <div className="demo-chip"><span />Live testnet app</div>
+        <div className="demo-chip"><span />Live {NETWORK} app</div>
         <nav className="nav-list" aria-label="Main navigation">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => navigate(id)} disabled={batchProcessing && id !== "payouts"}>
@@ -244,7 +247,7 @@ export default function App() {
 
       <main className="workspace">
         <header className="topbar">
-          <div className="network-status"><span className="pulse" /> Stacks testnet <span>·</span> {tip ? `Block ${tip.toLocaleString()}` : "Connecting…"}</div>
+          <div className="network-status"><span className="pulse" /> Stacks {networkLabel} <span>·</span> {tip ? `Block ${tip.toLocaleString()}` : "Connecting…"}</div>
           <div className="top-actions">
             <div className="asset-select-wrap">
               <button className="asset-select" onClick={() => setAssetMenu(!assetMenu)} aria-expanded={assetMenu}>
@@ -253,9 +256,9 @@ export default function App() {
               {assetMenu && <div className="asset-menu">
                 <span className="menu-label">SIP-010 assets</span>
                 {SUPPORTED_ASSETS.map((item) => (
-                  <button key={item.id} disabled={item.contract.testnet !== config?.asset} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
+                  <button key={item.id} disabled={assetContract(item) !== config?.asset} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
                     <AssetIcon asset={item} small />
-                    <span><strong>{item.symbol}</strong><small>{item.contract.testnet === config?.asset ? "Live on current router" : "Not served by this relayer"}</small></span>
+                    <span><strong>{item.symbol}</strong><small>{assetContract(item) === config?.asset ? "Live on current router" : "Not served by this relayer"}</small></span>
                     {assetId === item.id && <Check size={15} />}
                   </button>
                 ))}
@@ -360,7 +363,7 @@ function Overview({ asset, wallet, identity, deposit, payments, go, openSpend, c
       <article className="posture-card">
         <div className="posture-top"><span className="eyebrow on-dark">Live readiness</span><ShieldCheck size={23} /></div>
         <div className="score"><strong>{wallet && identity ? "Ready" : "Setup needed"}</strong><span>{wallet && identity ? "3 / 3" : wallet ? "1 / 3" : "0 / 3"}</span></div><div className="meter"><i style={{ width: wallet && identity ? "100%" : wallet ? "34%" : "0%" }} /></div>
-        <ul><li><CircleCheck /> {wallet ? `Wallet ${short(wallet)}` : "Connect a testnet wallet"}</li><li><CircleCheck /> {identity ? "Privacy identity unlocked" : "Unlock encrypted privacy backup"}</li><li><CircleCheck /> Router deposit: {formatUnits(deposit, asset.decimals)} {asset.symbol}</li></ul>
+        <ul><li><CircleCheck /> {wallet ? `Wallet ${short(wallet)}` : `Connect a ${NETWORK} wallet`}</li><li><CircleCheck /> {identity ? "Privacy identity unlocked" : "Unlock encrypted privacy backup"}</li><li><CircleCheck /> Router deposit: {formatUnits(deposit, asset.decimals)} {asset.symbol}</li></ul>
       </article>
     </section>
     <section className="proof-strip"><div><span className="proof-icon"><Zap size={17} /></span><div><strong>Connected service</strong><small>{RELAYER_URL}</small></div></div><a href={`${STACKS_API_URL}/v2/info`} target="_blank" rel="noreferrer">Stacks API <ExternalLink size={13} /></a></section>
@@ -465,7 +468,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
       }
       setStage("review");
     } catch (error) {
-      notify({ kind: "error", message: `${message(error)}${asset.id === "mock" ? " Testnet users can mint MOCK under Testnet tools if their wallet balance is insufficient." : " Make sure your wallet has enough testnet sBTC."}` });
+      notify({ kind: "error", message: `${message(error)}${asset.id === "mock" && NETWORK === "testnet" ? " Testnet users can mint MOCK under Testnet tools if their wallet balance is insufficient." : ` Make sure your wallet has enough ${NETWORK} ${asset.symbol}.`}` });
     } finally { setFunding(null); }
   };
 
@@ -486,14 +489,14 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     <div className="flow-layout">
       <section className="flow-card">
         {stage === "edit" ? <>
-          <label className="field-label">Recipient’s Stacks testnet address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder="ST…" disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>
+          <label className="field-label">Recipient’s Stacks {NETWORK} address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder={NETWORK === "mainnet" ? "SP…" : "ST…"} disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>
           <label className="field-label">Amount recipient should receive</label><div className={`amount-input ${exceedsAvailable ? "invalid" : ""}`}><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={funding !== null} aria-invalid={exceedsAvailable} /><span className="amount-asset"><AssetIcon asset={asset} small /> {asset.symbol}</span></div><div className={`transfer-maximum ${exceedsAvailable ? "invalid" : ""}`}><span>{availableBalance === null ? "Checking available balance…" : `${formatUnits(availableBalance, asset.decimals, asset.decimals)} ${asset.symbol} available across your wallet and Privara balance`}</span><button type="button" onClick={() => maximumAmount !== null && setAmount(formatUnits(maximumAmount, asset.decimals, asset.decimals))} disabled={maximumAmount === null || maximumAmount === 0n || funding !== null}>Use max · {maximumAmount === null ? "—" : formatUnits(maximumAmount, asset.decimals, asset.decimals)} {asset.symbol}</button></div>
           <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")} disabled={funding !== null}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")} disabled={funding !== null}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
           {shortfall > 0n && wallet && <div className="funding-note"><Wallet size={16} /><p><strong>One funding approval needed</strong><span>Privara will request exactly {format(shortfall)} {asset.symbol}, wait for confirmation, and continue automatically.</span></p></div>}
           <button className="primary-wide" disabled={!quote || route !== "found" || !config || funding !== null || exceedsAvailable || balancePending} onClick={continueToReview}>{funding === "payment" ? <><RefreshCw className="spin" size={16} /> Waiting for payment funding…</> : !wallet ? <>Connect wallet <ArrowRight size={16} /></> : balancePending ? <><RefreshCw className="spin" size={16} /> Checking available balance…</> : exceedsAvailable ? <>Amount exceeds available balance</> : shortfall > 0n ? <>Fund {format(shortfall)} {asset.symbol} & continue <ArrowRight size={16} /></> : <>Review payment <ArrowRight size={16} /></>}</button>
         </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh one-time address</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer then submits the settlement.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
-      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>Testnet tools & advanced details</summary><p>Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
+      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>{NETWORK === "testnet" ? "Testnet tools & advanced details" : "Advanced details"}</summary><p>Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{NETWORK === "testnet" && asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
     </div>
   </>;
 }
@@ -517,7 +520,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   const backupState = wallet ? privacyBackupStatus(wallet) : null;
   const backupVerified = Boolean(backupState?.exported && backupState.verified);
   const passwordReady = password.length >= 12;
-  const registry = config?.registry ?? TESTNET_STEALTH_REGISTRY;
+  const registry = config?.registry ?? FALLBACK_STEALTH_REGISTRY;
 
   useEffect(() => {
     setSetupMode("choose");
@@ -644,7 +647,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
     if (!identity) return notify({ kind: "error", message: "Enter your backup password and unlock the verified privacy identity before scanning." });
     // Discovery is client-side and reads public chain data directly. A relayer outage
     // must not prevent a recipient from finding an existing MOCK payment.
-    const scanConfig = config ?? { router: TESTNET_LIVE_ROUTER, asset: TESTNET_LIVE_ASSET };
+    const scanConfig = config ?? { router: FALLBACK_LIVE_ROUTER, asset: FALLBACK_LIVE_ASSET };
     try { setBusy("scan"); const result = await scanPrivatePayments(scanConfig, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` }); }
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
   };
@@ -675,7 +678,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
 
   return <>
     <PageTitle eyebrow="Receive & discover" title="Find payments sent to your one-time addresses." copy="Privara hides your long-term wallet from the on-chain settlement destination. It does not hide payment amounts, payer activity, network requests, or links created by later withdrawals." action={<button className="primary-action" onClick={scan} disabled={busy !== null || !identity || !backupVerified || registration !== "matched"}>{busy === "scan" ? <RefreshCw className="spin" size={16} /> : <Search size={16} />} Scan announcements</button>} />
-    {!wallet ? <section className="panel empty-state"><Wallet size={28} /><h2>Connect a testnet wallet</h2><p>Your privacy backup is stored separately for each wallet address.</p><button className="primary-action" onClick={connect}>Connect Leather or Xverse</button></section> : <section className="setup-grid">
+    {!wallet ? <section className="panel empty-state"><Wallet size={28} /><h2>Connect a {NETWORK} wallet</h2><p>Your privacy backup is stored separately for each wallet address.</p><button className="primary-action" onClick={connect}>Connect Leather or Xverse</button></section> : <section className="setup-grid">
       <article className="panel setup-card"><div className="section-head"><div><span className="eyebrow">Independent privacy identity</span><h2>{receivingEnabled ? "Private receiving enabled" : backupVerified ? "Recovery backup verified" : backupExists ? "Complete your recovery check" : registration === "registered" ? "Restore your registered identity" : "Not set up on this device"}</h2></div><span className={`ready-badge ${identity && registration === "matched" ? "" : "locked"}`}>{identity && registration === "matched" ? <CircleCheck size={14} /> : <LockKeyhole size={14} />}{identity && registration === "matched" ? "Unlocked" : receivingEnabled ? "Enabled · locked" : "Not enabled"}</span></div>
         <div className="warning-box"><TriangleAlert size={16} /><p>Stealth funds are controlled by your independent Privara privacy seed—not by Leather, Xverse, or a connected hardware wallet. Those wallets cannot recover these funds. Keep the encrypted JSON and its password safe.</p></div>
         {!backupExists && setupMode === "choose" && <div className="setup-stage"><p>{registration === "registered" ? "This wallet already has public privacy keys registered on Stacks. Restore the matching encrypted recovery file to regain access; creating a different identity would not control existing private balances." : "Create a private receiving identity to accept payments through fresh one-time addresses. If you have used Privara with this wallet before, restore the encrypted recovery file instead."}</p><div className="choice-actions">{registration !== "registered" && <button className="dark-button" onClick={() => setSetupMode("create")}>Create new identity</button>}<button className={registration === "registered" ? "dark-button" : "light-button"} onClick={() => setSetupMode("restore")}><FileKey size={15} /> Restore existing identity</button></div></div>}
@@ -980,7 +983,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
       setDeposit(await readRouterDeposit(approved.config, wallet));
       await refreshWalletBalance(approved.config);
       setStage("done");
-      notify({ kind: "success", message: `All ${approved.quote.payouts.length} private contributor payouts confirmed on testnet.` });
+      notify({ kind: "success", message: `All ${approved.quote.payouts.length} private contributor payouts confirmed on ${NETWORK}.` });
     } catch (error) {
       setDeposit(await readRouterDeposit(approved.config, wallet).catch(() => deposit));
       setStage("done");
@@ -1005,7 +1008,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
   };
 
   if (batchSucceeded && approved) return <>
-    <PageTitle eyebrow="DAO payout complete" title="Every contributor payout is confirmed." copy={`${approved.quote.payouts.length} independently authorized ${asset.symbol} settlements are now confirmed on Stacks testnet.`} />
+    <PageTitle eyebrow="DAO payout complete" title="Every contributor payout is confirmed." copy={`${approved.quote.payouts.length} independently authorized ${asset.symbol} settlements are now confirmed on Stacks ${NETWORK}.`} />
     <section className="panel dao-success">
       <span className="success-mark"><Check /></span>
       <span className="eyebrow">Batch completed</span>
@@ -1068,12 +1071,12 @@ function PrivaraGuide({ asset, config }: { asset: Sip010Asset; config: PublicRel
         <section id="guide-fees"><span className="guide-number">05</span><div><h2>Fees and wallet approvals</h2><dl><div><dt>Settlement fee</dt><dd>{settlementFee} for the currently connected relayer. The sender chooses whether it is added to or deducted from the entered amount.</dd></div><div><dt>Sponsored spending fee</dt><dd>Currently {sponsoredFee}. It is quoted before confirmation and signed with the destination and payment amount.</dd></div><div><dt>Stacks network fee</dt><dd>The relayer pays STX for sponsored spending. The token sponsorship fee compensates Privara for that network cost and service.</dd></div></dl><p>A normal private payment can require one router-funding approval and one structured-message signature. A DAO batch uses at most one funding approval followed by one signature for every payout.</p></div></section>
         <section id="guide-keys"><span className="guide-number">06</span><div><h2>Keys and recovery</h2><dl><div><dt>P and V</dt><dd>Public spending and viewing keys registered to your normal wallet so senders can derive payments.</dd></div><div><dt>p and v</dt><dd>Private keys derived from the independent privacy seed. They are not published or shown during normal use.</dd></div><div><dt>Ephemeral public key</dt><dd>A sender-generated public key published with one encrypted announcement so the recipient can detect that payment.</dd></div><div><dt>One-time key</dt><dd>The private key derived locally by the recipient for spending from one particular stealth address.</dd></div></dl><div className="guide-callout warning"><TriangleAlert size={18} /><p><strong>The encrypted backup is essential.</strong> Losing both the backup or its password can permanently remove access to stealth funds. A connected wallet seed cannot reconstruct the Privara privacy identity.</p></div></div></section>
         <section id="guide-chain"><span className="guide-number">07</span><div><h2>What goes onchain</h2><ul><li>The recipient’s public P/V registration.</li><li>Router funding transactions and the payer’s interaction with Privara.</li><li>The token, amount, relayer fee, fresh settlement destination, nonce, and expiry.</li><li>The ephemeral public key and encrypted payment announcement.</li><li>Later transfers or withdrawals from one-time addresses.</li></ul><p>The privacy seed, p, v, backup password, decrypted note, and one-time private spending key do not go onchain.</p></div></section>
-        <section id="guide-limits"><span className="guide-number">08</span><div><h2>Wallet hygiene and privacy boundaries</h2><p>Privara creates the one-time address automatically. How you spend from it afterward also matters:</p><ul><li>Treat every one-time address as a separate balance and do not deliberately reuse it for another private payment.</li><li>When practical, pay the next recipient or merchant directly instead of first withdrawing to a publicly associated wallet.</li><li>Avoid combining several one-time balances into one transaction or destination, because consolidation can suggest common ownership.</li><li>Be mindful of distinctive amounts and immediate withdrawals. Changing timing or amounts may reduce simple correlation, but it is not a cryptographic guarantee.</li><li>Keep your encrypted privacy backup separate from your everyday wallet backup and store its password safely. Leather, Xverse, and hardware wallets cannot recover it.</li></ul><p>Privara protects the recipient’s long-term wallet from appearing as the settlement destination. Amounts and payer activity remain visible onchain, while RPC providers, relayers, browsers, and network observers may still observe connection metadata.</p><p>This application currently operates on Stacks testnet. Testnet assets have no real monetary value, but backups and transaction habits should still be treated carefully.</p></div></section>
+        <section id="guide-limits"><span className="guide-number">08</span><div><h2>Wallet hygiene and privacy boundaries</h2><p>Privara creates the one-time address automatically. How you spend from it afterward also matters:</p><ul><li>Treat every one-time address as a separate balance and do not deliberately reuse it for another private payment.</li><li>When practical, pay the next recipient or merchant directly instead of first withdrawing to a publicly associated wallet.</li><li>Avoid combining several one-time balances into one transaction or destination, because consolidation can suggest common ownership.</li><li>Be mindful of distinctive amounts and immediate withdrawals. Changing timing or amounts may reduce simple correlation, but it is not a cryptographic guarantee.</li><li>Keep your encrypted privacy backup separate from your everyday wallet backup and store its password safely. Leather, Xverse, and hardware wallets cannot recover it.</li></ul><p>Privara protects the recipient’s long-term wallet from appearing as the settlement destination. Amounts and payer activity remain visible onchain, while RPC providers, relayers, browsers, and network observers may still observe connection metadata.</p><p>This application operates on Stacks {NETWORK}. {NETWORK === "testnet" ? "Testnet assets have no real monetary value, but backups and transaction habits should still be treated carefully." : "Mainnet transactions use real assets and are irreversible; verify every address, amount, and fee before signing."}</p></div></section>
       </article>
     </div>
   </>;
 }
 
 function SuccessState({ asset, amount, tx, detail, action, compact = false }: { asset: Sip010Asset; amount: string; tx: string; detail?: string; action: () => void; compact?: boolean }) {
-  return <section className={`success-state ${compact ? "compact" : ""}`}><span className="success-mark"><Check /></span><span className="eyebrow">Broadcast accepted</span><h2>{amount} {asset.symbol} is on its way.</h2><p>{detail || "The testnet node accepted the transaction. Track it until final confirmation."}</p><a className="success-tx" href={explorer(tx)} target="_blank" rel="noreferrer"><div><small>Transaction ID</small><strong>{short(tx, 16, 12)}</strong></div><ExternalLink size={16} /></a><button className="primary-wide" onClick={action}>{compact ? "Done" : "View activity"}<ArrowRight size={16} /></button></section>;
+  return <section className={`success-state ${compact ? "compact" : ""}`}><span className="success-mark"><Check /></span><span className="eyebrow">Broadcast accepted</span><h2>{amount} {asset.symbol} is on its way.</h2><p>{detail || `The ${NETWORK} node accepted the transaction. Track it until final confirmation.`}</p><a className="success-tx" href={explorer(tx)} target="_blank" rel="noreferrer"><div><small>Transaction ID</small><strong>{short(tx, 16, 12)}</strong></div><ExternalLink size={16} /></a><button className="primary-wide" onClick={action}>{compact ? "Done" : "View activity"}<ArrowRight size={16} /></button></section>;
 }

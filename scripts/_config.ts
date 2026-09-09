@@ -41,6 +41,40 @@ export function networkName(): StacksNetworkName {
   return network();
 }
 
+/** Selects the chain-specific, gitignored Clarinet settings file. */
+export function deploymentSettingsPath(): string {
+  return network() === "mainnet" ? "settings/Mainnet.toml" : "settings/Testnet.toml";
+}
+
+/** Mainnet broadcasts require a deliberate acknowledgement on every invocation. */
+export function assertDeploymentAuthorized(dryRun: boolean): void {
+  if (
+    network() === "mainnet" &&
+    !dryRun &&
+    process.env.PRIVARA_MAINNET_CONFIRM !== "DEPLOY_PRIVARA_MAINNET"
+  ) {
+    throw new Error(
+      "mainnet broadcast blocked: set PRIVARA_MAINNET_CONFIRM=DEPLOY_PRIVARA_MAINNET after reviewing the transaction"
+    );
+  }
+}
+
+export function deploymentFee(defaultMicroStx: bigint): bigint {
+  const fee = BigInt(process.env.PRIVARA_DEPLOYMENT_FEE ?? defaultMicroStx);
+  if (fee <= 0n) throw new Error("PRIVARA_DEPLOYMENT_FEE must be a positive micro-STX integer");
+  return fee;
+}
+
+export function assertExpectedDeployer(actual: string): void {
+  const expected = process.env.PRIVARA_DEPLOYER_ADDRESS?.trim();
+  if (network() === "mainnet" && !expected) {
+    throw new Error("PRIVARA_DEPLOYER_ADDRESS is required for mainnet deployment");
+  }
+  if (expected && actual !== expected) {
+    throw new Error(`configured deployer ${actual} does not match ${expected}`);
+  }
+}
+
 export function coreAddress(): string {
   const addr = process.env.PRIVARA_CORE_ADDRESS;
   if (!addr) {
@@ -56,6 +90,7 @@ export const ROUTER_M2_NAME = "privara-router-m2";
 export const REGISTRY_NAME = "privara-registry";
 export const STEALTH_REGISTRY_NAME = "privara-stealth-registry";
 export const SPONSORED_SPEND_NAME = "privara-sponsored-spend-v2";
+export const SIP010_TRAIT_NAME = "sip010-ft-trait";
 
 export function routerId(): string {
   return `${coreAddress()}.${ROUTER_NAME}`;

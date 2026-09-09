@@ -18,26 +18,52 @@ function positiveBigInt(name: string, fallback: string): bigint {
   return value;
 }
 
+function principalForNetwork(name: string, value: string, network: "testnet" | "mainnet"): string {
+  const address = value.split(".", 1)[0];
+  const valid = network === "mainnet"
+    ? address.startsWith("SP") || address.startsWith("SM")
+    : address.startsWith("ST") || address.startsWith("SN");
+  if (!valid) throw new Error(`${name} is not a Stacks ${network} principal`);
+  return value;
+}
+
 export function relayerConfigFromEnv(): RelayerConfig {
   const network = process.env.PRIVARA_NETWORK ?? "testnet";
   if (network !== "testnet" && network !== "mainnet") {
     throw new Error('PRIVARA_NETWORK must be "testnet" or "mainnet"');
   }
-  const coreAddress = required("PRIVARA_CORE_ADDRESS");
+  const coreAddress = principalForNetwork("PRIVARA_CORE_ADDRESS", required("PRIVARA_CORE_ADDRESS"), network);
+  const routerContract = principalForNetwork(
+    "PRIVARA_ROUTER",
+    process.env.PRIVARA_ROUTER ?? `${coreAddress}.privara-router-m2`,
+    network
+  );
+  const assetContract = principalForNetwork(
+    "PRIVARA_ASSET",
+    process.env.PRIVARA_ASSET ?? `${coreAddress}.mock-token`,
+    network
+  );
+  const spendContract = principalForNetwork(
+    "PRIVARA_SPEND_CONTRACT",
+    process.env.PRIVARA_SPEND_CONTRACT ?? `${coreAddress}.privara-sponsored-spend-v2`,
+    network
+  );
   return {
     network,
     coreAddress,
-    routerContract:
-      process.env.PRIVARA_ROUTER ?? `${coreAddress}.privara-router-m2`,
+    routerContract,
     relayerPrivateKey: required("RELAYER_KEY"),
     sponsorPrivateKey: required("SPONSOR_KEY"),
-    assetContract: process.env.PRIVARA_ASSET ?? `${coreAddress}.mock-token`,
+    assetContract,
     tokenName: process.env.PRIVARA_TOKEN_NAME ?? "mock",
-    spendContract:
-      process.env.PRIVARA_SPEND_CONTRACT ?? `${coreAddress}.privara-sponsored-spend-v2`,
+    spendContract,
     // The token-fee treasury is intentionally configured separately from the private
     // sponsor key that pays STX; production deployments can isolate those roles.
-    feeRecipient: required("PRIVARA_SPONSOR_FEE_RECIPIENT"),
+    feeRecipient: principalForNetwork(
+      "PRIVARA_SPONSOR_FEE_RECIPIENT",
+      required("PRIVARA_SPONSOR_FEE_RECIPIENT"),
+      network
+    ),
     exactTokenSponsorFee: positiveBigInt("PRIVARA_TOKEN_SPONSOR_FEE", "100"),
     maxIntentAmount: positiveBigInt("PRIVARA_MAX_INTENT_AMOUNT", "100000000"),
     maxRelayerFeeBps: positiveInteger("PRIVARA_MAX_RELAYER_FEE_BPS", "100"),

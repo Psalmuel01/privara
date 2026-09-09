@@ -1,5 +1,5 @@
-// Deploy only the M2 stealth registry. Existing M1 contracts are left untouched.
-// The chain comes from PRIVARA_NETWORK; private key material is never logged.
+// Deploy the SIP-010 trait used by the router and sponsored-spend helper.
+// Mainnet requires the expected public deployer address plus an explicit broadcast guard.
 
 import { readFileSync } from "node:fs";
 import { generateNewAccount, generateWallet } from "@stacks/wallet-sdk";
@@ -12,6 +12,7 @@ import {
   serializeTransactionBytes,
 } from "@stacks/transactions";
 import {
+  SIP010_TRAIT_NAME,
   assertDeploymentAuthorized,
   assertExpectedDeployer,
   deploymentFee,
@@ -19,10 +20,9 @@ import {
   explorerTxUrl,
   network,
   stacksNetwork,
-  STEALTH_REGISTRY_NAME,
 } from "./_config";
 
-const CONTRACT_PATH = "contracts/privara-stealth-registry.clar";
+const CONTRACT_PATH = "contracts/traits/sip010-ft-trait.clar";
 const DEPLOYMENT_FEE = deploymentFee(60_000n);
 const ACCOUNT_INDEX = Number(process.env.DEPLOYER_ACCOUNT_INDEX ?? "0");
 const DRY_RUN = process.env.DRY_RUN === "1";
@@ -44,16 +44,11 @@ async function main() {
   assertExpectedDeployer(deployer);
 
   const apiBase = stacksNetwork().client.baseUrl;
-  const existing = await fetch(
-    `${apiBase}/v2/contracts/interface/${deployer}/${STEALTH_REGISTRY_NAME}`
-  );
-  if (existing.ok) {
-    throw new Error(`${deployer}.${STEALTH_REGISTRY_NAME} is already deployed`);
-  }
+  const existing = await fetch(`${apiBase}/v2/contracts/interface/${deployer}/${SIP010_TRAIT_NAME}`);
+  if (existing.ok) throw new Error(`${deployer}.${SIP010_TRAIT_NAME} is already deployed`);
   if (existing.status !== 404) {
     throw new Error(`unable to verify contract availability: HTTP ${existing.status}`);
   }
-
   const accountResponse = await fetch(`${apiBase}/v2/accounts/${deployer}?proof=0`);
   if (!accountResponse.ok) throw new Error(`unable to fetch deployer nonce: HTTP ${accountResponse.status}`);
   const account = (await accountResponse.json()) as { nonce: number; balance: string };
@@ -62,7 +57,7 @@ async function main() {
   }
 
   const transaction = await makeContractDeploy({
-    contractName: STEALTH_REGISTRY_NAME,
+    contractName: SIP010_TRAIT_NAME,
     codeBody: readFileSync(CONTRACT_PATH, "utf8"),
     senderKey,
     network: stacksNetwork(),
@@ -72,19 +67,13 @@ async function main() {
     postConditionMode: "allow",
   });
   deserializeTransaction(serializeTransactionBytes(transaction));
-
   if (DRY_RUN) {
-    console.log(
-      `ready: ${deployer}.${STEALTH_REGISTRY_NAME}, nonce ${account.nonce}, fee ${DEPLOYMENT_FEE} micro-STX`
-    );
+    console.log(`ready: ${deployer}.${SIP010_TRAIT_NAME}, nonce ${account.nonce}, fee ${DEPLOYMENT_FEE} micro-STX`);
     return;
   }
-
   const result = await broadcastTransaction({ transaction, network: stacksNetwork() });
-  if ("error" in result) {
-    throw new Error(`${result.error} ${result.reason ?? ""}`.trim());
-  }
-  console.log(`${STEALTH_REGISTRY_NAME}: ${result.txid}`);
+  if ("error" in result) throw new Error(`${result.error} ${result.reason ?? ""}`.trim());
+  console.log(`${SIP010_TRAIT_NAME}: ${result.txid}`);
   console.log(explorerTxUrl(result.txid));
 }
 

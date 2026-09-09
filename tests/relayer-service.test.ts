@@ -4,7 +4,7 @@ import {
   serializeTransaction,
   sponsorTransaction,
 } from "@stacks/transactions";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildSponsoredSpend,
   createPrivateIntent,
@@ -30,6 +30,8 @@ const USER_KEY = "4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f
 const ORIGIN_KEY = "0101010101010101010101010101010101010101010101010101010101010101";
 const DESTINATION = "ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5";
 const TREASURY = "ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG";
+
+afterEach(() => vi.unstubAllGlobals());
 
 const config: RelayerConfig = {
   network: "testnet",
@@ -145,6 +147,27 @@ describe("reference relayer service", () => {
   });
 
   it("validates and broadcasts an M2 private intent through the same endpoint", async () => {
+    // Transaction construction asks Stacks.js for a fee and account nonce. Keep this
+    // unit test deterministic and offline; live RPC behavior belongs in acceptance.
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/fees/transaction")) {
+        return {
+          ok: true,
+          json: async () => ({
+            estimations: [
+              { fee: 500, fee_rate: 1 },
+              { fee: 1_000, fee_rate: 2 },
+              { fee: 2_000, fee_rate: 4 },
+            ],
+          }),
+        } as Response;
+      }
+      if (url.includes("/nonces")) {
+        return { ok: true, json: async () => ({ possible_next_nonce: 0 }) } as Response;
+      }
+      throw new Error(`unexpected fetch in relayer unit test: ${url}`);
+    }));
     const identity = identityFromSeed(new Uint8Array(32).fill(9));
     const created = await createPrivateIntent({
       registry: `${CORE}.privara-stealth-registry`,

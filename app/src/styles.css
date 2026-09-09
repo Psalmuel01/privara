@@ -36,6 +36,12 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .nav-item.active { color: white; background: #203028; box-shadow: inset 2px 0 var(--mint); }
 .nav-item.active svg { color: var(--mint); }
 .sidebar-foot { margin-top: auto; border-top: 1px solid #2a3731; padding-top: 20px; }
+.guide-link { display: flex; align-items: center; gap: 10px; width: 100%; margin-bottom: 16px; padding: 10px 8px; color: #84918b; border: 0; border-radius: 8px; background: transparent; text-align: left; }
+.guide-link:hover, .guide-link.active { color: white; background: #1b2922; }
+.guide-link.active svg { color: var(--mint); }
+.guide-link strong, .guide-link small { display: block; }
+.guide-link strong { font-size: 11px; }
+.guide-link small { margin-top: 2px; color: #75827c; font-size: 9px; }
 .privacy-live { display: flex; align-items: flex-start; gap: 10px; padding: 0 8px 18px; }
 .privacy-live strong, .privacy-live small { display: block; }
 .privacy-live strong { font-size: 11px; font-weight: 600; }
@@ -136,6 +142,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 
 .activity-page { padding: 26px; }.activity-tools { display: flex; align-items: center; justify-content: space-between; }.filter-tabs { display: flex; gap: 4px; padding: 3px; border-radius: 8px; background: #edf1ed; }.filter-tabs button { padding: 7px 12px; color: var(--muted); border: 0; border-radius: 6px; background: transparent; font-size: 8px; }.filter-tabs button.active { color: var(--ink); background: white; box-shadow: 0 2px 7px rgb(17 26 23 / 6%); }.activity-page .activity-row { min-height: 72px; }
 .dao-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 17px; }.dao-metrics > div { display: flex; align-items: center; gap: 12px; padding: 17px; border: 1px solid #dfe4e0; border-radius: 12px; background: white; }.dao-metrics > div > span { display: grid; place-items: center; width: 34px; height: 34px; color: #2d5940; border-radius: 9px; background: #eaf5e5; }.dao-metrics svg { width: 16px; }.dao-metrics small, .dao-metrics strong { display: block; }.dao-metrics small { color: var(--muted); font-size: 7px; }.dao-metrics strong { margin-top: 4px; font-size: 11px; }.payout-card { padding: 0 24px; }.payout-head, .payout-row { display: grid; grid-template-columns: minmax(180px, 1.3fr) 1fr 1fr 24px; gap: 15px; align-items: center; }.payout-head { min-height: 43px; color: #8a938e; font: 500 7px var(--mono); text-transform: uppercase; }.payout-row { min-height: 68px; border-top: 1px solid #e9edea; }.payout-row > div { display: flex; align-items: center; gap: 10px; }.contributor-avatar { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 9px; background: var(--cream); font-size: 10px; font-weight: 700; }.payout-row strong, .payout-row small { display: block; }.payout-row strong { font-size: 9px; }.payout-row small { margin-top: 3px; color: var(--muted); font: 400 7px var(--mono); }.private-route { display: flex; align-items: center; gap: 5px; color: #39634a; font-size: 8px; }.batch-summary { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 0 -24px; padding: 17px 24px; border-top: 1px solid #e2e7e3; background: #f8faf7; }.batch-summary > div { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 8px; }
+.dao-metrics > div.invalid { border-color: #e1a28d; background: #fff7f3; }
+.dao-metrics > div.invalid > span { color: #8d4b35; background: #f9e5dc; }
+.dao-metrics em { display: block; margin-top: 3px; color: #934e36; font-size: 8px; font-style: normal; font-weight: 700; }
 .dao-builder { overflow: hidden; }
 .dao-toolbar, .dao-review-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 0 18px; }
 .dao-toolbar h2, .dao-review-head h2 { margin: 0; font-size: 19px; letter-spacing: -.04em; }
@@ -147,20 +156,24 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .payout-editor input { width: 100%; min-width: 0; height: 38px; padding: 0 10px; border: 1px solid #dce2de; border-radius: 8px; outline: none; background: #fbfcfb; font-size: 10px; }
 .payout-editor input:focus { border-color: #91aa99; box-shadow: 0 0 0 3px rgb(78 122 93 / 8%); }
 .payout-editor .mono-input { font-family: var(--mono); font-size: 9px; }
-.payout-address-field { display: grid !important; align-items: stretch !important; gap: 4px !important; }
-.payout-address-field > span { display: flex; align-items: center; gap: 4px; min-height: 13px; color: var(--muted); font-size: 8px; font-weight: 650; }
-.payout-address-field > span svg { width: 11px; height: 11px; }
-.payout-address-field.registered > span { color: #2f6545; }
+.payout-address-field { position: relative; display: block !important; }
+.payout-address-field input { padding-right: 37px; }
+.payout-address-status { position: absolute; top: 50%; right: 11px; display: grid; place-items: center; width: 18px; height: 18px; color: var(--muted); transform: translateY(-50%); }
+.payout-address-status svg { width: 17px; height: 17px; }
+.payout-address-field.registered .payout-address-status { color: #2f6545; }
 .payout-address-field.registered input { border-color: #9bc0a6; background: #f6fbf4; }
-.payout-address-field.unregistered > span, .payout-address-field.error > span { color: #934e36; }
+.payout-address-field.unregistered .payout-address-status, .payout-address-field.error .payout-address-status { color: #934e36; }
 .payout-address-field.unregistered input, .payout-address-field.error input { border-color: #dfa18c; background: #fff8f5; }
 .payout-amount { position: relative; }
 .payout-amount input { padding-right: 48px; font-weight: 650; }
 .payout-amount > span { position: absolute; right: 9px; color: var(--muted); font-size: 8px; font-weight: 700; }
+.payout-amount.invalid input { color: #8d412d; border-color: #dc8f76; background: #fff5f1; box-shadow: 0 0 0 3px rgb(154 77 53 / 8%); }
+.payout-amount.invalid > span { color: #934e36; }
 .dao-fee-choice { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 0; border-top: 1px solid #e9edea; }
 .dao-fee-choice > span { color: var(--muted); font-size: 10px; font-weight: 650; }
 .dao-fee-choice .segmented { width: min(360px, 100%); margin: 0; }
 .batch-error { display: flex; align-items: center; gap: 7px; margin: 0 0 15px; color: #8a4c35; font-size: 9px; }
+.batch-balance-error { display: flex; align-items: center; gap: 7px; margin: 0 0 15px; color: #934e36; font-size: 9px; font-weight: 650; }
 .dao-review { padding-top: 0; padding-bottom: 24px; overflow: hidden; }
 .dao-review-head .back-link { margin: 7px 0 0; }
 .payout-route-cell { flex-direction: column; align-items: flex-start !important; gap: 4px !important; }
@@ -194,7 +207,27 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .dao-success-transactions small { margin-top: 3px; color: var(--muted); font: 400 9px var(--mono); }
 .confirmed-label { display: inline-flex; align-items: center; gap: 5px; color: #326247; font-size: 9px; font-weight: 700; }
 .dao-success .info-box { text-align: left; }
-.setup-stage .setup-back { display: block; margin: 0 0 25px auto; }
+.guide-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 17px; align-items: start; }
+.guide-contents { position: sticky; top: 104px; display: grid; gap: 3px; padding: 18px; }
+.guide-contents a { padding: 8px 9px; color: #647069; border-radius: 7px; font-size: 10px; text-decoration: none; }
+.guide-contents a:hover { color: var(--ink); background: #f0f4ef; }
+.guide-document { padding: clamp(24px, 4vw, 42px); }
+.guide-document > section { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 17px; padding: 30px 0; border-top: 1px solid #e5eae6; scroll-margin-top: 25px; }
+.guide-document > section:first-child { padding-top: 0; border-top: 0; }
+.guide-number { display: grid; place-items: center; width: 32px; height: 32px; color: #315b43; border-radius: 9px; background: #e7f5e1; font: 500 9px var(--mono); }
+.guide-document h2 { margin: 2px 0 10px; font-size: 21px; letter-spacing: -.04em; }
+.guide-document p, .guide-document li, .guide-document dd { color: var(--muted); font-size: 11px; line-height: 1.7; }
+.guide-document p { margin: 10px 0 0; }
+.guide-document ol, .guide-document ul { display: grid; gap: 7px; margin: 10px 0 0; padding-left: 19px; }
+.guide-document code { font: 500 10px var(--mono); }
+.guide-document dl { display: grid; gap: 10px; margin: 12px 0 0; }
+.guide-document dl > div { padding: 12px; border: 1px solid #e3e8e4; border-radius: 9px; background: #fafbfa; }
+.guide-document dt { color: var(--ink); font-size: 10px; font-weight: 700; }
+.guide-document dd { margin: 3px 0 0; }
+.guide-callout { display: flex; align-items: flex-start; gap: 10px; margin-top: 16px; padding: 14px; color: #3f614c; border-radius: 10px; background: #eef7ea; }
+.guide-callout.warning { color: #795d34; background: #fbf3e3; }
+.guide-callout svg { flex: 0 0 auto; margin-top: 2px; }
+.guide-callout p { margin: 0; color: inherit; }
 
 @keyframes fade-in { from { opacity: 0; } } @keyframes slide-in { from { transform: translateX(40px); opacity: .7; } }
 
@@ -211,7 +244,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 @media (max-width: 760px) {
   .app-shell { display: block; }
   .sidebar { position: sticky; height: auto; padding: 12px 15px; flex-direction: row; align-items: center; }
-  .brand > span:last-child, .demo-chip, .sidebar-foot { display: none; }
+  .brand > span:last-child, .demo-chip, .sidebar-foot .privacy-live, .sidebar-foot .settings-link, .guide-link span { display: none; }
+  .sidebar-foot { display: block; margin: 0; padding: 0; border: 0; }
+  .guide-link { width: auto; margin: 0; padding: 10px; }
   .nav-list { display: flex; margin-left: auto; gap: 2px; }
   .nav-item { width: auto; padding: 10px; }
   .nav-item span { display: none; }
@@ -244,6 +279,10 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .dao-success-summary { grid-template-columns: 1fr; }
   .dao-success-transactions > a { grid-template-columns: 31px minmax(0, 1fr) 17px; }
   .dao-success-transactions .confirmed-label { display: none; }
+  .guide-layout { grid-template-columns: 1fr; }
+  .guide-contents { position: static; display: none; }
+  .guide-document { padding: 22px 18px; }
+  .guide-document > section { grid-template-columns: 30px minmax(0, 1fr); gap: 11px; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

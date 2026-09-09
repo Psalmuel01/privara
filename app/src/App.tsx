@@ -96,6 +96,9 @@ const short = (value: string, start = 6, end = 5) =>
   `${value.slice(0, start)}…${value.slice(-end)}`;
 const explorer = (txid: string) =>
   `https://explorer.hiro.so/txid/0x${txid.replace(/^0x/, "")}?chain=testnet`;
+const viewFromPath = (): View => window.location.pathname.replace(/\/+$/, "") === "/guide"
+  ? "guide"
+  : "overview";
 
 async function copyText(value: string, notify: (notice: Notice) => void, label: string) {
   try {
@@ -120,7 +123,7 @@ function AssetIcon({ asset, small = false }: { asset: Sip010Asset; small?: boole
 }
 
 export default function App() {
-  const [view, setView] = useState<View>("overview");
+  const [view, setView] = useState<View>(viewFromPath);
   const [assetId, setAssetId] = useState("sbtc");
   const [assetMenu, setAssetMenu] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(() => storedWalletAddress());
@@ -136,6 +139,21 @@ export default function App() {
   const [batchProcessing, setBatchProcessing] = useState(false);
   const configErrorNotified = useRef(false);
   const asset = SUPPORTED_ASSETS.find((item) => item.id === assetId)!;
+
+  // Keep the public guide shareable without introducing a routing dependency for this
+  // small single-page app. Vercel rewrites /guide to index.html, and history handles
+  // sidebar navigation plus the browser Back/Forward buttons.
+  const navigate = (nextView: View) => {
+    const nextPath = nextView === "guide" ? "/guide" : "/";
+    if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
+    setView(nextView);
+  };
+
+  useEffect(() => {
+    const onPopState = () => setView(viewFromPath());
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     const loadConfig = () => void fetchPublicConfig()
@@ -203,19 +221,19 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <button className="brand" onClick={() => setView("overview")} aria-label="Privara overview" disabled={batchProcessing}>
+        <button className="brand" onClick={() => navigate("overview")} aria-label="Privara overview" disabled={batchProcessing}>
           <span className="brand-mark">P</span><span>privara</span>
         </button>
         <div className="demo-chip"><span />Live testnet app</div>
         <nav className="nav-list" aria-label="Main navigation">
           {navItems.map(({ id, label, icon: Icon }) => (
-            <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => setView(id)} disabled={batchProcessing && id !== "payouts"}>
+            <button key={id} className={`nav-item ${view === id ? "active" : ""}`} onClick={() => navigate(id)} disabled={batchProcessing && id !== "payouts"}>
               <Icon size={17} strokeWidth={1.8} /><span>{label}</span>
             </button>
           ))}
         </nav>
         <div className="sidebar-foot">
-          <button className={`guide-link ${view === "guide" ? "active" : ""}`} onClick={() => setView("guide")} disabled={batchProcessing}><BookOpen size={16} /><span><strong>Privara guide</strong><small>How everything works</small></span></button>
+          <button className={`guide-link ${view === "guide" ? "active" : ""}`} onClick={() => navigate("guide")} disabled={batchProcessing}><BookOpen size={16} /><span><strong>Privara guide</strong><small>How everything works</small></span></button>
           <div className="privacy-live">
             <span className={`status-dot ${identity ? "" : "inactive"}`} />
             <div><strong>{identity ? "Privacy keys unlocked" : "Privacy keys locked"}</strong><small>{identity ? "Held in this browser session" : "Unlock from Receive & scan"}</small></div>
@@ -257,7 +275,7 @@ export default function App() {
 
         {(notice || configError) && <NoticeBar notice={notice ?? { kind: "error", message: `Relayer unavailable: ${configError}` }} clear={() => notice ? setNotice(null) : setConfigError(null)} />}
 
-        {view === "overview" && <Overview asset={asset} wallet={walletAddress} identity={identity} deposit={deposit} payments={payments} go={setView} openSpend={(payment) => setSelectedPayment(payment)} connect={connect} />}
+        {view === "overview" && <Overview asset={asset} wallet={walletAddress} identity={identity} deposit={deposit} payments={payments} go={navigate} openSpend={(payment) => setSelectedPayment(payment)} connect={connect} />}
         {view === "send" && <SendPrivate asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onDone={() => setView("activity")} />}
         {view === "receive" && <ReceiveAndScan asset={asset} config={config} wallet={walletAddress} identity={identity} setIdentity={setIdentity} payments={payments} setPayments={setPayments} notify={setNotice} connect={connect} openSpend={setSelectedPayment} />}
         {view === "activity" && <ActivityView asset={asset} payments={payments} />}

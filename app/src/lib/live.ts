@@ -59,6 +59,8 @@ export interface PublicRelayerConfig {
   tokenName: string;
   relayerAddress: string;
   settlementFeeBps: number;
+  /** Maximum total settlement outflow accepted by this relayer. */
+  maxIntentAmount?: string;
   /** Fixed token fee charged when spending from a one-time address. */
   sponsorFee?: string;
 }
@@ -286,6 +288,19 @@ export async function readRouterDeposit(
   });
   if (value.type !== ClarityType.UInt) throw new Error("Unable to read the router deposit");
   return BigInt(value.value);
+}
+
+/** Read the connected wallet's balance for the exact SIP-010 asset served by Privara. */
+export async function readWalletAssetBalance(
+  config: PublicRelayerConfig,
+  address: string
+): Promise<bigint> {
+  return fetchSip010Balance({
+    assetContract: config.asset,
+    principal: address,
+    network: NETWORK,
+    stacksApiUrl: STACKS_API_URL,
+  });
 }
 
 /** Testnet-only faucet call. MOCK's unrestricted mint function is never used on mainnet. */

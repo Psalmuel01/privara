@@ -93,6 +93,7 @@ export function createRelayerHttpServer(
             service.config.network
           ),
           settlementFeeBps: service.config.maxRelayerFeeBps,
+          maxIntentAmount: service.config.maxIntentAmount.toString(),
           sponsorFee: service.config.exactTokenSponsorFee.toString(),
         }, corsOrigin);
         return;

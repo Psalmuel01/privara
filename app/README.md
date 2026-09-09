@@ -29,7 +29,7 @@ prefix.
 2. Connect a Leather or Xverse **testnet** account.
 3. In **Receive & scan**, create a 12+ character backup password and create the privacy
    identity. Download the encrypted JSON, import it to prove recovery, and only then
-   approve P/V registration. Keep another secure copy.
+   approve registration of the public privacy keys. Keep another secure copy.
 4. In **Send privately**, enter a registered recipient and amount. The app checks the
    available Privara balance and, when necessary, requests one wallet approval for the
    exact funding shortfall. It waits for confirmation and continues automatically.

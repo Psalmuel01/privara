@@ -39,10 +39,11 @@ export const NETWORK = "testnet" as const;
 /** Registration is an on-chain wallet action and remains available if the relayer is down. */
 export const TESTNET_STEALTH_REGISTRY =
   "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stealth-registry";
-export const TESTNET_MOCK_ROUTER =
-  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2";
-export const TESTNET_MOCK_ASSET =
-  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.mock-token";
+/** Static production-testnet pair used when discovery is available but the relayer is not. */
+export const TESTNET_LIVE_ROUTER =
+  "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-router-m2-sbtc";
+export const TESTNET_LIVE_ASSET =
+  "SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token";
 export const STACKS_API_URL =
   import.meta.env.VITE_STACKS_API_URL?.replace(/\/$/, "") || "https://api.testnet.hiro.so";
 export const RELAYER_URL =
@@ -198,19 +199,39 @@ function sameBytes(left: Uint8Array, right: Uint8Array): boolean {
   return left.length === right.length && left.every((byte, index) => byte === right[index]);
 }
 
+export type PrivacyRegistrationState =
+  | "unregistered"
+  | "registered"
+  | "matched"
+  | "mismatch";
+
+/**
+ * Read the wallet's public privacy-key registration without exposing private material.
+ * Passing an unlocked identity also proves whether the local backup controls that
+ * registration.
+ */
+export async function privacyRegistrationState(
+  registry: string,
+  address: string,
+  identity?: PrivacyIdentity
+): Promise<PrivacyRegistrationState> {
+  const current = await fetchStealthKeys({ registry, user: address, network: NETWORK });
+  if (!current) return "unregistered";
+  if (!identity) return "registered";
+  return sameBytes(current.spendingPublicKey, identity.spendingPublicKey) &&
+    sameBytes(current.viewingPublicKey, identity.viewingPublicKey)
+    ? "matched"
+    : "mismatch";
+}
+
 async function assertIdentityMatchesRegistration(
   registry: string,
   address: string,
   identity: PrivacyIdentity
 ): Promise<void> {
-  const current = await fetchStealthKeys({ registry, user: address, network: NETWORK });
-  if (
-    current &&
-    (!sameBytes(current.spendingPublicKey, identity.spendingPublicKey) ||
-      !sameBytes(current.viewingPublicKey, identity.viewingPublicKey))
-  ) {
+  if (await privacyRegistrationState(registry, address, identity) === "mismatch") {
     throw new Error(
-      "This backup does not match this wallet's existing on-chain P/V registration. Nothing was overwritten"
+      "This backup does not match the privacy identity already registered to this wallet. Nothing was overwritten"
     );
   }
 }

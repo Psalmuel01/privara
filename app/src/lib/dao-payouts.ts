@@ -1,4 +1,4 @@
-import { quoteSettlementFee, type SettlementFeeMode } from "@privara/sdk";
+import { quoteSettlementFee, type SettlementFeeMode } from "@privara-stacks/sdk";
 import { parseUnits } from "../config/assets";
 
 export interface DaoPayoutInput {

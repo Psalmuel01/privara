@@ -23,7 +23,7 @@ import {
   type PreparedSponsoredSpend,
   type PrivacyIdentity,
   type SettlementFeeMode,
-} from "@privara/sdk";
+} from "@privara-stacks/sdk";
 import {
   assertPrivacyBackupVerified,
   createPendingPrivacyBackup,

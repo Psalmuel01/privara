@@ -120,7 +120,7 @@ This is the 32-byte value the user signs and the contract recovers the signer fr
 ### TypeScript (SDK)
 
 ```ts
-import { hashIntent, messageDigest } from "@privara/sdk";
+import { hashIntent, messageDigest } from "@privara-stacks/sdk";
 
 const dataHash = hashIntent(intent);          // sha256(serializeCVBytes(intentTuple))
 const digest   = messageDigest(intent, "testnet"); // sha256(PREFIX || domainHash || dataHash)
@@ -135,7 +135,7 @@ The user signs `digest` with their secp256k1 private key using the RSV layout
 v7 produces this layout directly; no byte reordering is needed.
 
 ```ts
-import { signIntent } from "@privara/sdk";
+import { signIntent } from "@privara-stacks/sdk";
 
 const signed = signIntent(intent, privateKey, "testnet");
 // signed.userSig  — 65-byte RSV signature

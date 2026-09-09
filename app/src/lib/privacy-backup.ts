@@ -6,7 +6,7 @@ import {
   importPrivacySeed,
   type EncryptedPrivacySeedBackup,
   type PrivacyIdentity,
-} from "@privara/sdk";
+} from "@privara-stacks/sdk";
 
 export interface PrivacyBackupStatus {
   version: 1;

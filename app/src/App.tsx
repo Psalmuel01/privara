@@ -36,7 +36,7 @@ import {
   quoteSettlementFee,
   type PreparedSponsoredSpend,
   type PrivacyIdentity,
-} from "@privara/sdk";
+} from "@privara-stacks/sdk";
 import {
   SUPPORTED_ASSETS,
   formatUnits,

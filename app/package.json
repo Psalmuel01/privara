@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit --pretty false"
   },
   "dependencies": {
-    "@privara/sdk": "file:../sdk",
+    "@privara-stacks/sdk": "file:../sdk",
     "@stacks/common": "^7.0.2",
     "@stacks/connect": "^8.2.7",
     "@stacks/network": "^7.0.2",

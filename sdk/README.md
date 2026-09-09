@@ -2,6 +2,12 @@
 
 TypeScript SDK for M1 SIP-018 payment intents and M2 stealth recipients.
 
+The current release channel is a pre-mainnet beta:
+
+```bash
+npm install @privara-stacks/sdk@beta
+```
+
 ## M1 intent core
 
 - `hashIntent(intent)` hashes the canonical seven-field Clarity tuple.
@@ -74,7 +80,7 @@ import {
   createIntent,
   randomNonce,
   signIntent,
-} from "@privara/sdk";
+} from "@privara-stacks/sdk";
 
 const router = "ST...DEPLOYER.privara-router";
 const intent = createIntent({

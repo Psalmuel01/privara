@@ -7,7 +7,7 @@ export default defineConfig({
   // The local SDK currently publishes CommonJS. Because npm links it from ../sdk,
   // force Vite to prebundle it for development and convert its real path for builds.
   optimizeDeps: {
-    include: ["@privara/sdk"],
+    include: ["@privara-stacks/sdk"],
   },
   build: {
     commonjsOptions: { include: [/node_modules/, /sdk\/dist/] },

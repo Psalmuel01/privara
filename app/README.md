@@ -39,6 +39,15 @@ prefix.
    confirmed and indexed, the one-time balance appears.
 7. Select **Spend** to make a partial payment or withdraw all. The one-time key signs in
    the browser; the relayer adds its sponsor signature and pays the STX network fee.
+8. Use **DAO payouts** to validate up to 25 registered recipients and prepare a sequence
+   of fresh-address payments. Each row is independently checked, and the total cannot
+   exceed the connected wallet's available sBTC.
+
+The **How Privara works** item near the bottom of the sidebar explains the complete flow,
+fee split, seed custody, and privacy limits inside the app. It is directly shareable at
+`/guide`; after the next deployment its URL will be
+`https://privara-sbtc.vercel.app/guide`. The included `vercel.json` rewrites that
+single-page route to the React entry point.
 
 sBTC is the live asset served by `privara-router-m2-sbtc`. The earlier MOCK router and
 its transaction history remain on testnet, but the production relayer config serves one

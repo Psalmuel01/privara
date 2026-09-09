@@ -210,10 +210,11 @@ Additional signs of success:
 ## Current Status
 
 Milestone 1 and the M2 protocol/SDK/relayer implementation are complete. The repository
-has 131 passing tests and the standalone SDK and React production bundle build
-successfully. A strict terminal-driven two-wallet flow is confirmed on testnet. The
-remaining Phase 6 acceptance work is deploying the relayer behind HTTPS and completing
-the same flow manually through the browser UI.
+has 141 passing tests and the standalone SDK and React production bundle build
+successfully. A strict two-wallet sBTC flow is confirmed through the HTTP relayer on
+testnet, and the React app plus single-replica relayer are live over HTTPS. The remaining
+Phase 6 exit is a non-team browser-wallet acceptance run with recorded evidence.
+Independent security review remains the hard gate before mainnet.
 
 **Contracts (simnet, Clarity 4):**
 
@@ -238,11 +239,13 @@ the same flow manually through the browser UI.
 - [docs/protocol-spec.md](docs/protocol-spec.md) — intent model, SIP-018 digest construction, auth flow, privacy assumptions, threat model.
 - [docs/deployments.md](docs/deployments.md) — contract addresses and demo tx IDs (populated after Phase 4).
 - [docs/sponsorship.md](docs/sponsorship.md) — M2 sponsored-spend fee model, security policy, and privacy behavior.
+- [docs/README.md](docs/README.md) — complete protocol, operations, security, demo, and
+  Milestone 2 grant-documentation index.
 
 **Current testnet deployment:** the complete MOCK flow and the sBTC-bound M2 router are
 confirmed under deployer `STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0`. The live sBTC
 router uses `SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token`; its complete
-funding-to-withdrawal acceptance sequence is still pending. See
+funding-to-withdrawal acceptance sequence is confirmed on testnet. See
 [docs/deployments.md](docs/deployments.md) for contract and transaction IDs.
 
 ## Build and Test

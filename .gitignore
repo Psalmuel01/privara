@@ -4,6 +4,11 @@
 relayer.env
 docs/milestone-1-plan.md
 docs/milestone-2-plan.md
+docs/grant-checklist.md
+docs/grant-submission.md
+docs/public-writeup.md
+docs/external-review.md
+docs/final-grant-report.md
 node_modules/
 .cache/
 dist/

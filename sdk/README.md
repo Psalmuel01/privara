@@ -95,8 +95,10 @@ const args = buildSettlementArgs(signed);
 ## Still deferred in M2
 
 - multi-replica HTTP deployment and shared rate limiting/idempotency;
-- live-chain expiry helpers;
-- Leather/Xverse integration utilities.
+- live-chain expiry helpers.
+
+Leather/Xverse integration currently lives in the reference React app rather than the
+framework-neutral SDK package.
 
 ## Build and test
 

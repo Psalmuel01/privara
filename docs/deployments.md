@@ -456,7 +456,7 @@ Add those transaction IDs above before declaring the Phase 6 exit complete.
 
 ### M2 hardening validation — 2026-09-08
 
-Local validation passed with `131/131` tests, SDK/script typechecking, and a production
+Local validation passed with `141/141` tests, SDK/script typechecking, and a production
 React build. The fresh-session recovery regression creates an encrypted backup in one
 isolated browser storage, restores it into empty storage, verifies identical P/V, and
 proves the registration gate opens only after export plus restore. A different backup is

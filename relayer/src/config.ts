@@ -27,6 +27,8 @@ export function relayerConfigFromEnv(): RelayerConfig {
   return {
     network,
     coreAddress,
+    routerContract:
+      process.env.PRIVARA_ROUTER ?? `${coreAddress}.privara-router-m2`,
     relayerPrivateKey: required("RELAYER_KEY"),
     sponsorPrivateKey: required("SPONSOR_KEY"),
     assetContract: process.env.PRIVARA_ASSET ?? `${coreAddress}.mock-token`,

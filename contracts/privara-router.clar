@@ -27,7 +27,7 @@
 ;; allowances below use the "*" wildcard, so the token's internal ft name is never
 ;; needed. This constant is the only line that changes per network:
 ;;   simnet/test : .mock-token
-;;   testnet     : 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token
+;;   testnet     : 'SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token
 ;;   mainnet     : 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token
 (define-constant SBTC .mock-token)
 

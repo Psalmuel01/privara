@@ -34,6 +34,8 @@ async function main() {
   const result = await new PrivaraRelayerService({
     network: "testnet",
     coreAddress: CORE,
+    routerContract:
+      process.env.PRIVARA_ROUTER ?? `${CORE}.privara-router-m2`,
     relayerPrivateKey: sponsorPrivateKey,
     sponsorPrivateKey,
     assetContract: `${CORE}.mock-token`,

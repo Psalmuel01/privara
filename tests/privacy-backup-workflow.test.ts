@@ -70,4 +70,28 @@ describe("privacy backup registration gate", () => {
       .resolves.toBeDefined();
     expect(readStoredPrivacyBackup(storage, NETWORK, ADDRESS)).toBe(candidate);
   });
+
+  it("does not store a decrypted backup when its on-chain identity check fails", async () => {
+    const source = new MemoryStorage();
+    await createPendingPrivacyBackup(source, NETWORK, ADDRESS, PASSWORD);
+    const candidate = readStoredPrivacyBackup(source, NETWORK, ADDRESS)!;
+    const target = new MemoryStorage();
+
+    await expect(
+      restoreAndVerifyPrivacyBackup(
+        target,
+        NETWORK,
+        ADDRESS,
+        candidate,
+        PASSWORD,
+        false,
+        async () => { throw new Error("registered P/V mismatch"); }
+      )
+    ).rejects.toThrow("registered P/V mismatch");
+    expect(readStoredPrivacyBackup(target, NETWORK, ADDRESS)).toBeNull();
+    expect(readPrivacyBackupStatus(target, NETWORK, ADDRESS)).toMatchObject({
+      exported: false,
+      verified: false,
+    });
+  });
 });

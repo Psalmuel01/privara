@@ -85,7 +85,7 @@ export function createRelayerHttpServer(
           network: service.config.network,
           coreAddress: service.config.coreAddress,
           registry: `${service.config.coreAddress}.privara-stealth-registry`,
-          router: `${service.config.coreAddress}.privara-router-m2`,
+          router: service.config.routerContract,
           asset: service.config.assetContract,
           tokenName: service.config.tokenName,
           relayerAddress: getAddressFromPrivateKey(

@@ -10,6 +10,7 @@ No secret is ever committed — every key and address comes from the environment
 |---|---|---|
 | `PRIVARA_NETWORK` | `testnet` or `mainnet` | `testnet` |
 | `PRIVARA_CORE_ADDRESS` | address that deployed `privara-router` | *(required)* |
+| `PRIVARA_ROUTER` | exact M2 router principal used for signing/indexing | `<core>.privara-router-m2` |
 | `PRIVARA_ASSET` | SIP-010 asset principal | `<core>.mock-token` |
 | `USER_KEY` | hex private key of the depositing/signing user | *(as needed)* |
 | `RELAYER_KEY` | hex private key of the relayer broadcasting settlement | *(as needed)* |
@@ -44,6 +45,15 @@ DRY_RUN=1 npm run deploy:router-m2:testnet
 
 Removing `DRY_RUN=1` publishes `privara-router-m2`; it never overwrites or changes
 `privara-router`.
+
+The canonical testnet sBTC variant uses a separate immutable name and the public sBTC
+contract. Dry-run it first, then remove `DRY_RUN=1` to publish:
+
+```sh
+PRIVARA_CORE_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0 \
+PRIVARA_DEPLOYER_ADDRESS=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0 \
+DRY_RUN=1 npm run deploy:router-m2-sbtc:testnet
+```
 
 ## Register wallet stealth keys
 

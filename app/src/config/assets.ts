@@ -26,15 +26,14 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     icon: "₿",
     tone: "bitcoin",
     contract: {
-      testnet: "ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token",
+      testnet: "SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token",
       mainnet: "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token",
     },
     sponsorFeeAtomic: 1_200n,
-    // The current router bytecode is MOCK-bound. Enable this only after deploying
-    // the sBTC router/helper pair and pointing the relayer policy at those contracts.
+    // Canonical public testnet sBTC contract used by the deployed sBTC router.
     demoBalanceAtomic: 250_000_000n,
     usdPrice: 62_496,
-    liveTestnet: false,
+    liveTestnet: true,
   },
   {
     id: "mock",
@@ -49,7 +48,7 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     sponsorFeeAtomic: 100n,
     demoBalanceAtomic: 2_500_000n,
     usdPrice: 1,
-    liveTestnet: true,
+    liveTestnet: false,
   },
 ];
 

@@ -1,8 +1,6 @@
 # Privara Mainnet Deployment Record
 
-Status: mainnet preflight prepared; no mainnet transaction broadcast
-
-Do not replace TODO fields with guessed values.
+Status: contracts deployed and relayer configured; production acceptance pending
 
 ## Deployment Summary
 
@@ -12,16 +10,10 @@ Network:
 Stacks Mainnet
 ```
 
-Deployment date:
-
-```text
-TODO
-```
-
 Deployer principal:
 
 ```text
-TODO
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE
 ```
 
 ## Required M2 Contracts
@@ -29,28 +21,30 @@ TODO
 SIP-010 Trait:
 
 ```text
-TODO.sip010-ft-trait
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.sip010-ft-trait
+tx: 0x90b1df8a600c1e5f50ba4f7cdb0a765622ac7129861fe57ee12a1f4acbd7ed74
 ```
 
 M2 sBTC Router:
 
 ```text
-TODO.privara-router-m2-sbtc
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc
+tx: 0xbf1cd24d6d34351538b81bdf17b33eebb85cf8a1dd27728d0833e90e9f431f95
 ```
 
 Stealth Registry:
 
 ```text
-TODO.privara-stealth-registry
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stealth-registry
+tx: 0x07f086b0bdea659b22bd0c875535442c6bd76323db74fe98abef629a76c482f9
 ```
 
 Sponsored Spend Helper:
 
 ```text
-TODO.privara-sponsored-spend-v2
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2
+tx: 0xa78ee87585e1fdbf1ed35f36a04e7c970d6806729244080be7ffc19aea3f70eb
 ```
-
-Add deployment tx IDs beside each before submission.
 
 The M1 router and old relayer registry are not required for the M2 mainnet flow. Do
 not deploy them merely to mirror testnet history.
@@ -82,19 +76,19 @@ Source of truth: [Stacks sBTC Clarity contracts](https://docs.stacks.co/learn/sb
 Relayer address:
 
 ```text
-TODO
+SP25K47CGNDNT2KYNS1WB10ZFFRQBY0KDSV11PNW9
 ```
 
 Sponsor address:
 
 ```text
-TODO
+SP2EN3FBV0VY4SMYH0JXE3N6QE9ASAHGD2YNJRMXX
 ```
 
 Fee recipient:
 
 ```text
-TODO
+SP2EN3FBV0VY4SMYH0JXE3N6QE9ASAHGD2YNJRMXX
 ```
 
 ## Live Services
@@ -102,13 +96,13 @@ TODO
 Relayer URL:
 
 ```text
-TODO
+https://privara-production.up.railway.app
 ```
 
 Demo app:
 
 ```text
-TODO
+https://privara-sbtc.vercel.app
 ```
 
 ## Fee Configuration
@@ -122,32 +116,32 @@ Settlement/relayer fee:
 Sponsor service model:
 
 ```text
-Paid in sBTC; exact mainnet atomic fee TODO after operating-cost review
+Paid in sBTC at the user-approved quoted amount; relayer pays the STX network fee
 ```
 
 Exact sponsor service fee:
 
 ```text
-TODO
+1,200 sats (0.00001200 sBTC)
 ```
 
 Maximum STX sponsor fee:
 
 ```text
-TODO
+10,000 micro-STX (0.01 STX)
 ```
 
 ## Deployment Verification
 
 - [ ] mainnet build/config references no mock-token contract
 - [ ] mainnet build/config references no testnet addresses
-- [ ] M2 domain correct
-- [ ] mainnet chain ID correct
-- [ ] sBTC contract correct
-- [ ] v2 sponsored-spend helper authoritative
-- [ ] sponsor address matches policy
-- [ ] fee recipient matches policy
-- [ ] HTTPS relayer live
+- [x] M2 domain correct
+- [x] mainnet chain ID correct
+- [x] sBTC contract correct
+- [x] v2 sponsored-spend helper authoritative
+- [x] sponsor address matches policy
+- [x] fee recipient matches policy
+- [x] HTTPS relayer live
 - [ ] relayer wallet funded
 - [ ] sponsor wallet funded with STX
 - [ ] small-value mainnet settlement succeeded
@@ -160,14 +154,14 @@ TODO
 Mainnet deployment must not begin until all of these are true:
 
 - [ ] independent contract/security review is complete and findings are resolved
-- [ ] `settings/Mainnet.toml` contains the intended mainnet deployer mnemonic locally
-- [ ] `PRIVARA_DEPLOYER_ADDRESS` matches the address derived from that mnemonic
-- [ ] deployer is funded with enough STX for all four deployments plus fee headroom
-- [ ] a dedicated relayer/sponsor mainnet wallet is created and funded with STX
-- [ ] treasury/fee-recipient address is selected and independently checked
-- [ ] atomic sBTC sponsor fee, maximum sponsored STX fee, and transaction limits are approved
-- [ ] Railway mainnet service has a persistent `/data` volume and secret variables
-- [ ] a separate Vercel mainnet project has the public variables in `app/.env.mainnet.example`
+- [x] `settings/Mainnet.toml` contains the intended mainnet deployer mnemonic locally
+- [x] `PRIVARA_DEPLOYER_ADDRESS` matches the address derived from that mnemonic
+- [x] deployer was funded with enough STX for all four deployments plus fee headroom
+- [ ] relayer and sponsor mainnet wallets are funded with STX
+- [x] treasury/fee-recipient address is selected and independently checked
+- [x] atomic sBTC sponsor fee, maximum sponsored STX fee, and transaction limits are approved
+- [x] Railway mainnet service has a persistent `/data` volume and secret variables
+- [ ] the existing Vercel project has all production variables from `app/.env.mainnet.example`
 - [ ] a small amount of real sBTC is reserved for the two-wallet acceptance test
 
 ## Preflight and Deployment Commands

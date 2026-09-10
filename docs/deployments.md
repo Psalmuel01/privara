@@ -487,11 +487,11 @@ Remaining validation limitations and expected failure cases:
   submission; the user must fetch and approve a new quote.
 - Invalid announcement records are skipped, but complete Stacks API unavailability still
   prevents scanning and sponsor-origin verification.
-- Mainnet remains blocked on sBTC-specific contract deployment and acceptance, an
-  independent security review, production HTTPS/secret management and monitoring,
-  durable/distributed abuse and nonce controls for any multi-replica relayer, and a
-  sponsor-fee policy that safely covers volatile STX network costs. No mainnet deployment
-  was attempted.
+- Mainnet contracts and the single-replica HTTPS relayer are deployed. Production
+  acceptance remains open until a small real-sBTC settlement, scan, sponsored spend, and
+  withdrawal are recorded, an independent security review is complete, and the
+  sponsor-fee policy is validated against observed STX network costs. Multi-replica use
+  additionally requires shared abuse/idempotency controls and distributed nonce coordination.
 
 ## sBTC acceptance status
 
@@ -514,3 +514,14 @@ The sender authorized `99,990` sats total: `99,000` sats to the one-time address
 `990` sats as the 1% settlement fee. The recipient later authorized `97,800` sats to the
 withdrawal destination plus the independently displayed `1,200`-sat sponsorship fee.
 The sponsor paid the `504` micro-STX network fee.
+
+## Mainnet acceptance status
+
+Status: **two settlements and one full sponsored withdrawal confirmed on 2026-09-10**.
+
+The canonical evidence and account roles are recorded in
+[mainnet-deployment.md](./mainnet-deployment.md). The complete mainnet flow deposited
+6,462 sats, settled 6,398 sats to a fresh one-time address with a 64-sat settlement fee,
+then withdrew the entire stealth balance: 5,198 sats to the chosen destination and 1,200
+sats to the sponsor treasury. The stealth origin held zero STX; the sponsor paid 474
+micro-STX.

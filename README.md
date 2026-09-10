@@ -218,9 +218,9 @@ unavailable.
 
 ### Is Privara audited and ready for large mainnet payments?
 
-Not yet. Automated regression coverage and the mainnet infrastructure are live, but
-real-sBTC acceptance evidence and an attributable independent review remain open gates.
-Use only small amounts while validation continues.
+Not yet. Automated regression coverage, mainnet infrastructure, and small-value real-sBTC
+acceptance are confirmed, but an attributable independent review and broader adoption
+evidence remain open gates. Use only small amounts while validation continues.
 
 ## Live Mainnet Deployment
 

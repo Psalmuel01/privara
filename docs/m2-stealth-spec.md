@@ -1,6 +1,6 @@
 # Privara M2 Stealth Settlement Specification
 
-- Status: Pre-mainnet
+- Status: Mainnet contracts, services, and small-value end-to-end acceptance confirmed; independent review and adoption targets pending
 - Version: 0.2
 - Author: Samuel Dahunsi
 - Organization: Privara
@@ -321,11 +321,11 @@ Paid in STX by the account broadcasting or sponsoring the transaction.
 ### Stealth-spend sponsor service fee
 A separate fee that may be charged when Privara sponsors a later spend from a stealth address.
 
-The current testnet implementation uses paid sponsorship. The origin-signed helper call
+The current testnet and mainnet implementations use paid sponsorship. The origin-signed helper call
 atomically pays a configured fixed service fee in the same SIP-010 asset. The confirmed
 sBTC policy uses `1,200` sats (`0.00001200 sBTC`); this is separate from the STX network
-fee paid by the sponsor wallet. Mainnet policy must be set from measured operating costs
-before deployment.
+fee paid by the sponsor wallet. The mainnet fee is deployed at `1,200` sats and must be
+revalidated against observed operating costs before broader use.
 
 Any paid sponsorship model MUST bind the exact sponsor fee and fee recipient into the origin-signed transaction.
 

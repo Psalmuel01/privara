@@ -1,6 +1,6 @@
 # Privara Mainnet Deployment Record
 
-Status: contracts deployed and relayer configured; production acceptance pending
+Status: contracts, services, and small-value end-to-end sBTC acceptance confirmed on mainnet
 
 ## Deployment Summary
 
@@ -133,8 +133,8 @@ Maximum STX sponsor fee:
 
 ## Deployment Verification
 
-- [ ] mainnet build/config references no mock-token contract
-- [ ] mainnet build/config references no testnet addresses
+- [x] active production relayer config references no mock-token contract
+- [x] active production relayer config references no testnet addresses
 - [x] M2 domain correct
 - [x] mainnet chain ID correct
 - [x] sBTC contract correct
@@ -142,27 +142,58 @@ Maximum STX sponsor fee:
 - [x] sponsor address matches policy
 - [x] fee recipient matches policy
 - [x] HTTPS relayer live
-- [ ] relayer wallet funded
-- [ ] sponsor wallet funded with STX
-- [ ] small-value mainnet settlement succeeded
-- [ ] stealth scan succeeded
-- [ ] sponsored spend succeeded
-- [ ] full withdrawal succeeded
+- [x] relayer wallet funded
+- [x] sponsor wallet funded with STX
+- [x] small-value mainnet settlement succeeded
+- [x] stealth scan succeeded
+- [x] sponsored spend succeeded
+- [x] full withdrawal succeeded
 
-## Launch Gates
+## Production Acceptance Gates
 
-Mainnet deployment must not begin until all of these are true:
+Contracts and services are deployed. The unchecked items below still gate a claim of
+complete production acceptance:
 
 - [ ] independent contract/security review is complete and findings are resolved
 - [x] `settings/Mainnet.toml` contains the intended mainnet deployer mnemonic locally
 - [x] `PRIVARA_DEPLOYER_ADDRESS` matches the address derived from that mnemonic
 - [x] deployer was funded with enough STX for all four deployments plus fee headroom
-- [ ] relayer and sponsor mainnet wallets are funded with STX
+- [x] relayer and sponsor mainnet wallets are funded with STX
 - [x] treasury/fee-recipient address is selected and independently checked
 - [x] atomic sBTC sponsor fee, maximum sponsored STX fee, and transaction limits are approved
 - [x] Railway mainnet service has a persistent `/data` volume and secret variables
-- [ ] the existing Vercel project has all production variables from `app/.env.mainnet.example`
-- [ ] a small amount of real sBTC is reserved for the two-wallet acceptance test
+- [x] the existing Vercel project has all production variables from `app/.env.mainnet.example`
+- [x] small real-sBTC amounts were used for two-wallet mainnet acceptance
+
+## Confirmed Mainnet Acceptance
+
+Two private settlements have confirmed through the production relayer. The second was
+detected in the production application and fully withdrawn through the sponsored-spend
+helper.
+
+| Action | Account or result | Confirmed transaction |
+| --- | --- | --- |
+| Recipient 1 P/V registration | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE` | [f0680666…f3fc](https://explorer.hiro.so/txid/0xf0680666bf6435fa98c42177e174940f8c9a3c62ae697ce544e9b8a92891f3fc?chain=mainnet) |
+| First sender router deposit | 657 sats from `SPXB1Y…P3K8V` | [63be0570…1104](https://explorer.hiro.so/txid/0x63be0570ac290285534c005887cca542d87bd4a0870f08b4667a01532a5e1104?chain=mainnet) |
+| First private settlement | 650 sats to `SP3RWH…VBD1S`; 7-sat fee | [fe5e5184…ca10](https://explorer.hiro.so/txid/0xfe5e518482c218ccd2f526909eb11e9a77647219aff339084b2b8d9c4f9eca10?chain=mainnet) |
+| Recipient 2 P/V registration | `SPXB1YYJ4253QA0N20F12ZEQVX02HN7QRZPP3K8V` | [678d4d7a…6e56](https://explorer.hiro.so/txid/0x678d4d7a5d72046be0590f0cd4142def0641400eeac528b401bf45cd5aef6e56?chain=mainnet) |
+| Second sender router deposit | 6,462 sats from `SP1H7G…K7AE` | [4a0facb0…3bb7](https://explorer.hiro.so/txid/0x4a0facb05c34a1c1c79515b1b799f82ba4c9fa84eb8afe18afe9b6ecaf233bb7?chain=mainnet) |
+| Second private settlement | 6,398 sats to `SP2K34…NZ0Q1`; 64-sat fee | [39ebb986…c5f3](https://explorer.hiro.so/txid/0x39ebb9869d9e04977541b3f0c81ff810efb418544a8df2da525f9becfd67c5f3?chain=mainnet) |
+| Full sponsored withdrawal | 5,198 sats to `SP13J1…WK3ZJ`; 1,200-sat sponsor fee | [ed0c361c…3b53](https://explorer.hiro.so/txid/0xed0c361c7959acac3e1fceb9fc52816cbd2749a6ffb2f04a490b378ac1ca3b53?chain=mainnet) |
+
+The full withdrawal originated from `SP2K341QTGZ5JJ87FA1SDK1C38KSRJDV3X6ANZ0Q1`,
+which held zero STX. The sponsor `SP2EN3…JRMXX` paid the 474-micro-STX network fee.
+
+## Confirmed Mainnet Accounts
+
+| Address | Role | Explorer-verified state after the recorded flow |
+| --- | --- | --- |
+| `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE` | Deployer, sender, registered recipient | 0.740115 STX; 3,538 sats |
+| `SPXB1YYJ4253QA0N20F12ZEQVX02HN7QRZPP3K8V` | Sender and registered recipient | 0.692348 STX; 1,343 sats |
+| `SP25K47CGNDNT2KYNS1WB10ZFFRQBY0KDSV11PNW9` | Relayer | 0.998802 STX; 71 sats in settlement fees |
+| `SP2EN3FBV0VY4SMYH0JXE3N6QE9ASAHGD2YNJRMXX` | Sponsor and fee recipient | 0.999526 STX; 1,200 sats in sponsor fees |
+| `SP3RWHTD1VZQKTRSHNYGKX63PC63GMR0EXQXVBD1S` | First one-time address | 0 STX; 650 sats unspent |
+| `SP2K341QTGZ5JJ87FA1SDK1C38KSRJDV3X6ANZ0Q1` | Second one-time address | 0 STX; 0 sats after full withdrawal |
 
 ## Preflight and Deployment Commands
 
@@ -226,9 +257,8 @@ response: first check the explorer and contract interface for the prior transact
 
 ## Current Blockers
 
-- The local `settings/Mainnet.toml` still contains a placeholder mnemonic.
-- No mainnet deployer address or funding has been verified.
 - No independent security review result is recorded in this repository.
-- Production relayer/sponsor and treasury addresses are not selected.
-- Mainnet fee caps and the exact atomic sBTC sponsor fee are not approved.
-- No real-sBTC two-wallet acceptance test has been completed.
+- The grant adoption targets remain open: 25 successful intents, five distinct wallets,
+  two non-team wallets, one DAO/payout flow, and one independent reproduction.
+- The sponsor-fee policy has passed the recorded small-value flow but still needs
+  monitoring against observed mainnet STX fees before larger-value use.

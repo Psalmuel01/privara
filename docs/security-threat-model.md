@@ -1,6 +1,6 @@
 # Privara M2 Security and Threat Model
 
-Status: Pre-mainnet review
+Status: Implemented controls documented; independent review pending
 
 ## 1. Scope
 
@@ -102,7 +102,7 @@ Mitigations:
 - explicit withdrawal path
 - versioned deployments
 - comprehensive tests
-- pre-mainnet review
+- independent contract and security review
 
 ## 9. Privacy Seed Compromise
 

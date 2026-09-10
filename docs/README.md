@@ -1,7 +1,7 @@
 # Privara documentation
 
-This directory is the canonical documentation set for the Privara protocol, its current
-testnet implementation, and the Milestone 2 grant submission. Start with the protocol
+This directory is the canonical documentation set for the Privara protocol, its mainnet
+deployment, testnet acceptance evidence, and the Milestone 2 grant submission. Start with the protocol
 and architecture documents for design context, then use the developer and deployment
 guides to run the system.
 
@@ -25,9 +25,9 @@ guides to run the system.
 - [Relayer API](./relayer-api.md) — implemented HTTP endpoints and validation policy.
 - [Deployments](./deployments.md) — confirmed testnet addresses, transaction IDs, and
   Railway/Vercel setup.
-- [Mainnet deployment record](./mainnet-deployment.md) — deliberately incomplete
-  production checklist; `TODO` values must be replaced only after real deployment.
-- [Demo guide](./demo.md) and [reproduction guide](./reproducibility.md) — testnet demo
+- [Mainnet deployment record](./mainnet-deployment.md) — deployed contracts, live-service
+  configuration, confirmed sBTC acceptance transactions, and remaining production gates.
+- [Demo guide](./demo.md) and [reproduction guide](./reproducibility.md) — proven testnet
   procedure and independent mainnet acceptance procedure.
 
 ## Grant evidence

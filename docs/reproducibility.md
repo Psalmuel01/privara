@@ -15,13 +15,13 @@ Repository:
 https://github.com/Psalmuel01/privara
 ```
 
-Live testnet app:
+Live production app:
 
 ```text
 https://privara-sbtc.vercel.app
 ```
 
-Live testnet relayer:
+Live production relayer:
 
 ```text
 https://privara-production.up.railway.app
@@ -91,6 +91,19 @@ Record the independent tester's transaction ID. Reference testnet acceptance:
 The reference sBTC flow is evidence that the implementation works on testnet; it is not
 the required independent reproduction or mainnet usage evidence. Replace the tester
 fields below only after another person completes the flow.
+
+## Reference Mainnet Acceptance
+
+Privara's project acceptance run confirmed two production settlements and one full
+sponsored withdrawal. This is implementation evidence, not an independent reproduction:
+
+- settlement 1: `fe5e518482c218ccd2f526909eb11e9a77647219aff339084b2b8d9c4f9eca10`
+- settlement 2: `39ebb9869d9e04977541b3f0c81ff810efb418544a8df2da525f9becfd67c5f3`
+- sponsored withdrawal: `ed0c361c7959acac3e1fceb9fc52816cbd2749a6ffb2f04a490b378ac1ca3b53`
+
+The second flow settled 6,398 sats to a fresh address and withdrew the full balance as
+5,198 sats to the chosen destination plus the approved 1,200-sat sponsor fee. The stealth
+origin held zero STX; the sponsor paid the 474-micro-STX network fee.
 
 ## Verification
 

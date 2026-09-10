@@ -397,7 +397,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .fee-choice strong, .summary-card dl > div, .back-link,
 .review-lines > div, .fee-breakdown > div, .segmented button,
 .source-account > span strong, .success-tx strong { font-size: 11px; }
-.review-lines strong .fiat-estimate, .activity-live-row > strong .fiat-estimate, .private-payment strong .fiat-estimate, .dao-metrics strong .fiat-estimate { display: block; margin-top: 4px; font-size: 9px; }
+.review-lines strong .fiat-estimate, .activity-live-row > strong .fiat-estimate, .dao-metrics strong .fiat-estimate { display: block; margin-top: 4px; font-size: 9px; }
+.private-payment strong .fiat-estimate { display: inline; margin-left: 6px; font-size: 9px; }
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
 

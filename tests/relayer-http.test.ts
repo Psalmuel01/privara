@@ -1,6 +1,7 @@
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRelayerHttpServer } from "../relayer/src/server";
+import type { BitcoinUsdQuote } from "../relayer/src/market-price";
 import { PrivaraRelayerService, type RelayerConfig } from "../relayer/src/service";
 
 const CORE = "ST000000000000000000002AMW42H";
@@ -31,9 +32,18 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
 
-async function endpoint() {
+const priceQuote: BitcoinUsdQuote = {
+  asset: "BTC",
+  currency: "USD",
+  price: 100_000,
+  source: "CoinGecko",
+  fetchedAt: "2026-09-10T00:00:00.000Z",
+};
+
+async function endpoint(fetchBitcoinUsdQuote = async () => priceQuote) {
   const server = createRelayerHttpServer(new PrivaraRelayerService(config), {
     allowedOrigins: ["https://app.privara.test"],
+    fetchBitcoinUsdQuote,
   });
   servers.push(server);
   await new Promise<void>((resolve, reject) => {
@@ -72,5 +82,27 @@ describe("relayer HTTP production adapter", () => {
       headers: { origin: "https://evil.test" },
     });
     expect(rejected.status).toBe(403);
+  });
+
+  it("proxies a browser-safe BTC/USD display quote", async () => {
+    const base = await endpoint();
+    const response = await fetch(`${base}/v1/market/btc-usd`, {
+      headers: { origin: "https://app.privara.test" },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://app.privara.test");
+    await expect(response.json()).resolves.toEqual(priceQuote);
+  });
+
+  it("keeps payment flows available when the market-price provider fails", async () => {
+    const base = await endpoint(async () => { throw new Error("provider details must stay private"); });
+    const response = await fetch(`${base}/v1/market/btc-usd`, {
+      headers: { origin: "https://app.privara.test" },
+    });
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: "market_price_unavailable",
+      message: "BTC/USD estimate is temporarily unavailable",
+    });
   });
 });

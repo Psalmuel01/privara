@@ -124,6 +124,15 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .field-label { display: block; margin: 25px 0 8px; color: #58645e; font-size: 10px; font-weight: 650; }.address-input, .amount-input { position: relative; display: flex; align-items: center; min-height: 50px; padding: 0 10px 0 14px; border: 1px solid #d6ddd8; border-radius: 9px; background: #fbfcfb; }.address-input:focus-within, .amount-input:focus-within { border-color: #91aa99; box-shadow: 0 0 0 3px rgb(78 122 93 / 8%); }.address-input input, .amount-input input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font: 500 10px var(--mono); }.address-input input { padding-right: 150px; }.address-input.compact input { padding-right: 0; }.resolved { position: absolute; right: 10px; display: flex; align-items: center; gap: 5px; padding: 6px 8px; color: #326347; border-radius: 7px; background: #e8f5e3; font-size: 8px; font-weight: 650; }
 .resolved-card { display: flex; align-items: center; gap: 10px; margin-top: 9px; padding: 12px; border: 1px solid #dce9d8; border-radius: 9px; background: #f1f8ed; }.resolved-icon { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 8px; color: #2a5d40; background: #ddf4d2; }.resolved-card strong, .resolved-card small { display: block; }.resolved-card strong { font-size: 9px; }.resolved-card small { margin-top: 3px; color: #6f7d75; font-size: 8px; }.privacy-tag { margin-left: auto; padding: 5px 7px; color: #41624c; border: 1px solid #d5e8d0; border-radius: 999px; font-size: 7px; }
 .amount-input input { font: 600 24px "Manrope"; letter-spacing: -.04em; }.amount-asset { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border-radius: 8px; background: #eff2ef; font-size: 10px; font-weight: 650; white-space: nowrap; }
+.fiat-estimate { color: #557060; font: 600 10px var(--mono); white-space: nowrap; }
+.fiat-tools { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 9px 1px 0; }
+.fiat-tools > div:first-child { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 9px; }
+.fiat-presets { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.fiat-presets button { min-width: 39px; padding: 5px 7px; color: #315c42; border: 1px solid #d9e2dc; border-radius: 999px; background: #f7faf6; font-size: 9px; font-weight: 700; }
+.fiat-presets button:hover { border-color: #91aa99; background: #eef6ea; }
+.fiat-presets button:disabled { opacity: .55; }
+.fiat-tools.compact { align-items: flex-start; flex-direction: column; }
+.fiat-tools.compact .fiat-presets { justify-content: flex-start; }
 .transfer-maximum { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 8px 1px 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .transfer-maximum button { flex: 0 0 auto; padding: 3px 0; color: #315c42; border: 0; background: transparent; font-size: 10px; font-weight: 700; }
 .transfer-maximum button:disabled { color: var(--muted); }
@@ -388,6 +397,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .fee-choice strong, .summary-card dl > div, .back-link,
 .review-lines > div, .fee-breakdown > div, .segmented button,
 .source-account > span strong, .success-tx strong { font-size: 11px; }
+.review-lines strong .fiat-estimate, .activity-live-row > strong .fiat-estimate, .private-payment strong .fiat-estimate, .dao-metrics strong .fiat-estimate { display: block; margin-top: 4px; font-size: 9px; }
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
 
@@ -401,6 +411,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .source-account { align-items: flex-start; gap: 12px; }
   .source-account > div { min-width: 0; }
   .source-picker { max-width: 190px; }
+  .fiat-tools { align-items: flex-start; flex-direction: column; }
+  .fiat-presets { justify-content: flex-start; }
   .choice-actions, .choice-actions > button, .backup-manage > div, .backup-manage .light-button { width: 100%; }
   .recovery-status { grid-template-columns: 1fr; }
 }

@@ -10,12 +10,15 @@ import {
   type SweepRequest,
 } from "./service";
 import { FileProcessedRequestStore } from "./store";
+import { bitcoinUsdQuote, type BitcoinUsdQuote } from "./market-price";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
 export interface RelayerHttpOptions {
   /** Browser origins allowed to call this API. CLI/server requests without Origin remain valid. */
   allowedOrigins?: string[];
+  /** Injectable so HTTP tests never depend on a live market-data provider. */
+  fetchBitcoinUsdQuote?: () => Promise<BitcoinUsdQuote>;
 }
 
 async function jsonBody(request: IncomingMessage): Promise<unknown> {
@@ -64,6 +67,7 @@ export function createRelayerHttpServer(
   options: RelayerHttpOptions = {}
 ) {
   const allowedOrigins = new Set(options.allowedOrigins ?? []);
+  const fetchBitcoinUsdPrice = options.fetchBitcoinUsdQuote ?? bitcoinUsdQuote;
   return createServer(async (request, response) => {
     const requestOrigin = request.headers.origin;
     const corsOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : undefined;
@@ -96,6 +100,18 @@ export function createRelayerHttpServer(
           maxIntentAmount: service.config.maxIntentAmount.toString(),
           sponsorFee: service.config.exactTokenSponsorFee.toString(),
         }, corsOrigin);
+        return;
+      }
+      if (request.method === "GET" && request.url === "/v1/market/btc-usd") {
+        try {
+          respond(response, 200, await fetchBitcoinUsdPrice(), corsOrigin);
+        } catch {
+          throw new RelayerError(
+            "BTC/USD estimate is temporarily unavailable",
+            503,
+            "market_price_unavailable"
+          );
+        }
         return;
       }
       if (request.method === "GET" && request.url === "/v1/stealth/sponsor-policy") {

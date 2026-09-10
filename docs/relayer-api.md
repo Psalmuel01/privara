@@ -41,6 +41,31 @@ Implemented response from `GET /v1/config`:
 }
 ```
 
+## Indicative BTC/USD Price
+
+Implemented:
+
+```http
+GET /v1/market/btc-usd
+```
+
+The relayer proxies and briefly caches a CoinGecko BTC/USD quote so browsers do not
+need a separate market-data integration:
+
+```json
+{
+  "asset": "BTC",
+  "currency": "USD",
+  "price": 100000,
+  "source": "CoinGecko",
+  "fetchedAt": "2026-09-10T00:00:00.000Z"
+}
+```
+
+This endpoint is display-only. The quote never enters a payment intent, signature,
+fee calculation, or contract call. A provider outage returns HTTP `503` and must not
+disable exact sBTC payment flows.
+
 The separate `GET /v1/stealth/sponsor-policy` response exposes the spend contract,
 fee recipient, expected sponsor, exact token fee, maximum payment, and maximum STX fee:
 

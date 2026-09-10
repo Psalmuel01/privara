@@ -10,7 +10,6 @@ export interface Sip010Asset {
   contract: { testnet: string; mainnet?: string };
   sponsorFeeAtomic: bigint;
   demoBalanceAtomic: bigint;
-  usdPrice: number;
   /** True only when the currently deployed testnet router explicitly whitelists it. */
   liveTestnet: boolean;
 }
@@ -32,7 +31,6 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     sponsorFeeAtomic: 1_200n,
     // Canonical public testnet sBTC contract used by the deployed sBTC router.
     demoBalanceAtomic: 250_000_000n,
-    usdPrice: 62_496,
     liveTestnet: true,
   },
   {
@@ -47,7 +45,6 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     },
     sponsorFeeAtomic: 100n,
     demoBalanceAtomic: 2_500_000n,
-    usdPrice: 1,
     liveTestnet: false,
   },
 ];

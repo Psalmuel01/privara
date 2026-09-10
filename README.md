@@ -207,6 +207,15 @@ paid by the sender, either on top of or inside the entered amount.
 No. The approved quote is pinned. If the destination, amount, asset, fee recipient,
 sponsor, or fee changes, submission fails and the user must review a new quote.
 
+### Are the dollar values exact?
+
+No. Privara shows an indicative BTC/USD estimate from CoinGecko to make small sBTC
+amounts easier to understand. The **$5, $10, $25, $50, $100, and $250** shortcuts
+convert the latest estimate into an exact number of sats, and that exact sBTC amount is
+what appears in the review and signed transaction. Market-price changes never alter an
+approved transaction, and private payments remain available if pricing is temporarily
+unavailable.
+
 ### Is Privara audited and ready for large mainnet payments?
 
 Not yet. Automated regression coverage and the mainnet infrastructure are live, but
@@ -284,7 +293,7 @@ production environment files.
 
 ## Validation
 
-The current repository passes **146 automated tests across 21 test files**. Coverage
+The current repository passes **151 automated tests across 22 test files**. Coverage
 includes SIP-018 digest parity, replay handling, sponsor-quote binding,
 backup-before-registration, safe import, malformed-announcement resilience,
 fresh-session recovery, router funding, relayer validation, durable duplicate handling,

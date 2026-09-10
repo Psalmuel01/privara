@@ -103,6 +103,13 @@ Successful submission returns HTTP `202` with a transaction ID and explorer URL.
 means the node accepted the broadcast, not that the transaction has mined; clients must
 track the returned transaction ID to finality.
 
+## BTC/USD display quote
+
+`GET /v1/market/btc-usd` returns a briefly cached CoinGecko BTC/USD quote for the React
+application. It is an optional display aid only: it is never used in intent validation,
+fee calculations, signatures, or contract calls. Provider failure returns HTTP `503`
+without interrupting exact sBTC payment and sponsored-spend endpoints.
+
 ## Policy configuration
 
 | Variable | Default | Meaning |

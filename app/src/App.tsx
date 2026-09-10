@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ArrowDownLeft,
@@ -88,6 +88,14 @@ import {
   type DaoPayoutInput,
 } from "./lib/dao-payouts";
 import { explorerTransactionUrl } from "./config/network";
+import {
+  atomicToUsd,
+  defaultTransferAmount,
+  fetchBitcoinUsdQuote,
+  formatUsd,
+  usdToAtomic,
+  type BitcoinUsdQuote,
+} from "./lib/usd-price";
 
 type View = "overview" | "send" | "receive" | "activity" | "payouts" | "guide";
 type FeeMode = "added" | "included";
@@ -99,9 +107,23 @@ const short = (value: string, start = 6, end = 5) =>
 const explorer = (txid: string) => explorerTransactionUrl(NETWORK, txid);
 const assetContract = (asset: Sip010Asset) => asset.contract[NETWORK];
 const networkLabel = NETWORK === "mainnet" ? "Mainnet" : "Testnet";
+const UsdQuoteContext = createContext<BitcoinUsdQuote | null>(null);
+const USD_AMOUNT_PRESETS = [5, 10, 25, 50, 100, 250] as const;
 const viewFromPath = (): View => window.location.pathname.replace(/\/+$/, "") === "/guide"
   ? "guide"
   : "overview";
+
+function FiatEstimate({ amount, asset, className = "" }: {
+  amount: bigint; asset: Sip010Asset; className?: string;
+}) {
+  const quote = useContext(UsdQuoteContext);
+  const value = atomicToUsd(amount, asset, quote?.price ?? null);
+  if (value === null) return null;
+  return <span
+    className={`fiat-estimate ${className}`.trim()}
+    title={`Indicative ${quote!.source} BTC/USD price; display only`}
+  >≈ {formatUsd(value)}</span>;
+}
 
 async function copyText(value: string, notify: (notice: Notice) => void, label: string) {
   try {
@@ -140,6 +162,7 @@ export default function App() {
   const [notice, setNotice] = useState<Notice>(null);
   const [connecting, setConnecting] = useState(false);
   const [batchProcessing, setBatchProcessing] = useState(false);
+  const [usdQuote, setUsdQuote] = useState<BitcoinUsdQuote | null>(null);
   const configErrorNotified = useRef(false);
   const asset = SUPPORTED_ASSETS.find((item) => item.id === assetId)!;
 
@@ -157,6 +180,24 @@ export default function App() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    if (asset.id !== "sbtc") {
+      setUsdQuote(null);
+      return;
+    }
+    let current = true;
+    const loadPrice = () => void fetchBitcoinUsdQuote(RELAYER_URL)
+      .then((quote) => current && setUsdQuote(quote))
+      // Fiat is a convenience only. A provider outage must never block exact-sat flows.
+      .catch(() => undefined);
+    loadPrice();
+    const timer = window.setInterval(loadPrice, 5 * 60_000);
+    return () => {
+      current = false;
+      window.clearInterval(timer);
+    };
+  }, [asset.id]);
 
   useEffect(() => {
     const loadConfig = () => void fetchPublicConfig()
@@ -222,6 +263,7 @@ export default function App() {
   };
 
   return (
+    <UsdQuoteContext.Provider value={usdQuote}>
     <div className="app-shell">
       <aside className="sidebar">
         <button className="brand" onClick={() => navigate("overview")} aria-label="Privara overview" disabled={batchProcessing}>
@@ -304,6 +346,7 @@ export default function App() {
         />
       )}
     </div>
+    </UsdQuoteContext.Provider>
   );
 }
 
@@ -356,7 +399,7 @@ function Overview({ asset, wallet, identity, deposit, payments, go, openSpend, c
       <article className="balance-card">
         <div className="card-head"><span>Detected private balance</span><span className="balance-asset"><AssetIcon asset={asset} small />{asset.symbol}</span></div>
         <p className="balance-number">{formatUnits(available, asset.decimals, asset.decimals)} <small>{asset.symbol}</small></p>
-        <p className="balance-fiat">Across {payments.filter((payment) => payment.balance > 0n).length} spendable one-time address(es)</p>
+        <p className="balance-fiat"><FiatEstimate amount={available} asset={asset} /> <span>· Across {payments.filter((payment) => payment.balance > 0n).length} spendable one-time address(es)</span></p>
         <div className="action-row"><button className="dark-button" onClick={() => go("receive")}><Search size={15} /> Scan blockchain</button>{payments.find((payment) => payment.balance > 0n) && <button className="light-button" onClick={() => openSpend(payments.find((payment) => payment.balance > 0n)!)}><Wallet size={15} /> Spend</button>}</div>
         <div className="privacy-orbit" aria-hidden="true"><i /><i /><i /></div>
       </article>
@@ -374,8 +417,9 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
   asset: Sip010Asset; config: PublicRelayerConfig | null; wallet: string | null; deposit: bigint;
   setDeposit: (value: bigint) => void; notify: (notice: Notice) => void; connect: () => void; onDone: () => void;
 }) {
+  const usdQuote = useContext(UsdQuoteContext);
   const [recipient, setRecipient] = useState("");
-  const [amount, setAmount] = useState("1");
+  const [amount, setAmount] = useState(() => defaultTransferAmount(asset));
   const [fundAmount, setFundAmount] = useState("10");
   const [feeMode, setFeeMode] = useState<FeeMode>("added");
   const [stage, setStage] = useState<"edit" | "review" | "signing" | "done">("edit");
@@ -407,6 +451,10 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     quote && transferCapacity !== null && quote.totalAmount > transferCapacity
   );
   const balancePending = Boolean(wallet && config && transferCapacity === null);
+  const chooseUsdPreset = (usd: number) => {
+    const atomic = usdToAtomic(usd, asset, usdQuote?.price ?? null);
+    if (atomic && atomic > 0n) setAmount(formatUnits(atomic, asset.decimals, asset.decimals));
+  };
 
   useEffect(() => {
     if (!config || !wallet) return setWalletAssetBalance(null);
@@ -490,11 +538,13 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
       <section className="flow-card">
         {stage === "edit" ? <>
           <label className="field-label">Recipient’s Stacks {NETWORK} address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder={NETWORK === "mainnet" ? "SP…" : "ST…"} disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>
-          <label className="field-label">Amount recipient should receive</label><div className={`amount-input ${exceedsAvailable ? "invalid" : ""}`}><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={funding !== null} aria-invalid={exceedsAvailable} /><span className="amount-asset"><AssetIcon asset={asset} small /> {asset.symbol}</span></div><div className={`transfer-maximum ${exceedsAvailable ? "invalid" : ""}`}><span>{availableBalance === null ? "Checking available balance…" : `${formatUnits(availableBalance, asset.decimals, asset.decimals)} ${asset.symbol} available across your wallet and Privara balance`}</span><button type="button" onClick={() => maximumAmount !== null && setAmount(formatUnits(maximumAmount, asset.decimals, asset.decimals))} disabled={maximumAmount === null || maximumAmount === 0n || funding !== null}>Use max · {maximumAmount === null ? "—" : formatUnits(maximumAmount, asset.decimals, asset.decimals)} {asset.symbol}</button></div>
+          <label className="field-label">Amount recipient should receive</label><div className={`amount-input ${exceedsAvailable ? "invalid" : ""}`}><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={funding !== null} aria-invalid={exceedsAvailable} /><span className="amount-asset"><AssetIcon asset={asset} small /> {asset.symbol}</span></div>
+          {usdQuote && asset.id === "sbtc" && <div className="fiat-tools"><div><FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /><span>CoinGecko estimate</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={funding !== null}>${usd}</button>)}</div></div>}
+          <div className={`transfer-maximum ${exceedsAvailable ? "invalid" : ""}`}><span>{availableBalance === null ? "Checking available balance…" : <>{formatUnits(availableBalance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={availableBalance} asset={asset} /> available across your wallet and Privara balance</>}</span><button type="button" onClick={() => maximumAmount !== null && setAmount(formatUnits(maximumAmount, asset.decimals, asset.decimals))} disabled={maximumAmount === null || maximumAmount === 0n || funding !== null}>Use max · {maximumAmount === null ? "—" : formatUnits(maximumAmount, asset.decimals, asset.decimals)} {asset.symbol}</button></div>
           <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")} disabled={funding !== null}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")} disabled={funding !== null}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
           {shortfall > 0n && wallet && <div className="funding-note"><Wallet size={16} /><p><strong>One funding approval needed</strong><span>Privara will request exactly {format(shortfall)} {asset.symbol}, wait for confirmation, and continue automatically.</span></p></div>}
           <button className="primary-wide" disabled={!quote || route !== "found" || !config || funding !== null || exceedsAvailable || balancePending} onClick={continueToReview}>{funding === "payment" ? <><RefreshCw className="spin" size={16} /> Waiting for payment funding…</> : !wallet ? <>Connect wallet <ArrowRight size={16} /></> : balancePending ? <><RefreshCw className="spin" size={16} /> Checking available balance…</> : exceedsAvailable ? <>Amount exceeds available balance</> : shortfall > 0n ? <>Fund {format(shortfall)} {asset.symbol} & continue <ArrowRight size={16} /></> : <>Review payment <ArrowRight size={16} /></>}</button>
-        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh one-time address</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol}</strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol}</strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer then submits the settlement.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
+        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh one-time address</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol} <FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /></strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol} <FiatEstimate amount={quote?.settlementFee ?? 0n} asset={asset} /></strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol} <FiatEstimate amount={quote?.totalAmount ?? 0n} asset={asset} /></strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer then submits the settlement. USD values are live estimates and are not signed.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
       <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>{NETWORK === "testnet" ? "Testnet tools & advanced details" : "Advanced details"}</summary><p>Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{NETWORK === "testnet" && asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
     </div>
@@ -692,7 +742,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
     </section>}
-    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol}</strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><span className="zero-stx">0 STX</span><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
+    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><span className="zero-stx">0 STX</span><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
   </>;
 }
 
@@ -700,10 +750,11 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
   asset: Sip010Asset; config: PublicRelayerConfig; wallet: string; payment: LivePayment; payments: LivePayment[];
   close: () => void; notify: (notice: Notice) => void; onComplete: (source: LivePayment, result: SpendResult) => void;
 }) {
+  const usdQuote = useContext(UsdQuoteContext);
   const [kind, setKind] = useState<"send" | "withdraw">("send");
   const [sourceId, setSourceId] = useState(payment.transactionId);
   const [destination, setDestination] = useState("");
-  const [amount, setAmount] = useState("0.1");
+  const [amount, setAmount] = useState(() => defaultTransferAmount(asset));
   const [approved, setApproved] = useState<PreparedSponsoredSpend | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -712,6 +763,10 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
   const exceedsBalance = kind === "send" && paymentAmount > activePayment.balance;
   const request = () => ({ config, payment: activePayment, destination: kind === "withdraw" ? wallet : destination, fullBalance: kind === "withdraw", amount: kind === "send" ? paymentAmount : undefined });
+  const chooseUsdPreset = (usd: number) => {
+    const atomic = usdToAtomic(usd, asset, usdQuote?.price ?? null);
+    if (atomic && atomic > 0n) setAmount(formatUnits(atomic, asset.decimals, asset.decimals));
+  };
   const review = async () => {
     try {
       setReviewing(true);
@@ -734,11 +789,11 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
   };
   const closeSafely = () => { if (!submitting) close(); };
-  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting || reviewing}><button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">Choose one spendable address. Its one-time key signs locally, and balances are never combined automatically.</p>{!approved ? <><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2} aria-label="Spend from one-time address">{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, asset.decimals, asset.decimals)} {asset.symbol}</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available</small></span></div>{payments.length > 1 && <p className="source-help">This payment uses only the selected address. Choose another balance here when needed.</p>}<div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={reviewing}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")} disabled={reviewing}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw" || reviewing} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${exceedsBalance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={reviewing} aria-invalid={exceedsBalance} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div><small className={exceedsBalance ? "amount-error" : "amount-limit"}>The exact sponsorship fee and total will be fetched before confirmation.</small></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={review} disabled={reviewing || activePayment.balance <= 0n || (kind === "send" && (!destination || paymentAmount <= 0n || exceedsBalance))}>{reviewing ? <><RefreshCw className="spin" size={16} /> Fetching exact sponsor quote…</> : <><ArrowRight size={16} /> Review exact fee</>}</button></> : <><button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button><div className="review-lines"><div><span>Recipient receives</span><strong>{formatUnits(approved.paymentAmount, asset.decimals, asset.decimals)} {asset.symbol}</strong></div><div><span>Exact sponsorship fee</span><strong>{formatUnits(approved.sponsorFee, asset.decimals, asset.decimals)} {asset.symbol}</strong></div><div><span>Fee recipient</span><strong>{short(approved.policy.feeRecipient, 9, 7)}</strong></div><div><span>Destination</span><strong>{short(approved.destination, 9, 7)}</strong></div><div className="total"><span>Total signed outflow</span><strong>{formatUnits(approved.totalAmount, asset.decimals, asset.decimals)} {asset.symbol}</strong></div></div><div className="info-box"><Info size={16} /><p>This quote is pinned. Confirming signs exactly this destination, payment amount, fee recipient, and fee. If relayer policy changed, submission fails and you must review a new quote.</p></div><button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={16} /> Relayer is validating and broadcasting…</> : <><Zap size={16} /> Approve exact fee & sign</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</>}</>}</section></div>;
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting || reviewing}><button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">Choose one spendable address. Its one-time key signs locally, and balances are never combined automatically.</p>{!approved ? <><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2} aria-label="Spend from one-time address">{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, asset.decimals, asset.decimals)} {asset.symbol}</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available · <FiatEstimate amount={activePayment.balance} asset={asset} /></small></span></div>{payments.length > 1 && <p className="source-help">This payment uses only the selected address. Choose another balance here when needed.</p>}<div className="segmented"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={reviewing}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Withdraw all</button></div><label className="field-label">Destination</label><div className="address-input compact"><input value={kind === "withdraw" ? wallet : destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={kind === "withdraw" || reviewing} placeholder="ST…" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${exceedsBalance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={reviewing} aria-invalid={exceedsBalance} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div>{usdQuote && asset.id === "sbtc" && <div className="fiat-tools compact"><div><FiatEstimate amount={paymentAmount} asset={asset} /><span>CoinGecko estimate</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={reviewing}>${usd}</button>)}</div></div>}<small className={exceedsBalance ? "amount-error" : "amount-limit"}>The exact sponsorship fee and total will be fetched before confirmation.</small></>}<div className="warning-box"><TriangleAlert size={16} /><p>Sending from a one-time address reveals the destination and amount. Withdrawing to your normal wallet creates an observable link.</p></div><button className="primary-wide" onClick={review} disabled={reviewing || activePayment.balance <= 0n || (kind === "send" && (!destination || paymentAmount <= 0n || exceedsBalance))}>{reviewing ? <><RefreshCw className="spin" size={16} /> Fetching exact sponsor quote…</> : <><ArrowRight size={16} /> Review exact fee</>}</button></> : <><button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button><div className="review-lines"><div><span>Recipient receives</span><strong>{formatUnits(approved.paymentAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.paymentAmount} asset={asset} /></strong></div><div><span>Exact sponsorship fee</span><strong>{formatUnits(approved.sponsorFee, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.sponsorFee} asset={asset} /></strong></div><div><span>Fee recipient</span><strong>{short(approved.policy.feeRecipient, 9, 7)}</strong></div><div><span>Destination</span><strong>{short(approved.destination, 9, 7)}</strong></div><div className="total"><span>Total signed outflow</span><strong>{formatUnits(approved.totalAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.totalAmount} asset={asset} /></strong></div></div><div className="info-box"><Info size={16} /><p>This quote is pinned. Confirming signs exactly this destination, payment amount, fee recipient, and fee. USD values are indicative and are not signed. If relayer policy changed, submission fails and you must review a new quote.</p></div><button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={16} /> Relayer is validating and broadcasting…</> : <><Zap size={16} /> Approve exact fee & sign</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</>}</>}</section></div>;
 }
 
 function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LivePayment[] }) {
-  return <><PageTitle eyebrow="Live on-chain history" title="Detected activity" copy="This list is rebuilt from public router announcements after you unlock and scan; Privara does not upload a private activity database." /><section className="panel activity-page">{payments.length === 0 ? <div className="inline-empty">No scanned activity in this session.</div> : payments.map((payment) => <a className="activity-live-row" href={explorer(payment.transactionId)} target="_blank" rel="noreferrer" key={payment.transactionId}><span className="activity-type"><ArrowDownLeft /></span><div><strong>Private payment detected</strong><small>{payment.stealthPrincipal}</small></div><strong>+{formatUnits(payment.receivedAmount, asset.decimals)} {asset.symbol}</strong><ExternalLink size={14} /></a>)}</section></>;
+  return <><PageTitle eyebrow="Live on-chain history" title="Detected activity" copy="This list is rebuilt from public router announcements after you unlock and scan; Privara does not upload a private activity database." /><section className="panel activity-page">{payments.length === 0 ? <div className="inline-empty">No scanned activity in this session.</div> : payments.map((payment) => <a className="activity-live-row" href={explorer(payment.transactionId)} target="_blank" rel="noreferrer" key={payment.transactionId}><span className="activity-type"><ArrowDownLeft /></span><div><strong>Private payment detected</strong><small>{payment.stealthPrincipal}</small></div><strong>+{formatUnits(payment.receivedAmount, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.receivedAmount} asset={asset} /></strong><ExternalLink size={14} /></a>)}</section></>;
 }
 
 type DaoPayoutProgress = "queued" | "signing" | "confirming" | "confirmed" | "failed";
@@ -1029,8 +1084,8 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
     {stage === "edit" || stage === "validating" ? <>
       <section className="dao-metrics">
         <div><span><Users /></span><div><small>Contributors</small><strong>{payouts.length}</strong></div></div>
-        <div><span><Wallet /></span><div><small>Available balance</small><strong>{available === null ? "Checking…" : `${formatUnits(available, asset.decimals, asset.decimals)} ${asset.symbol}`}</strong></div></div>
-        <div className={batchDeficit > 0n ? "invalid" : ""}><span><Zap /></span><div><small>Estimated total</small><strong>{draft.quote ? `${formatUnits(draft.quote.totalAmount, asset.decimals, asset.decimals)} ${asset.symbol}` : "Complete the list"}</strong>{batchDeficit > 0n && <em>{formatUnits(batchDeficit, asset.decimals, asset.decimals)} {asset.symbol} over balance</em>}</div></div>
+        <div><span><Wallet /></span><div><small>Available balance</small><strong>{available === null ? "Checking…" : <>{formatUnits(available, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={available} asset={asset} /></>}</strong></div></div>
+        <div className={batchDeficit > 0n ? "invalid" : ""}><span><Zap /></span><div><small>Estimated total</small><strong>{draft.quote ? <>{formatUnits(draft.quote.totalAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={draft.quote.totalAmount} asset={asset} /></> : "Complete the list"}</strong>{batchDeficit > 0n && <em>{formatUnits(batchDeficit, asset.decimals, asset.decimals)} {asset.symbol} over balance</em>}</div></div>
       </section>
       <section className="panel payout-card dao-builder">
         <div className="dao-toolbar"><div><h2>Contributor list</h2><p>Add payouts manually or import a CSV with <code>name,address,amount</code>.</p></div><div><label className="light-button csv-button"><Upload size={14} /> Import CSV<input type="file" accept=".csv,text/csv" onChange={(event) => { void importCsv(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label><button className="light-button" onClick={() => setPayouts((current) => current.length < 25 ? [...current, newPayout()] : current)} disabled={payouts.length >= 25}><Plus size={14} /> Add contributor</button></div></div>

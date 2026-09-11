@@ -154,7 +154,8 @@ Maximum STX sponsor fee:
 Contracts and services are deployed. The unchecked items below still gate a claim of
 complete production acceptance:
 
-- [ ] independent contract/security review is complete and findings are resolved
+- [x] attributable external technical review is recorded and reported blockers are resolved
+- [ ] independent security audit is complete and findings are resolved
 - [x] `settings/Mainnet.toml` contains the intended mainnet deployer mnemonic locally
 - [x] `PRIVARA_DEPLOYER_ADDRESS` matches the address derived from that mnemonic
 - [x] deployer was funded with enough STX for all four deployments plus fee headroom
@@ -183,6 +184,23 @@ helper.
 
 The full withdrawal originated from `SP2K341QTGZ5JJ87FA1SDK1C38KSRJDV3X6ANZ0Q1`,
 which held zero STX. The sponsor `SP2EN3…JRMXX` paid the 474-micro-STX network fee.
+
+## Subsequent Mainnet Adoption Evidence
+
+The following confirmed transactions bring the recorded total to five settlements
+across four participating wallets, including two non-team wallets and one
+contributor-payout flow:
+
+| Evidence | Confirmed transaction |
+| --- | --- |
+| Contributor payout funding | [11edfac9…8ee1](https://explorer.hiro.so/txid/0x11edfac9b7dd5bf27ee5cec41fa0a9e208975e1fc477b466185b55db12e68ee1?chain=mainnet) |
+| Contributor payout · recipient 1 | [ea6a3a85…cd5a](https://explorer.hiro.so/txid/0xea6a3a858cf3f456ce6a9127431c6fd2876368290fbfb3b4082ff1c735e6cd5a?chain=mainnet) |
+| Contributor payout · recipient 2 | [2caa9b9e…102c](https://explorer.hiro.so/txid/0x2caa9b9ed0d3e9cd5539c0a62c1a9d0a3ec71969426dc699049930da8d96102c?chain=mainnet) |
+| Non-team recipient registration | [ac62517c…46c2](https://explorer.hiro.so/txid/0xac62517c03a1e9092d5f292ddc30bba134a826570545216bffcbb8bf279446c2?chain=mainnet) |
+| Non-team sender funding | [25056a1c…18b4](https://explorer.hiro.so/txid/0x25056a1cbe24e7ba79935f4ddc949be23ba3096df3bfa6921afed47884e518b4?chain=mainnet) |
+| Non-team private settlement | [d7e06b67…bcf2](https://explorer.hiro.so/txid/0xd7e06b676fbd936d96f61fbadd7f9c490f0339fba1788901e6bd905e4a2bbcf2?chain=mainnet) |
+
+See [usage-metrics.md](./usage-metrics.md) for the complete target ledger.
 
 ## Confirmed Mainnet Accounts
 
@@ -257,8 +275,9 @@ response: first check the explorer and contract interface for the prior transact
 
 ## Current Blockers
 
-- No independent security review result is recorded in this repository.
-- The grant adoption targets remain open: 25 successful intents, five distinct wallets,
-  two non-team wallets, one DAO/payout flow, and one independent reproduction.
+- An independent security audit has not been completed. The recorded Leather Support
+  feedback is external technical review, not an audit or mainnet signoff.
+- The remaining grant adoption targets are 20 additional successful intents, one
+  additional distinct wallet, a public write-up, and one independent reproduction.
 - The sponsor-fee policy has passed the recorded small-value flow but still needs
   monitoring against observed mainnet STX fees before larger-value use.

@@ -18,6 +18,12 @@ cd privara
 npm install
 ```
 
+The reusable SDK is also published independently:
+
+```bash
+npm install @privara-stacks/sdk
+```
+
 Useful commands:
 
 ```bash
@@ -25,7 +31,18 @@ clarinet check
 npm test
 npm run app:dev
 npm run app:build
+npm --prefix sdk run build
 ```
+
+## Mainnet Reference Configuration
+
+| Component | Mainnet value |
+| --- | --- |
+| Registry | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stealth-registry` |
+| Router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc` |
+| Sponsored spend | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2` |
+| Asset | `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` |
+| Relayer | `https://privara-production.up.railway.app` |
 
 ## Recipient Setup
 
@@ -194,3 +211,14 @@ Recommended wording:
 Recommended wording:
 
 > Privara private balances are controlled by your Privara privacy seed, not by your connected wallet or hardware wallet. Keep your Privara backup secure.
+
+## Independent Reproduction
+
+An independently reproduced flow is stricter than ordinary external-wallet
+participation. A non-team tester must use a fresh browser profile, follow the public
+guide without Privara operating their session, restore-verify the encrypted backup,
+register P/V, receive and scan a payment, and spend or withdraw from the detected
+one-time address. Record transaction links and written feedback, never secrets.
+
+See [reproducibility.md](./reproducibility.md) for the exact checklist and reference
+transactions.

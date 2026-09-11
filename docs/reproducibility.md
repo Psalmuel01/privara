@@ -1,13 +1,14 @@
 # Reproducing a Privara Flow
 
-Status: testnet procedure available; independent mainnet evidence pending
+Status: public mainnet procedure available; independent non-team evidence pending
 
 ## Prerequisites
 
-- Leather or Xverse
-- small amount of testnet sBTC for rehearsal, or mainnet sBTC after production deployment
-- modern browser
-- live Privara app
+- a recipient wallet and a separate sender wallet
+- enough STX for recipient registration and sender approvals
+- a small amount of real mainnet sBTC
+- a fresh browser profile or private session for the recipient recovery test
+- the live Privara app and public documentation only
 
 Repository:
 
@@ -36,6 +37,10 @@ https://privara-production.up.railway.app
 5. Successfully restore/verify backup.
 6. Register public stealth keys.
 7. Confirm private receiving is enabled.
+
+The tester—not the Privara operator—must retain the encrypted backup and password. Never
+send the backup password, privacy seed, spending key, viewing key, or one-time private key
+to Privara or include it in evidence.
 
 Registration tx:
 
@@ -117,6 +122,14 @@ origin held zero STX; the sponsor paid the 474-micro-STX network fee.
 - [ ] sponsored spend worked with 0 STX at stealth address
 - [ ] amount remained public
 - [ ] recipient public wallet was not the settlement destination
+
+The reproduction is complete only when the same non-team tester performs the recovery,
+scan, and spend or withdrawal. Merely supplying two external wallet addresses, receiving
+a payment, or having the Privara operator complete the browser steps does not qualify.
+
+Record only public transaction links, the browser/wallet environment, the documentation
+followed, any failures encountered, and the tester's written outcome. Screenshots must
+exclude secrets and may abbreviate public addresses for readability.
 
 ## Tester Evidence
 

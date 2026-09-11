@@ -1,6 +1,6 @@
 # Privara M2 Stealth Settlement Specification
 
-- Status: Mainnet contracts, services, and small-value end-to-end acceptance confirmed; independent review and adoption targets pending
+- Status: Mainnet contracts, services, small-value acceptance, and external technical review confirmed; independent audit and remaining adoption targets pending
 - Version: 0.2
 - Author: Samuel Dahunsi
 - Organization: Privara

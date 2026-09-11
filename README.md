@@ -12,8 +12,10 @@ long-term wallet is therefore not exposed as the onchain settlement destination.
 [Read the protocol specification](docs/m2-stealth-spec.md)
 
 > **Mainnet status:** the contracts, web application, relayer, and SDK are live.
-> Small-value real-sBTC end-to-end acceptance and independent security review remain
-> required before Privara should be treated as production-ready for meaningful value.
+> Small-value real-sBTC acceptance, two non-team wallets, a contributor-payout flow,
+> and attributable external technical feedback are recorded. An independent security
+> audit, broader usage targets, and independent reproduction remain open before Privara
+> should be used for meaningful value.
 
 ## What Privara Does
 
@@ -39,16 +41,16 @@ For senders and treasury operators, Privara provides:
 
 ## A Simple Payment Scenario
 
-Alice wants Bob to receive `0.01 sBTC` without using Bob's everyday wallet as the
+Alice wants Bob to receive `0.0001 sBTC` without using Bob's everyday wallet as the
 settlement destination.
 
 1. Bob creates a Privara privacy identity, downloads its encrypted JSON backup,
    successfully restores it, and registers only the public `P/V` keys.
-2. Alice enters Bob's normal Stacks address and `0.01 sBTC` in Privara.
+2. Alice enters Bob's normal Stacks address and `0.0001 sBTC` in Privara.
 3. Privara verifies Bob's registration and derives a new one-time address locally.
 4. Alice chooses **Add fee on top**. At the current 1% settlement rate, Bob receives
-   exactly `0.01 sBTC`, the settlement fee is `0.0001 sBTC`, and Alice authorizes
-   `0.0101 sBTC` in total.
+   exactly `0.0001 sBTC`, the settlement fee is `0.000001 sBTC`, and Alice authorizes
+   `0.000101 sBTC` in total.
 5. If Alice's Privara router balance is short, the app asks for one wallet approval to
    fund only the difference. There is no separate deposit workflow to manage.
 6. Alice reviews the final numbers and signs the exact SIP-018 intent. The relayer
@@ -230,9 +232,11 @@ unavailable.
 
 ### Is Privara audited and ready for large mainnet payments?
 
-Not yet. Automated regression coverage, mainnet infrastructure, and small-value real-sBTC
-acceptance are confirmed, but an attributable independent review and broader adoption
-evidence remain open gates. Use only small amounts while validation continues.
+Not yet. Automated regression coverage, mainnet infrastructure, small-value real-sBTC
+acceptance, and an attributable technical review from a non-team Leather Support
+reviewer are confirmed. That feedback was not a formal audit, Leather endorsement, or
+mainnet signoff. Broader adoption evidence, independent reproduction, and an independent
+security audit remain open gates. Use only small amounts while validation continues.
 
 ## Live Mainnet Deployment
 
@@ -311,9 +315,10 @@ backup-before-registration, safe import, malformed-announcement resilience,
 fresh-session recovery, router funding, relayer validation, durable duplicate handling,
 and sponsored spending.
 
-Browser-wallet approval, real-sBTC mainnet acceptance, independent reproduction, and
-external security review require separate live evidence and are not implied by the test
-count.
+Browser-wallet approval and real-sBTC mainnet acceptance have separate live evidence.
+The Leather Support feedback is recorded as external technical review, not a security
+audit. Independent reproduction and an independent audit are not implied by the test
+count and remain open.
 
 ## Repository Layout
 
@@ -338,5 +343,7 @@ Start with the [documentation index](docs/README.md). Important references:
 - [Relayer API](docs/relayer-api.md)
 - [Mainnet deployment record](docs/mainnet-deployment.md)
 - [Independent reproduction guide](docs/reproducibility.md)
+- [Usage and adoption evidence](docs/usage-metrics.md)
+- [Demo guide and video](docs/demo.md)
 
 Privara is authored by **Samuel Dahunsi** under the **Privara** organization.

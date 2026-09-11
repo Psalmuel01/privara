@@ -89,15 +89,12 @@ The displayed sponsor quote must be the exact signed quote.
 
 ## DAO / Payout Flow
 
-Show the DAO payout screen validating registered P/V keys row by row, enforcing the
-connected-wallet balance, and preparing sequential fresh-address payments. For final
-grant evidence, complete and record at least one mainnet payout-style flow.
+The recorded mainnet contributor-payout flow validated both recipients independently,
+funded 1,010 sats once, and completed two independently signed 505-sat intents:
 
-Tx:
-
-```text
-Pending live DAO/payout transaction.
-```
+- [router funding](https://explorer.hiro.so/txid/0x11edfac9b7dd5bf27ee5cec41fa0a9e208975e1fc477b466185b55db12e68ee1?chain=mainnet)
+- [recipient 1 settlement](https://explorer.hiro.so/txid/0xea6a3a858cf3f456ce6a9127431c6fd2876368290fbfb3b4082ff1c735e6cd5a?chain=mainnet)
+- [recipient 2 settlement](https://explorer.hiro.so/txid/0x2caa9b9ed0d3e9cd5539c0a62c1a9d0a3ec71969426dc699049930da8d96102c?chain=mainnet)
 
 ## Demo Narration
 
@@ -105,6 +102,4 @@ Pending live DAO/payout transaction.
 
 ## Final Video
 
-```text
-TODO
-```
+[Watch the Privara M2 demo](https://drive.google.com/file/d/17Tq3e_0SUm_DSFVITSTOqzao2hp4otop/view)

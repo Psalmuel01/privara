@@ -1,6 +1,6 @@
 # Privara M2 Security and Threat Model
 
-Status: Implemented controls documented; independent review pending
+Status: Implemented controls and external technical feedback documented; independent audit pending
 
 ## 1. Scope
 
@@ -332,7 +332,7 @@ Privara must not claim:
 - mixer anonymity
 - hidden balances
 
-## 31. Pre-Mainnet Readiness
+## 31. Mainnet Validation Status
 
 Implemented and regression-tested:
 
@@ -343,17 +343,23 @@ Implemented and regression-tested:
 - isolated fresh-session backup restore
 - complete two-wallet sBTC testnet flow through the HTTP relayer
 
-Still required before mainnet:
+Still required before meaningful mainnet value:
 
 - graphical fresh-browser wallet walkthrough by a non-team tester
-- independent review of contracts, SDK, relayer, and production configuration
-- closure of any critical findings
+- independent security audit of contracts, SDK, relayer, and production configuration
+- closure of any audit findings
 - production secret management, monitoring, incident response, and fee economics review
 - shared idempotency/rate limiting and distributed sponsor-nonce coordination before
   operating more than one relayer replica
 
 ## 32. Independent Review
 
-External wallet/security review is valuable but should not be treated as a formal audit.
+`werner.btc` of Leather Support provided attributable written technical feedback covering
+wallet-signing assumptions, sponsor-fee approval, backup verification,
+malformed-announcement resilience, key custody, and privacy claims. The reported
+blockers were addressed and regression-tested.
+
+That review is valuable but is not a formal audit, Leather endorsement, or mainnet
+signoff.
 
 An independent security audit is advisable before meaningful mainnet value at risk.

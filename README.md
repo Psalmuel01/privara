@@ -124,6 +124,10 @@ The sender can choose:
 
 The sponsored-spend fee is fetched before confirmation, displayed exactly, and signed
 with the spend. A full withdrawal sends the available balance minus that approved fee.
+The destination is always entered by the user; Privara does not default it to the
+connected long-term wallet. For stronger wallet hygiene, use an independent Stacks
+address or an exchange deposit address that explicitly supports sBTC on Stacks. Privara
+does not currently bridge sBTC or accept a Bitcoin `bc1` destination.
 
 ## Privacy and Wallet Safety
 

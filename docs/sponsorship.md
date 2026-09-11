@@ -25,6 +25,12 @@ For a partial payment, the stealth balance decreases by `payment + sponsor servi
 For full withdrawal, the destination receives `balance - sponsor service fee`. A balance
 that does not exceed the service fee cannot be sponsored.
 
+The destination is user-selected for both paths. The application deliberately does not
+default a full withdrawal to the connected long-term wallet because that would create a
+direct public linkage. An independent Stacks address or an exchange deposit address that
+explicitly supports sBTC on Stacks is preferable. Bridging and direct Bitcoin `bc1`
+withdrawals are outside the current implementation.
+
 ## Signed and on-chain fields
 
 The origin-signed `privara-sponsored-spend-v2::sponsored-spend` call commits to the token,

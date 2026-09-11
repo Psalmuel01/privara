@@ -69,7 +69,9 @@ Show either:
 - partial spend
 - full withdrawal
 
-For full withdrawal, show privacy-linkage warning.
+For full withdrawal, enter an independent Stacks address or an exchange deposit address
+that explicitly supports sBTC on Stacks, then show the privacy-linkage warning. The demo
+must not imply that a Bitcoin `bc1` address is accepted or that Privara performs bridging.
 
 ## Sponsored Fee UX
 

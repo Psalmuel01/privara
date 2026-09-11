@@ -380,6 +380,15 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .source-help, .amount-limit, .amount-error { display: block; margin: 7px 1px 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .source-help { margin-bottom: -8px; }
 .destination-help { display: block; margin: 7px 1px 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.segmented.spend-actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.segmented .future-action { display: grid; place-items: center; gap: 2px; opacity: .72; }
+.segmented .future-action.active { opacity: 1; }
+.segmented .future-action small { font-size: 7px; font-weight: 600; }
+.bitcoin-coming-soon { margin-top: 18px; padding: 20px; border: 1px solid #dce5dd; border-radius: 12px; background: #f7faf5; }
+.bitcoin-coming-soon h3 { margin: 13px 0 7px; font-size: 18px; letter-spacing: -.035em; }
+.bitcoin-coming-soon > p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+.bitcoin-coming-soon .info-box { margin-bottom: 0; background: #eaf4e6; }
+.coming-soon-badge { display: inline-flex; padding: 5px 8px; color: #355d43; border-radius: 999px; background: #e3f3dc; font-size: 7px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
 .amount-error { color: #9a4d35; }
 .amount-input.invalid { border-color: #d98b72; box-shadow: 0 0 0 3px rgb(154 77 53 / 8%); }
 

@@ -125,9 +125,17 @@ The sender can choose:
 The sponsored-spend fee is fetched before confirmation, displayed exactly, and signed
 with the spend. A full withdrawal sends the available balance minus that approved fee.
 The destination is always entered by the user; Privara does not default it to the
-connected long-term wallet. For stronger wallet hygiene, use an independent Stacks
-address or an exchange deposit address that explicitly supports sBTC on Stacks. Privara
-does not currently bridge sBTC or accept a Bitcoin `bc1` destination.
+connected long-term wallet. The recommended current path is to pay the intended person
+or merchant directly from the one-time address. Users can instead move the balance to a
+fresh self-custody Stacks address for conventional wallet access or operational
+separation, but that transfer remains publicly traceable and may simply add another
+observable hop.
+
+Privara does not currently convert sBTC to BTC or accept a Bitcoin `bc1` destination.
+A planned integration will let the one-time key authorize the official sBTC peg-out
+locally and deliver BTC to a user-selected Bitcoin address, including a compatible
+exchange deposit address. Privara will facilitate that protocol request rather than
+take custody of the user's funds.
 
 ## Privacy and Wallet Safety
 

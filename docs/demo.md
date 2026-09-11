@@ -69,9 +69,12 @@ Show either:
 - partial spend
 - full withdrawal
 
-For full withdrawal, enter an independent Stacks address or an exchange deposit address
-that explicitly supports sBTC on Stacks, then show the privacy-linkage warning. The demo
-must not imply that a Bitcoin `bc1` address is accepted or that Privara performs bridging.
+Pay the intended person or merchant directly from the one-time address when possible.
+For full movement, use a fresh self-custody Stacks address and explain that it provides
+wallet or operational separation rather than a privacy reset: the transfer remains
+publicly traceable and can merely add another observable hop. Show **Convert to BTC** as
+coming soon. The demo must not imply that a Bitcoin `bc1` address is currently accepted
+or that Privara currently performs the official sBTC peg-out.
 
 ## Sponsored Fee UX
 

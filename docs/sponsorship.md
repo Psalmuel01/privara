@@ -26,10 +26,16 @@ For full withdrawal, the destination receives `balance - sponsor service fee`. A
 that does not exceed the service fee cannot be sponsored.
 
 The destination is user-selected for both paths. The application deliberately does not
-default a full withdrawal to the connected long-term wallet because that would create a
-direct public linkage. An independent Stacks address or an exchange deposit address that
-explicitly supports sBTC on Stacks is preferable. Bridging and direct Bitcoin `bc1`
-withdrawals are outside the current implementation.
+default a full-balance move to the connected long-term wallet because that would create
+a direct public linkage. Paying the intended recipient directly from the one-time
+address is the recommended current path. A fresh self-custody Stacks address can provide
+wallet or operational separation, but it remains publicly traceable and may only add
+another observable hop before later activity links it.
+
+The current sponsored-spend path accepts only Stacks destinations. Direct Bitcoin
+`bc1` withdrawals and the official sBTC peg-out are outside the current implementation.
+Privara plans to let the one-time key authorize that official withdrawal locally so BTC
+can be delivered to a user-selected Bitcoin or compatible exchange deposit address.
 
 ## Signed and on-chain fields
 

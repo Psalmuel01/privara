@@ -37,7 +37,7 @@ Implemented response from `GET /v1/config`:
   "relayerAddress": "ST...",
   "settlementFeeBps": 100,
   "maxIntentAmount": "...",
-  "sponsorFee": "1200"
+  "sponsorFee": "200"
 }
 ```
 
@@ -78,7 +78,7 @@ fee recipient, expected sponsor, exact token fee, maximum payment, and maximum S
   "tokenName": "sbtc-token",
   "feeRecipient": "ST...",
   "sponsorAddress": "ST...",
-  "sponsorFee": "1200",
+  "sponsorFee": "200",
   "maxPaymentAmount": "...",
   "maxStacksNetworkFee": "..."
 }

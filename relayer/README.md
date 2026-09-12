@@ -28,7 +28,7 @@ export PRIVARA_ASSET=SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token
 export PRIVARA_TOKEN_NAME=sbtc-token
 export PRIVARA_SPEND_CONTRACT=STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-sponsored-spend-v2
 export PRIVARA_SPONSOR_FEE_RECIPIENT=ST...TREASURY
-export PRIVARA_TOKEN_SPONSOR_FEE=1200
+export PRIVARA_TOKEN_SPONSOR_FEE=200
 export PRIVARA_ALLOWED_ORIGINS=http://127.0.0.1:5173
 export RELAYER_KEY="$RELAYER_PRIVATE_KEY"
 export SPONSOR_KEY="$SPONSOR_PRIVATE_KEY"
@@ -120,7 +120,7 @@ without interrupting exact sBTC payment and sponsored-spend endpoints.
 | `PRIVARA_MAX_SPONSOR_FEE` | `10000` | Maximum sponsor fee in micro-STX |
 | `PRIVARA_SPEND_CONTRACT` | `<core>.privara-sponsored-spend-v2` | Sponsor-bound atomic payment + fee helper |
 | `PRIVARA_SPONSOR_FEE_RECIPIENT` | required | Token-fee treasury; separate from signer |
-| `PRIVARA_TOKEN_SPONSOR_FEE` | `100` | Exact token service fee in atomic units |
+| `PRIVARA_TOKEN_SPONSOR_FEE` | `200` | Exact token service fee in atomic units |
 | `PRIVARA_MAX_SPONSOR_TX_BYTES` | `4096` | Serialized sponsored-request limit |
 | `PRIVARA_SPONSOR_RATE_LIMIT` | `10` | Sponsorships per one-time origin per window |
 | `PRIVARA_SPONSOR_RATE_WINDOW_MS` | `60000` | In-memory rate-limit window |

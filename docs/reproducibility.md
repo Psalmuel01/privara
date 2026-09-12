@@ -1,6 +1,6 @@
 # Reproducing a Privara Flow
 
-Status: public mainnet procedure available; independent non-team evidence pending
+Status: independently reproduced on mainnet by a non-team tester
 
 ## Prerequisites
 
@@ -110,18 +110,32 @@ The second flow settled 6,398 sats to a fresh address and withdrew the full bala
 5,198 sats to the chosen destination plus the approved 1,200-sat sponsor fee. The stealth
 origin held zero STX; the sponsor paid the 474-micro-STX network fee.
 
+## Independent Mainnet Reproduction
+
+A second non-team sender/recipient pair completed this publicly verifiable sequence:
+
+- recipient registration: `61c8f4d103bd6f16c55f05ec4e7d68866c0856c8167423b034a56269bbc87586`
+- funding and settlement 1: `0ccb8984f2411ba3d3f7b5846fe39c6c1a4b8e778518178fd6e332340e7ac003` · `439e5bbc150494c94aa5df1baa952ca07d198261a3d40c19edc63c5666ff1d4e`
+- funding and settlement 2: `c5a3dd22eb5f096a79423990f050a5ba18102e95e3da23bc96377a9c558e426a` · `63f0d501618a4a041fc9d09e9c027ace81de49924bb0e9227caa108e9f4bd713`
+- full withdrawals: `b2be50fc8b279e97ac2533aaedbac9fd79b4d9002b63b54fe9b99d5daf67cddc` · `c56d4629fbe556021dc5c1e4eac19d53c02d3cf463f7df638d5fdd2078b3e6fe`
+
+Both one-time origins now hold zero sBTC. The non-team tester also confirmed in writing
+that they restored the encrypted backup in a fresh browser/session, scanned locally,
+followed the public guide themselves, and completed the withdrawal. Privara retains that
+confirmation privately; no secret recovery material is included in this evidence.
+
 ## Verification
 
-- [ ] backup export worked
-- [ ] fresh restore worked
-- [ ] keys registered
-- [ ] sender paid normal recipient identity
-- [ ] settlement landed at fresh stealth address
-- [ ] recipient discovered payment locally
-- [ ] recipient derived spend authority
-- [ ] sponsored spend worked with 0 STX at stealth address
-- [ ] amount remained public
-- [ ] recipient public wallet was not the settlement destination
+- [x] backup export worked
+- [x] fresh restore worked
+- [x] keys registered
+- [x] sender paid normal recipient identity
+- [x] settlement landed at fresh stealth address
+- [x] recipient discovered payment locally
+- [x] recipient derived spend authority
+- [x] sponsored spend worked with 0 STX at stealth address
+- [x] amount remained public
+- [x] recipient public wallet was not the settlement destination
 
 The reproduction is complete only when the same non-team tester performs the recovery,
 scan, and spend or withdrawal. Merely supplying two external wallet addresses, receiving
@@ -136,23 +150,24 @@ exclude secrets and may abbreviate public addresses for readability.
 Tester:
 
 ```text
-TODO
+Anonymous non-team tester; written confirmation retained privately by Privara
 ```
 
 Affiliation:
 
 ```text
-TODO
+Non-team tester
 ```
 
 Date:
 
 ```text
-TODO
+11 September 2026
 ```
 
 Written feedback:
 
 ```text
-TODO
+Confirmed fresh-browser/session backup restore, local scanning, independent use of the
+public guide, and completion of the sponsored withdrawal.
 ```

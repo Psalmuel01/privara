@@ -9,13 +9,16 @@ long-term wallet is therefore not exposed as the onchain settlement destination.
 [Open the app](https://privara-sbtc.vercel.app/) ·
 [Read the user guide](https://privara-sbtc.vercel.app/guide) ·
 [Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk) ·
-[Read the protocol specification](docs/m2-stealth-spec.md)
+[Read the protocol specification](docs/m2-stealth-spec.md) ·
+[Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-intent-routing-for-sip-010-payments-on-stacks/18992)
 
 > **Mainnet status:** the contracts, web application, relayer, and SDK are live.
-> Small-value real-sBTC acceptance, two non-team wallets, a contributor-payout flow,
-> and attributable external technical feedback are recorded. An independent security
-> audit, broader usage targets, and independent reproduction remain open before Privara
-> should be used for meaningful value.
+> Sixteen real-sBTC intents across six long-term wallets, including four non-team
+> participants, a contributor-payout flow, and attributable external technical feedback
+> are recorded. A non-team tester also independently reproduced the fresh-browser
+> recovery, local scan, and sponsored-withdrawal flow. Nine additional successful intents
+> remain for the milestone adoption target. An independent audit is future hardening, not
+> a Milestone 2 requirement.
 
 ## What Privara Does
 
@@ -117,7 +120,7 @@ instead of silently refreshing the quote.
 | Fee | Paid by | Current mainnet policy | Purpose |
 | --- | --- | --- | --- |
 | Settlement fee | Sender | 1% | Relayer-assisted private settlement |
-| Sponsored-spend service fee | Recipient | 1,200 sats | Compensates Privara when the sponsor pays the network fee in STX |
+| Sponsored-spend service fee | Recipient | 200 sats | Compensates Privara when the sponsor pays the network fee in STX |
 
 The sender can choose:
 
@@ -235,8 +238,9 @@ unavailable.
 Not yet. Automated regression coverage, mainnet infrastructure, small-value real-sBTC
 acceptance, and an attributable technical review from a non-team Leather Support
 reviewer are confirmed. That feedback was not a formal audit, Leather endorsement, or
-mainnet signoff. Broader adoption evidence, independent reproduction, and an independent
-security audit remain open gates. Use only small amounts while validation continues.
+mainnet signoff. Independent reproduction is complete, while the remaining adoption
+evidence is still being collected. An independent audit is recommended before larger-value
+use but is not a Milestone 2 completion gate. Use only small amounts while validation continues.
 
 ## Live Mainnet Deployment
 
@@ -317,8 +321,9 @@ and sponsored spending.
 
 Browser-wallet approval and real-sBTC mainnet acceptance have separate live evidence.
 The Leather Support feedback is recorded as external technical review, not a security
-audit. Independent reproduction and an independent audit are not implied by the test
-count and remain open.
+audit. A separate non-team tester independently reproduced fresh-browser recovery,
+local scanning, and sponsored withdrawal. A future independent audit remains recommended
+for higher-value use; it is not part of the milestone acceptance criteria.
 
 ## Repository Layout
 

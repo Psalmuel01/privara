@@ -45,7 +45,7 @@ const TOKEN_NAME = process.env.PRIVARA_TOKEN_NAME ?? "mock";
 const PAYER_INDEX = Number(process.env.PAYER_ACCOUNT_INDEX ?? "0");
 const ENTERED_RECIPIENT_AMOUNT = 99_000n;
 const SETTLEMENT_FEE_BPS = 100n;
-const TOKEN_SPONSOR_FEE = BigInt(process.env.PRIVARA_TOKEN_SPONSOR_FEE ?? "100");
+const TOKEN_SPONSOR_FEE = BigInt(process.env.PRIVARA_TOKEN_SPONSOR_FEE ?? "200");
 const DEPOSIT_AMOUNT = 120_000n;
 
 interface TxInfo {

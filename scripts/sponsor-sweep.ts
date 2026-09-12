@@ -42,7 +42,7 @@ async function main() {
     tokenName: "mock",
     spendContract: `${CORE}.privara-sponsored-spend-v2`,
     feeRecipient,
-    exactTokenSponsorFee: BigInt(process.env.PRIVARA_TOKEN_SPONSOR_FEE ?? "100"),
+    exactTokenSponsorFee: BigInt(process.env.PRIVARA_TOKEN_SPONSOR_FEE ?? "200"),
     maxIntentAmount: 100_000_000n,
     maxRelayerFeeBps: 100,
     maxSweepAmount: BigInt(process.env.PRIVARA_MAX_SWEEP_AMOUNT ?? "1000000"),

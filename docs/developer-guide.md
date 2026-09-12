@@ -166,6 +166,9 @@ expected sponsor
 
 The relayer must reject any mismatch.
 
+The current mainnet pilot policy sets `F` to `200` sats (`0.00000200 sBTC`).
+Applications should still read the live quote from the relayer instead of hardcoding it.
+
 ## Full Withdrawal
 
 For balance `B` and sponsor fee `F`:

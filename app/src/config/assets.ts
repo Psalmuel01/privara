@@ -28,7 +28,7 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
       testnet: "SN3VMHXEN64ZZF71JQ5VESXDWTR301XTTXGF4J8F1.sbtc-token",
       mainnet: "SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token",
     },
-    sponsorFeeAtomic: 1_200n,
+    sponsorFeeAtomic: 200n,
     // Canonical public testnet sBTC contract used by the deployed sBTC router.
     demoBalanceAtomic: 250_000_000n,
     liveTestnet: true,
@@ -43,7 +43,7 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     contract: {
       testnet: "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.mock-token",
     },
-    sponsorFeeAtomic: 100n,
+    sponsorFeeAtomic: 200n,
     demoBalanceAtomic: 2_500_000n,
     liveTestnet: false,
   },

@@ -64,7 +64,7 @@ export function relayerConfigFromEnv(): RelayerConfig {
       required("PRIVARA_SPONSOR_FEE_RECIPIENT"),
       network
     ),
-    exactTokenSponsorFee: positiveBigInt("PRIVARA_TOKEN_SPONSOR_FEE", "100"),
+    exactTokenSponsorFee: positiveBigInt("PRIVARA_TOKEN_SPONSOR_FEE", "200"),
     maxIntentAmount: positiveBigInt("PRIVARA_MAX_INTENT_AMOUNT", "100000000"),
     maxRelayerFeeBps: positiveInteger("PRIVARA_MAX_RELAYER_FEE_BPS", "100"),
     maxSweepAmount: positiveBigInt("PRIVARA_MAX_SWEEP_AMOUNT", "100000000"),

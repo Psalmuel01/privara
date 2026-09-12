@@ -17,9 +17,11 @@ never leave the client.
 The settlement fee remains the router's existing signed fee, capped at 1%. The sponsor
 service fee is a configurable fixed number of atomic token units. It is not a conversion
 of the live STX network fee. Confirmed testnet policies used `100` atomic MOCK units and
-the current sBTC service uses `1,200` sats (`0.00001200 sBTC`). Operators configure it
-with `PRIVARA_TOKEN_SPONSOR_FEE` and must review its economics against actual STX costs
-before mainnet.
+the current sBTC service uses `200` sats (`0.00000200 sBTC`). This lower pilot fee makes
+small stealth balances practical to move while retaining a margin over the network fee
+observed in Privara's recorded sponsored transaction. Operators configure it with
+`PRIVARA_TOKEN_SPONSOR_FEE` and must continue comparing revenue with actual STX network,
+infrastructure, and abuse-prevention costs.
 
 For a partial payment, the stealth balance decreases by `payment + sponsor service fee`.
 For full withdrawal, the destination receives `balance - sponsor service fee`. A balance

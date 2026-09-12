@@ -1,6 +1,6 @@
 # Privara M2 Security and Threat Model
 
-Status: Implemented controls and external technical feedback documented; independent audit pending
+Status: Implemented controls and external technical feedback documented; independent audit recommended for future higher-value use
 
 ## 1. Scope
 
@@ -343,11 +343,11 @@ Implemented and regression-tested:
 - isolated fresh-session backup restore
 - complete two-wallet sBTC testnet flow through the HTTP relayer
 
-Still required before meaningful mainnet value:
+Future hardening recommended before larger-value mainnet use:
 
 - graphical fresh-browser wallet walkthrough by a non-team tester
-- independent security audit of contracts, SDK, relayer, and production configuration
-- closure of any audit findings
+- independent security audit of contracts, SDK, relayer, and production configuration,
+  followed by closure of any findings; this is not a Milestone 2 requirement
 - production secret management, monitoring, incident response, and fee economics review
 - shared idempotency/rate limiting and distributed sponsor-nonce coordination before
   operating more than one relayer replica

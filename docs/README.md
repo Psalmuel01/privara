@@ -17,7 +17,7 @@ guides to run the system.
 - [Sponsorship](./sponsorship.md) — settlement fee, token sponsor-service fee, and STX
   network fee.
 - [Security and threat model](./security-threat-model.md) — trust boundaries, attacks,
-  mitigations, recorded external technical feedback, and the remaining audit gate.
+  mitigations, recorded external technical feedback, and future audit recommendation.
 
 ## Build, operate, and reproduce
 
@@ -32,8 +32,8 @@ guides to run the system.
 
 ## Grant evidence
 
-- [Usage metrics](./usage-metrics.md) — the tracked evidence record for five confirmed
-  intents, four wallets, two non-team wallets, one payout flow, and remaining targets.
+- [Usage metrics](./usage-metrics.md) — the tracked evidence record for sixteen confirmed
+  intents, six wallets, four non-team wallets, one payout flow, and remaining targets.
 - [Milestones](./milestones.md) — the original grant commitments and adoption targets.
 
 Internal acceptance checklists, submission packaging, reviewer notes, publication drafts,

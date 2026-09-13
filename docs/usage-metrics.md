@@ -4,7 +4,7 @@ Status: Mainnet evidence updated; unverified outcomes are not counted
 
 | Metric | Required | Current | Evidence |
 |---|---:|---:|---|
-| Successful end-to-end mainnet intents processed by relayer | 25 | 16 | Sixteen confirmed settlements listed below |
+| Successful end-to-end mainnet intents processed by relayer | 25 | 25 | Target met; 25 confirmed settlements listed below |
 | Distinct mainnet wallets participating | 5 | 6 | Two team wallets and four non-team wallets |
 | Non-team wallets completing mainnet intent flow | 2 | 4 | Two external sender/recipient pairs confirmed |
 | DAO-style or payout-style mainnet flow | 1 | 1 | Two-recipient contributor payout confirmed |
@@ -32,9 +32,18 @@ Status: Mainnet evidence updated; unverified outcomes are not counted
 | 14 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0xe9a05fcbee17619423e4cff4e965fb75f79ba3f73765de0d14016bb98a7346dc?chain=mainnet) | Confirmed |
 | 15 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0xedaf8f0472cc438e569fad9a1fead703619c747390ad4f96400aa23131d5e30f?chain=mainnet) | Confirmed |
 | 16 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x750e9dff73d54db799249472a45fccd31f4b43ed1f350f0afdb9f6abf8dba1c4?chain=mainnet) | Confirmed |
+| 17 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x676d32318b6ec3eb04c5a5fa361cd1be04f2317efea73b6000d712649c81c588?chain=mainnet) | Confirmed |
+| 18 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x44b67ecd6acbbd950d9af238ded238bf966bd66b4a7c60dc4fa0487c89c65bcc?chain=mainnet) | Confirmed |
+| 19 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0xc106234c32abe42e23724779927b8463bbb73dcbfa9acc18d9e2bca7b9242fc4?chain=mainnet) | Confirmed |
+| 20 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x912d6c6d78455575e98864bde11cb63b4adb22616ad8fa7c3e3540aeb15ddfe6?chain=mainnet) | Confirmed |
+| 21 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x4419f979aad8c476efefccb55a13145ea9fb207de31febea76f2da606f3c22cc?chain=mainnet) | Confirmed |
+| 22 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0xdd6a16e6cfaa3cb9db38b42b80dfbc2d5e551d063dd68d81e2228b0200be6d65?chain=mainnet) | Confirmed |
+| 23 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x586e6ea3fd0e5667ca7638d4560bff64f1d609d43fdb271cbeb31e299f0cf8c5?chain=mainnet) | Confirmed |
+| 24 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0xe02e1e503317271ed34ac321bfa5c353b25de9f266e840dc36ccfcadb6d509cc?chain=mainnet) | Confirmed |
+| 25 | Additional mainnet payout | [Settlement](https://explorer.hiro.so/txid/0x0f45f50165ee650ec2195a77d504e6aa1fef1a6c5eb1d8bc6fe3572f07bb6c50?chain=mainnet) | Confirmed |
 
-Sixteen are confirmed; 9 additional successful intents remain to reach 25. Aborted or
-duplicate submissions are excluded from this count.
+All 25 required successful intents are confirmed. Aborted or duplicate submissions are
+excluded from this count.
 
 ## Distinct Wallets
 

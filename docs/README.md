@@ -32,8 +32,8 @@ guides to run the system.
 
 ## Grant evidence
 
-- [Usage metrics](./usage-metrics.md) — the tracked evidence record for sixteen confirmed
-  intents, six wallets, four non-team wallets, one payout flow, and remaining targets.
+- [Usage metrics](./usage-metrics.md) — the tracked evidence record for 25 confirmed
+  intents, six wallets, four non-team wallets, one payout flow, and completed targets.
 - [Milestones](./milestones.md) — the original grant commitments and adoption targets.
 
 Internal acceptance checklists, submission packaging, reviewer notes, publication drafts,

@@ -170,8 +170,8 @@ Milestone 2 deliverable or production-acceptance checkbox.
 
 ## Confirmed Mainnet Intent Settlements
 
-The production relayer has processed sixteen successful mainnet intents. All successful
-settlements are kept in one continuous ledger; this table will extend through intent 25.
+The production relayer has processed 25 successful mainnet intents. All successful
+settlements are kept in this one continuous ledger.
 
 | # | Flow | Confirmed settlement |
 | ---: | --- | --- |
@@ -191,6 +191,15 @@ settlements are kept in one continuous ledger; this table will extend through in
 | 14 | Mainnet payout | [e9a05fcb…46dc](https://explorer.hiro.so/txid/0xe9a05fcbee17619423e4cff4e965fb75f79ba3f73765de0d14016bb98a7346dc?chain=mainnet) |
 | 15 | Mainnet payout | [edaf8f04…e30f](https://explorer.hiro.so/txid/0xedaf8f0472cc438e569fad9a1fead703619c747390ad4f96400aa23131d5e30f?chain=mainnet) |
 | 16 | Mainnet payout | [750e9dff…ba1c4](https://explorer.hiro.so/txid/0x750e9dff73d54db799249472a45fccd31f4b43ed1f350f0afdb9f6abf8dba1c4?chain=mainnet) |
+| 17 | Mainnet payout | [676d3231…c588](https://explorer.hiro.so/txid/0x676d32318b6ec3eb04c5a5fa361cd1be04f2317efea73b6000d712649c81c588?chain=mainnet) |
+| 18 | Mainnet payout | [44b67ecd…65bcc](https://explorer.hiro.so/txid/0x44b67ecd6acbbd950d9af238ded238bf966bd66b4a7c60dc4fa0487c89c65bcc?chain=mainnet) |
+| 19 | Mainnet payout | [c106234c…2fc4](https://explorer.hiro.so/txid/0xc106234c32abe42e23724779927b8463bbb73dcbfa9acc18d9e2bca7b9242fc4?chain=mainnet) |
+| 20 | Mainnet payout | [912d6c6d…dfe6](https://explorer.hiro.so/txid/0x912d6c6d78455575e98864bde11cb63b4adb22616ad8fa7c3e3540aeb15ddfe6?chain=mainnet) |
+| 21 | Mainnet payout | [4419f979…22cc](https://explorer.hiro.so/txid/0x4419f979aad8c476efefccb55a13145ea9fb207de31febea76f2da606f3c22cc?chain=mainnet) |
+| 22 | Mainnet payout | [dd6a16e6…6d65](https://explorer.hiro.so/txid/0xdd6a16e6cfaa3cb9db38b42b80dfbc2d5e551d063dd68d81e2228b0200be6d65?chain=mainnet) |
+| 23 | Mainnet payout | [586e6ea3…f8c5](https://explorer.hiro.so/txid/0x586e6ea3fd0e5667ca7638d4560bff64f1d609d43fdb271cbeb31e299f0cf8c5?chain=mainnet) |
+| 24 | Mainnet payout | [e02e1e50…09cc](https://explorer.hiro.so/txid/0xe02e1e503317271ed34ac321bfa5c353b25de9f266e840dc36ccfcadb6d509cc?chain=mainnet) |
+| 25 | Mainnet payout | [0f45f501…6c50](https://explorer.hiro.so/txid/0x0f45f50165ee650ec2195a77d504e6aa1fef1a6c5eb1d8bc6fe3572f07bb6c50?chain=mainnet) |
 
 The rejected replay [836ab093…a92b](https://explorer.hiro.so/txid/0x836ab093414d3b88c42fc2129a82f6704c7ba99be66ffd20824bfd028a10a92b?chain=mainnet)
 returned `ERR_INTENT_USED` and is excluded because its original intent is already entry 12.
@@ -273,4 +282,3 @@ response: first check the explorer and contract interface for the prior transact
 5. Complete a two-wallet, minimum-value flow: backup export and restore verification,
    registration, private payment, scan, partial sponsored spend, and full withdrawal.
 6. Record every contract and acceptance transaction ID here before announcing launch.
-

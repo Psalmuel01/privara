@@ -13,12 +13,11 @@ long-term wallet is therefore not exposed as the onchain settlement destination.
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-intent-routing-for-sip-010-payments-on-stacks/18992)
 
 > **Mainnet status:** the contracts, web application, relayer, and SDK are live.
-> Sixteen real-sBTC intents across six long-term wallets, including four non-team
+> Twenty-five real-sBTC intents across six long-term wallets, including four non-team
 > participants, a contributor-payout flow, and attributable external technical feedback
 > are recorded. A non-team tester also independently reproduced the fresh-browser
-> recovery, local scan, and sponsored-withdrawal flow. Nine additional successful intents
-> remain for the milestone adoption target. An independent audit is future hardening, not
-> a Milestone 2 requirement.
+> recovery, local scan, and sponsored-withdrawal flow. Every stated Milestone 2 adoption
+> target is now met. An independent audit is future hardening, not a Milestone 2 requirement.
 
 ## What Privara Does
 

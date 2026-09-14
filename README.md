@@ -10,7 +10,7 @@ long-term wallet is therefore not exposed as the onchain settlement destination.
 [Read the user guide](https://privara-sbtc.vercel.app/guide) ·
 [Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk) ·
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
-[Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-intent-routing-for-sip-010-payments-on-stacks/18992)
+[Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
 
 > **Mainnet status:** the contracts, web application, relayer, and SDK are live.
 > Twenty-five real-sBTC intents across six long-term wallets, including four non-team

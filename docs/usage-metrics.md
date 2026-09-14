@@ -9,7 +9,7 @@ Status: Mainnet evidence updated; unverified outcomes are not counted
 | Non-team wallets completing mainnet intent flow | 2 | 4 | Two external sender/recipient pairs confirmed |
 | DAO-style or payout-style mainnet flow | 1 | 1 | Two-recipient contributor payout confirmed |
 | Informal written technical feedback | 1 | 1 | Werner, acting in a personal capacity; correspondence retained by Privara and summarized below |
-| Public Stacks forum post or equivalent | 1 | 1 | [Published on the Stacks Forum](https://forum.stacks.org/t/privara-private-intent-routing-for-sip-010-payments-on-stacks/18992) |
+| Public Stacks forum post or equivalent | 1 | 1 | [Published on the Stacks Forum](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001) |
 | Independently reproducible mainnet flow | 1 | 1 | Non-team tester confirmation retained privately by Privara |
 
 ## Mainnet Intent Log
@@ -92,7 +92,7 @@ privately and does not publish identifying or recovery information.
 
 ## Public Write-Up
 
-[Privara — Private Intent Routing for SIP-010 Payments on Stacks](https://forum.stacks.org/t/privara-private-intent-routing-for-sip-010-payments-on-stacks/18992)
+[Privara — Private SIP-010 Payments with Stealth Addresses on Stacks](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
 was published on the Stacks Forum on September 12, 2026.
 
 ## Demo Video

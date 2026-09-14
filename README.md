@@ -14,7 +14,7 @@ long-term wallet is therefore not exposed as the onchain settlement destination.
 
 > **Mainnet status:** the contracts, web application, relayer, and SDK are live.
 > Twenty-five real-sBTC intents across six long-term wallets, including four non-team
-> participants, a contributor-payout flow, and attributable external technical feedback
+> participants, a contributor-payout flow, and informal technical feedback from Werner
 > are recorded. A non-team tester also independently reproduced the fresh-browser
 > recovery, local scan, and sponsored-withdrawal flow. Every stated Milestone 2 adoption
 > target is now met. An independent audit is future hardening, not a Milestone 2 requirement.
@@ -235,11 +235,11 @@ unavailable.
 ### Is Privara audited and ready for large mainnet payments?
 
 Not yet. Automated regression coverage, mainnet infrastructure, small-value real-sBTC
-acceptance, and an attributable technical review from a non-team Leather Support
-reviewer are confirmed. That feedback was not a formal audit, Leather endorsement, or
-mainnet signoff. Independent reproduction is complete, while the remaining adoption
-evidence is still being collected. An independent audit is recommended before larger-value
-use but is not a Milestone 2 completion gate. Use only small amounts while validation continues.
+acceptance, and informal technical feedback from Werner are confirmed. This feedback
+was not conducted on behalf of Leather or Stacks, and was not a security audit or
+mainnet signoff. Independent reproduction and all stated Milestone 2 adoption targets
+are complete. An independent audit is recommended before larger-value use but is not a
+Milestone 2 completion gate. Use only small amounts while validation continues.
 
 ## Live Mainnet Deployment
 
@@ -319,10 +319,11 @@ fresh-session recovery, router funding, relayer validation, durable duplicate ha
 and sponsored spending.
 
 Browser-wallet approval and real-sBTC mainnet acceptance have separate live evidence.
-The Leather Support feedback is recorded as external technical review, not a security
-audit. A separate non-team tester independently reproduced fresh-browser recovery,
-local scanning, and sponsored withdrawal. A future independent audit remains recommended
-for higher-value use; it is not part of the milestone acceptance criteria.
+The repository records informal technical feedback from Werner. This feedback was not
+conducted on behalf of Leather or Stacks, and was not a security audit or mainnet signoff.
+A separate non-team tester independently reproduced fresh-browser recovery, local scanning,
+and sponsored withdrawal. A future independent audit remains recommended for higher-value
+use; it is not part of the milestone acceptance criteria.
 
 ## Repository Layout
 

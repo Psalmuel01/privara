@@ -8,7 +8,7 @@ Status: Mainnet evidence updated; unverified outcomes are not counted
 | Distinct mainnet wallets participating | 5 | 6 | Two team wallets and four non-team wallets |
 | Non-team wallets completing mainnet intent flow | 2 | 4 | Two external sender/recipient pairs confirmed |
 | DAO-style or payout-style mainnet flow | 1 | 1 | Two-recipient contributor payout confirmed |
-| External written review | 1 | 1 | `werner.btc`, Leather Support; correspondence retained by Privara and summarized below |
+| Informal written technical feedback | 1 | 1 | Werner, acting in a personal capacity; correspondence retained by Privara and summarized below |
 | Public Stacks forum post or equivalent | 1 | 1 | [Published on the Stacks Forum](https://forum.stacks.org/t/privara-private-intent-routing-for-sip-010-payments-on-stacks/18992) |
 | Independently reproducible mainnet flow | 1 | 1 | Non-team tester confirmation retained privately by Privara |
 
@@ -67,12 +67,13 @@ payments. Each registered contributor received 500 sats at a fresh one-time addr
 - [Recipient 1 settlement](https://explorer.hiro.so/txid/0xea6a3a858cf3f456ce6a9127431c6fd2876368290fbfb3b4082ff1c735e6cd5a?chain=mainnet)
 - [Recipient 2 settlement](https://explorer.hiro.so/txid/0x2caa9b9ed0d3e9cd5539c0a62c1a9d0a3ec71969426dc699049930da8d96102c?chain=mainnet)
 
-## External Review
+## Informal Technical Feedback
 
-`werner.btc` of Leather Support provided written technical feedback on wallet-signing
-assumptions, sponsor-fee approval binding, backup verification, malformed-announcement
-resilience, key custody disclosures, and privacy claims. The findings were addressed and
-regression-tested. This is not a formal audit, Leather endorsement, or mainnet signoff.
+Werner provided informal written technical feedback on wallet-signing assumptions,
+sponsor-fee approval binding, backup verification, malformed-announcement resilience,
+key custody disclosures, and privacy claims. The findings were addressed and
+regression-tested. This feedback was not conducted on behalf of Leather or Stacks, and
+was not a security audit or mainnet signoff.
 
 ## Independent Reproduction
 

@@ -354,10 +354,9 @@ Future hardening recommended before larger-value mainnet use:
 
 ## 32. Independent Review
 
-`werner.btc` of Leather Support provided attributable written technical feedback covering
-wallet-signing assumptions, sponsor-fee approval, backup verification,
-malformed-announcement resilience, key custody, and privacy claims. The reported
-blockers were addressed and regression-tested.
+Werner provided informal written technical feedback covering wallet-signing assumptions,
+sponsor-fee approval, backup verification, malformed-announcement resilience, key custody,
+and privacy claims. The reported blockers were addressed and regression-tested.
 
 That review is valuable but is not a formal audit, Leather endorsement, or mainnet
 signoff.

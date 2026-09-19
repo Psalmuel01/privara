@@ -7,6 +7,7 @@ interface ImportMetaEnv {
   readonly VITE_PRIVARA_FALLBACK_REGISTRY?: string;
   readonly VITE_PRIVARA_FALLBACK_ROUTER?: string;
   readonly VITE_PRIVARA_FALLBACK_ASSET?: string;
+  readonly VITE_PRIVARA_STX_ROUTER?: string;
 }
 
 interface ImportMeta {

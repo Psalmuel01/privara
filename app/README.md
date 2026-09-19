@@ -46,7 +46,7 @@ prefix.
 The **How Privara works** item near the bottom of the sidebar explains the complete flow,
 fee split, seed custody, and privacy limits inside the app. It is directly shareable at
 `/guide`; after the next deployment its URL will be
-`https://privara-sbtc.vercel.app/guide`. The included `vercel.json` rewrites that
+`https://www.useprivara.xyz/guide`. The included `vercel.json` rewrites that
 single-page route to the React entry point.
 
 sBTC is the live asset served by `privara-router-m2-sbtc`. The earlier MOCK router and

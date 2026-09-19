@@ -50,6 +50,11 @@ path = "contracts/privara-sponsored-spend-v2.clar"
 clarity_version = 4
 epoch = "3.3"
 
+[contracts.privara-stx-router-v1]
+path = "contracts/privara-stx-router-v1.clar"
+clarity_version = 4
+epoch = "3.3"
+
 [repl.analysis]
 passes = ["check_checker"]
 

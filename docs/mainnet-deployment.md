@@ -46,16 +46,42 @@ SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2
 tx: 0xa78ee87585e1fdbf1ed35f36a04e7c970d6806729244080be7ffc19aea3f70eb
 ```
 
+Unused direct-STX experiment (deployed before the router requirement was finalized):
+
+```text
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-payment-v1
+tx: 0x63a99da507815844ebea04c759c56ea65eb41a8334afe012e0ea7579ed15f2ec
+confirmed at block: 9023206
+```
+
+This immutable contract is **not used by the application or relayer**. The supported
+design is `privara-stx-router-v1`.
+
+Native STX Router:
+
+```text
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1
+tx: 0x703a3af4b31943ddc6bea28cf6ddafd11f9f1f307ac6a4bb6b8dd537d72dfcc5
+```
+
+The deployment confirmed successfully on Stacks mainnet. Railway production stores
+`PRIVARA_STX_ROUTER` and Vercel production stores `VITE_PRIVARA_STX_ROUTER` with this
+exact principal. The code revision that consumes these variables must still be released
+before the production UI exposes the router flow.
+
 The M1 router and old relayer registry are not required for the M2 mainnet flow. Do
 not deploy them merely to mirror testnet history.
 
-## Supported Asset
+## Supported Assets
 
-Primary asset:
+Live asset:
 
 ```text
 sBTC
 ```
+
+Native STX support is implemented and its router is deployed. It remains pending the
+application/relayer code release and a small-value production acceptance flow.
 
 Mainnet token contract:
 
@@ -70,6 +96,12 @@ sbtc-token
 ```
 
 Source of truth: [Stacks sBTC Clarity contracts](https://docs.stacks.co/learn/sbtc/clarity-contracts).
+
+Native STX has no SIP-010 token contract. It uses a separate STX router because native
+STX custody and transfer functions differ from SIP-010 trait calls. The sender funds
+an account-scoped router balance, signs an exact intent, and the relayer later submits
+the atomic STX settlement and announcement. The recipient can pay later network fees
+directly from the STX received at the one-time address.
 
 ## Operational Addresses
 
@@ -102,7 +134,7 @@ https://privara-production.up.railway.app
 Demo app:
 
 ```text
-https://privara-sbtc.vercel.app
+https://www.useprivara.xyz
 ```
 
 ## Fee Configuration
@@ -148,6 +180,11 @@ Maximum STX sponsor fee:
 - [x] stealth scan succeeded
 - [x] sponsored spend succeeded
 - [x] full withdrawal succeeded
+- [x] earlier direct-STX experiment confirmed but explicitly unused
+- [x] `privara-stx-router-v1` reviewed and deployed with explicit operator approval
+- [x] Vercel and Railway configured with the confirmed STX router principal
+- [ ] application and relayer revision containing STX-router support released
+- [ ] small-value native-STX payment, local scan, and one-time-address spend completed through the production UI
 
 ## Production Acceptance Gates
 

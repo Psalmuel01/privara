@@ -44,6 +44,8 @@ export interface RelayerConfig {
   assetContract: string;
   tokenName: string;
   spendContract: string;
+  /** Separate native-STX custody and stealth-settlement router. */
+  stxRouterContract?: string;
   feeRecipient: string;
   exactTokenSponsorFee: bigint;
   maxIntentAmount: bigint;
@@ -275,13 +277,15 @@ export function validateSettlementEnvelope(
 /** Validate every M2 field against both the signature and canonical announcement hash. */
 export function validateStealthSettlementEnvelope(
   envelope: PrivateIntentEnvelope,
-  config: RelayerConfig
+  config: RelayerConfig,
+  expectedAsset = config.assetContract,
+  signingRouter = config.routerContract
 ): ValidatedStealthSettlement {
   if (!envelope || envelope.kind !== "stealth") {
     throw new RelayerError("stealth settlement envelope is required");
   }
   if (envelope.network !== config.network) throw new RelayerError("intent network is not supported");
-  if (envelope.asset !== config.assetContract) throw new RelayerError("intent asset is not allowed");
+  if (envelope.asset !== expectedAsset) throw new RelayerError("intent asset is not allowed");
   const expectedRelayer = getAddressFromPrivateKey(config.relayerPrivateKey, config.network);
   if (envelope.relayer !== expectedRelayer) {
     throw new RelayerError("intent is assigned to a different relayer");
@@ -341,7 +345,7 @@ export function validateStealthSettlementEnvelope(
   const digest = stealthMessageDigest(
     intent,
     config.network,
-    config.routerContract
+    signingRouter
   );
   if (!sameHex(cleanHex(envelope.intentHash, 32, "intentHash"), intentHash)) {
     throw new RelayerError("intentHash does not match the signed stealth fields");
@@ -502,6 +506,42 @@ export class PrivaraRelayerService {
       transaction,
       network: networkFor(this.config),
     });
+    return this.result(txid(response));
+  }
+
+  /** Validate and relay a native-STX intent against the independent STX router domain. */
+  async settleStxIntent(envelope: PrivateIntentEnvelope): Promise<RelayerResult> {
+    const router = this.config.stxRouterContract;
+    if (!router) throw new RelayerError("native STX router is not configured", 503, "stx_router_unavailable");
+    const validated = validateStealthSettlementEnvelope(envelope, this.config, router, router);
+    let tip: number;
+    try {
+      tip = await this.dependencies.blockHeight(networkFor(this.config).client.baseUrl);
+    } catch {
+      throw new RelayerError("unable to verify intent expiry", 502, "stacks_api_unavailable");
+    }
+    if (tip >= validated.intent.expiry) {
+      throw new RelayerError("intent has expired", 409, "intent_expired");
+    }
+    const { intent, announcement } = validated;
+    const [contractAddress, contractName] = splitContractPrincipal(router);
+    const transaction = await makeContractCall({
+      contractAddress,
+      contractName,
+      functionName: "settle-intent",
+      functionArgs: [
+        principalCV(intent.asset), uintCV(intent.amount), principalCV(intent.recipient),
+        principalCV(intent.relayer), uintCV(intent.relayerFee), uintCV(intent.nonce),
+        uintCV(intent.expiry), bufferCV(intent.announcementHash), uintCV(announcement.version),
+        bufferCV(announcement.ephemeralPublicKey), bufferCV(announcement.nonce),
+        bufferCV(announcement.ciphertext), uintCV(announcement.registryEpoch),
+        bufferCV(validated.userSig),
+      ],
+      senderKey: this.config.relayerPrivateKey,
+      network: networkFor(this.config),
+      postConditionMode: "allow",
+    });
+    const response = await this.dependencies.broadcast({ transaction, network: networkFor(this.config) });
     return this.result(txid(response));
   }
 

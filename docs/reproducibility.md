@@ -19,7 +19,7 @@ https://github.com/Psalmuel01/privara
 Live production app:
 
 ```text
-https://privara-sbtc.vercel.app
+https://www.useprivara.xyz
 ```
 
 Live production relayer:

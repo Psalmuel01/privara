@@ -99,6 +99,8 @@ export function createRelayerHttpServer(
           settlementFeeBps: service.config.maxRelayerFeeBps,
           maxIntentAmount: service.config.maxIntentAmount.toString(),
           sponsorFee: service.config.exactTokenSponsorFee.toString(),
+          feeRecipient: service.config.feeRecipient,
+          stxRouter: service.config.stxRouterContract ?? `${service.config.coreAddress}.privara-stx-router-v1`,
         }, corsOrigin);
         return;
       }
@@ -122,6 +124,10 @@ export function createRelayerHttpServer(
       const body = await jsonBody(request);
       if (request.url === "/v1/intents/settle") {
         respond(response, 202, await service.settleIntent(body as SettlementEnvelope), corsOrigin);
+        return;
+      }
+      if (request.url === "/v1/intents/settle-stx") {
+        respond(response, 202, await service.settleStxIntent(body as import("../../sdk/src").PrivateIntentEnvelope), corsOrigin);
         return;
       }
       if (request.url === "/v1/stealth/sponsor") {

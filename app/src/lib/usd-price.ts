@@ -10,7 +10,7 @@ export interface BitcoinUsdQuote {
 
 /** Keep real-value sBTC inputs affordable regardless of the frontend network setting. */
 export function defaultTransferAmount(asset: Sip010Asset): string {
-  return asset.id === "sbtc" ? "0.0001" : "1";
+  return asset.id === "sbtc" ? "0.0001" : asset.id === "stx" ? "0.1" : "1";
 }
 
 export async function fetchBitcoinUsdQuote(relayerUrl: string): Promise<BitcoinUsdQuote> {

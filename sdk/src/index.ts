@@ -92,6 +92,10 @@ export {
   type PrivateIntentEnvelope,
 } from "./private-intent";
 export {
+  prepareStxPrivateIntent,
+  type PrepareStxPrivateIntentOptions,
+} from "./stx-payment";
+export {
   BNS_V2_API_URL,
   isBnsName,
   resolveMainnetRecipient,
@@ -109,6 +113,12 @@ export {
   type AnnouncementPage,
   type InvalidAnnouncementMetadata,
 } from "./indexer/announcements";
+export {
+  parseStxSettlementLog,
+  fetchStxAnnouncementPage,
+  type IndexedStxAnnouncement,
+  type StxAnnouncementPage,
+} from "./indexer/stx-announcements";
 export {
   buildSponsoredSweep,
   validateSponsoredSweep,

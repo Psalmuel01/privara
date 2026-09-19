@@ -6,8 +6,8 @@ Privara lets someone send sBTC to a recipient's normal Stacks identity while set
 the payment to a fresh one-time address controlled by that recipient. The recipient's
 long-term wallet is therefore not exposed as the onchain settlement destination.
 
-[Open the app](https://privara-sbtc.vercel.app/) ·
-[Read the user guide](https://privara-sbtc.vercel.app/guide) ·
+[Open the app](https://www.useprivara.xyz/) ·
+[Read the user guide](https://www.useprivara.xyz/guide) ·
 [Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk) ·
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
@@ -245,13 +245,14 @@ Milestone 2 completion gate. Use only small amounts while validation continues.
 
 | Component | Address or URL |
 | --- | --- |
-| Application | [privara-sbtc.vercel.app](https://privara-sbtc.vercel.app/) |
+| Application | [www.useprivara.xyz](https://www.useprivara.xyz/) |
 | Relayer health | [privara-production.up.railway.app/health](https://privara-production.up.railway.app/health) |
 | Relayer configuration | [privara-production.up.railway.app/v1/config](https://privara-production.up.railway.app/v1/config) |
 | Deployer | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE` |
 | Stealth registry | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stealth-registry` |
 | sBTC router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc` |
 | Sponsored-spend helper | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2` |
+| Native-STX router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1` |
 | Official sBTC | `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` |
 | Relayer | `SP25K47CGNDNT2KYNS1WB10ZFFRQBY0KDSV11PNW9` |
 | Sponsor and fee recipient | `SP2EN3FBV0VY4SMYH0JXE3N6QE9ASAHGD2YNJRMXX` |
@@ -264,13 +265,20 @@ Deployment transaction IDs and acceptance gates are in the
 | Layer | Responsibility |
 | --- | --- |
 | React application | Wallet connection, backup UX, local derivation, scanning, payment review, and DAO payout orchestration |
-| TypeScript SDK | SIP-018 intents, unordered nonces, stealth cryptography, backups, scanning, funding calculations, and sponsored transactions |
+| TypeScript SDK | SIP-018 intents, unordered nonces, stealth cryptography, BNS resolution, backups, scanning, funding calculations, native STX payments, and sponsored transactions |
 | Relayer service | Public configuration, validation, broadcasting, sponsorship, CORS policy, and durable duplicate protection |
 | Stealth registry | Maps normal Stacks principals to public spending and viewing keys |
 | sBTC router | Holds sender-authorized deposits, verifies intents, settles sBTC, and emits announcements |
 | Sponsored-spend helper | Executes the exact origin-signed payment and service fee while the sponsor pays STX |
+| Native-STX router | Holds account-scoped STX deposits, verifies exact signed intents, settles through the relayer, and publishes bound announcements |
 
-The router is custodial for deposited sBTC until settlement or withdrawal. Funds at a
+Native STX payments and sBTC payments share the same registered privacy identity and
+local scanner. Senders may enter a mainnet Stacks address or a BNS name. Privara shows
+and pins the resolved address; if the name changes owners before signing, submission
+stops for a fresh review. STX one-time addresses pay their own network fees, so no
+sponsor is required. For a full-balance move, the app estimates and subtracts that fee.
+
+Each router is custodial for its deposited asset until settlement or withdrawal. Funds at a
 derived one-time address are self-custodial under the recipient's privacy seed. See the
 [architecture guide](docs/architecture.md) and
 [security threat model](docs/security-threat-model.md) for full trust boundaries.

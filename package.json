@@ -18,6 +18,7 @@
     "deploy:stealth-registry:mainnet": "PRIVARA_NETWORK=mainnet tsx scripts/deploy-stealth-registry.ts",
     "deploy:router-m2-sbtc:mainnet": "PRIVARA_NETWORK=mainnet PRIVARA_ROUTER_NAME=privara-router-m2-sbtc PRIVARA_ASSET=SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token tsx scripts/deploy-router-m2.ts",
     "deploy:sponsored-spend:mainnet": "PRIVARA_NETWORK=mainnet tsx scripts/deploy-sponsored-spend.ts",
+    "deploy:stx-router:mainnet": "PRIVARA_NETWORK=mainnet tsx scripts/deploy-stx-router.ts",
     "mainnet:deployer-address": "PRIVARA_NETWORK=mainnet tsx scripts/show-deployer-address.ts",
     "register:stealth-keys": "tsx scripts/register-stealth-keys.ts",
     "acceptance:stealth:testnet": "tsx scripts/testnet-stealth-acceptance.ts",

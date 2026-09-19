@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import {
   quoteSettlementFee,
+  resolveMainnetRecipient,
   type PreparedSponsoredSpend,
   type PrivacyIdentity,
 } from "@privara-stacks/sdk";
@@ -59,22 +60,30 @@ import {
   hasPrivacyBackup,
   importPrivacyIdentity,
   mintMock,
+  prepareStxWalletPayment,
   preparePrivateSpend,
+  preparePrivateStxSpend,
   privacyBackupStatus,
   privacyRegistrationState,
   publicKeyLabel,
   readRouterDeposit,
+  readStxBalance,
   readWalletAssetBalance,
   registerPrivacyIdentity,
   resolveRecipient,
   scanPrivatePayments,
+  scanPrivateStxPayments,
   spendPrivatePayment,
+  submitPreparedPrivateStxSpend,
   storedWalletAddress,
   submitPrivatePayment,
+  submitStxWalletPayment,
   unlockPrivacyIdentity,
   waitForTransaction,
   type LivePayment,
   type PublicRelayerConfig,
+  type PreparedStxWalletPayment,
+  type PreparedPrivateStxSpend,
   type ResolvedPrivateRecipient,
 } from "./lib/live";
 import { PrivacyBackupConflictError } from "./lib/privacy-backup";
@@ -206,10 +215,6 @@ export default function App() {
         setConfig(value);
         // The relayer is authoritative for the one asset/router pair it serves.
         // This avoids ever labelling a MOCK-configured server as an sBTC payment flow.
-        const configuredAsset = SUPPORTED_ASSETS.find(
-          (item) => assetContract(item) === value.asset
-        );
-        if (configuredAsset) setAssetId(configuredAsset.id);
         setConfigError(null);
         configErrorNotified.current = false;
       })
@@ -233,8 +238,14 @@ export default function App() {
 
   useEffect(() => {
     if (!config || !walletAddress) return;
-    void readRouterDeposit(config, walletAddress).then(setDeposit).catch(() => setDeposit(0n));
-  }, [config, walletAddress]);
+    const balance = readRouterDeposit(config, walletAddress, asset.kind === "stx");
+    void balance.then(setDeposit).catch(() => setDeposit(0n));
+  }, [config, walletAddress, asset.kind]);
+
+  useEffect(() => {
+    setPayments([]);
+    setSelectedPayment(null);
+  }, [assetId]);
 
   const connect = async () => {
     setConnecting(true);
@@ -297,11 +308,11 @@ export default function App() {
                 <AssetIcon asset={asset} small /> {asset.symbol}<ChevronDown size={14} />
               </button>
               {assetMenu && <div className="asset-menu">
-                <span className="menu-label">SIP-010 assets</span>
+                <span className="menu-label">Private payment assets</span>
                 {SUPPORTED_ASSETS.map((item) => (
-                  <button key={item.id} disabled={assetContract(item) !== config?.asset} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
+                  <button key={item.id} disabled={item.kind !== "stx" && assetContract(item) !== config?.asset} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
                     <AssetIcon asset={item} small />
-                    <span><strong>{item.symbol}</strong><small>{assetContract(item) === config?.asset ? "Live on current router" : "Not served by this relayer"}</small></span>
+                    <span><strong>{item.symbol}</strong><small>{item.kind === "stx" ? "Native STX router" : assetContract(item) === config?.asset ? "Live on current router" : "Not served by this relayer"}</small></span>
                     {assetId === item.id && <Check size={15} />}
                   </button>
                 ))}
@@ -325,12 +336,26 @@ export default function App() {
         {view === "send" && <SendPrivate asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onDone={() => setView("activity")} />}
         {view === "receive" && <ReceiveAndScan asset={asset} config={config} wallet={walletAddress} identity={identity} setIdentity={setIdentity} payments={payments} setPayments={setPayments} notify={setNotice} connect={connect} openSpend={setSelectedPayment} />}
         {view === "activity" && <ActivityView asset={asset} payments={payments} />}
-        {view === "payouts" && <Payouts asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onProcessingChange={setBatchProcessing} />}
+        {view === "payouts" && (asset.kind === "stx"
+          ? <><PageTitle eyebrow="Teams & DAOs" title="STX batch payouts are not enabled yet." copy="The native STX router supports individual private sends only. Switch to sBTC for the existing contributor batch workflow." /><section className="panel empty-state"><Users size={28} /><h2>Use individual private STX payments</h2><p>This release adds no new batch protocol. Send each STX payment from Send privately, or select sBTC for DAO payouts.</p><button className="primary-action" onClick={() => navigate("send")}>Send STX privately</button></section></>
+          : <Payouts asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onProcessingChange={setBatchProcessing} />)}
         {view === "guide" && <PrivaraGuide asset={asset} config={config} />}
       </main>
 
-      {selectedPayment && config && walletAddress && (
-        <SponsoredSpend
+      {selectedPayment && config && walletAddress && (asset.kind === "stx" ?
+        <StxSpend
+          asset={asset}
+          payment={selectedPayment}
+          payments={payments.filter((payment) => payment.balance > 0n)}
+          close={() => setSelectedPayment(null)}
+          notify={setNotice}
+          onComplete={(source, result) => {
+            const spent = BigInt(result.paymentAmount) + BigInt(result.networkFeePaid);
+            setPayments((current) => current.map((item) => item.transactionId === source.transactionId
+              ? { ...item, balance: item.balance > spent ? item.balance - spent : 0n }
+              : item));
+          }}
+        /> : <SponsoredSpend
           asset={asset}
           config={config}
           payment={selectedPayment}
@@ -406,7 +431,7 @@ function Overview({ asset, wallet, identity, deposit, payments, go, openSpend, c
       <article className="posture-card">
         <div className="posture-top"><span className="eyebrow on-dark">Live readiness</span><ShieldCheck size={23} /></div>
         <div className="score"><strong>{wallet && identity ? "Ready" : "Setup needed"}</strong><span>{wallet && identity ? "3 / 3" : wallet ? "1 / 3" : "0 / 3"}</span></div><div className="meter"><i style={{ width: wallet && identity ? "100%" : wallet ? "34%" : "0%" }} /></div>
-        <ul><li><CircleCheck /> {wallet ? `Wallet ${short(wallet)}` : `Connect a ${NETWORK} wallet`}</li><li><CircleCheck /> {identity ? "Privacy identity unlocked" : "Unlock encrypted privacy backup"}</li><li><CircleCheck /> Router deposit: {formatUnits(deposit, asset.decimals)} {asset.symbol}</li></ul>
+        <ul><li><CircleCheck /> {wallet ? `Wallet ${short(wallet)}` : `Connect a ${NETWORK} wallet`}</li><li><CircleCheck /> {identity ? "Privacy identity unlocked" : "Unlock encrypted privacy backup"}</li><li><CircleCheck /> {asset.kind === "stx" ? "Wallet balance" : "Router deposit"}: {formatUnits(deposit, asset.decimals)} {asset.symbol}</li></ul>
       </article>
     </section>
     <section className="proof-strip"><div><span className="proof-icon"><Zap size={17} /></span><div><strong>Connected service</strong><small>{RELAYER_URL}</small></div></div><a href={`${STACKS_API_URL}/v2/info`} target="_blank" rel="noreferrer">Stacks API <ExternalLink size={13} /></a></section>
@@ -425,6 +450,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
   const [stage, setStage] = useState<"edit" | "review" | "signing" | "done">("edit");
   const [route, setRoute] = useState<"idle" | "checking" | "found" | "missing">("idle");
   const [resolvedRecipient, setResolvedRecipient] = useState<ResolvedPrivateRecipient | null>(null);
+  const [reviewedStx, setReviewedStx] = useState<PreparedStxWalletPayment | null>(null);
   const [funding, setFunding] = useState<"mint" | "payment" | null>(null);
   const [walletAssetBalance, setWalletAssetBalance] = useState<bigint | null>(null);
   const [txid, setTxid] = useState("");
@@ -458,14 +484,20 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
   };
 
   useEffect(() => {
+    setAmount(defaultTransferAmount(asset));
+    setStage("edit");
+    setReviewedStx(null);
+  }, [asset.id]);
+
+  useEffect(() => {
     if (!config || !wallet) return setWalletAssetBalance(null);
     let current = true;
     setWalletAssetBalance(null);
-    void readWalletAssetBalance(config, wallet)
+    void (asset.kind === "stx" ? readStxBalance(wallet) : readWalletAssetBalance(config, wallet))
       .then((balance) => current && setWalletAssetBalance(balance))
       .catch(() => current && setWalletAssetBalance(null));
     return () => { current = false; };
-  }, [config, wallet]);
+  }, [config, wallet, asset.kind]);
 
   useEffect(() => {
     setRoute("idle");
@@ -502,15 +534,15 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
       setFunding("payment");
       // Refresh immediately before funding so concurrent deposits never cause us to
       // request more than the exact shortfall for this payment.
-      const currentDeposit = await readRouterDeposit(config, wallet);
+      const currentDeposit = await readRouterDeposit(config, wallet, asset.kind === "stx");
       setDeposit(currentDeposit);
       const required = paymentFundingShortfall(quote.totalAmount, currentDeposit);
       if (required > 0n) {
         notify({ kind: "info", message: `Approve funding of ${formatUnits(required, asset.decimals)} ${asset.symbol}. Privara will continue to payment review after confirmation.` });
-        const id = await depositAsset(config, wallet, required);
+        const id = await depositAsset(config, wallet, required, asset.kind === "stx");
         notify({ kind: "info", message: `Payment funding broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
         await waitForTransaction(id);
-        const fundedDeposit = await readRouterDeposit(config, wallet);
+        const fundedDeposit = await readRouterDeposit(config, wallet, asset.kind === "stx");
         const remainingWalletBalance = await readWalletAssetBalance(config, wallet);
         setDeposit(fundedDeposit);
         setWalletAssetBalance(remainingWalletBalance);
@@ -518,6 +550,9 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
           throw new Error("Payment funding confirmed, but the available Privara balance is still insufficient");
         }
         notify({ kind: "success", message: "Payment funded. Review the exact recipient amount and settlement fee next." });
+      }
+      if (asset.kind === "stx") {
+        setReviewedStx(await prepareStxWalletPayment({ config, recipient: resolvedRecipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode }));
       }
       setStage("review");
     } catch (error) {
@@ -530,7 +565,9 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     if (!config || !quote || !resolvedRecipient) return;
     setStage("signing");
     try {
-      const result = await submitPrivatePayment({ config, walletAddress: wallet, recipient: resolvedRecipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
+      const result = asset.kind === "stx"
+        ? await submitStxWalletPayment(wallet, reviewedStx!)
+        : await submitPrivatePayment({ config, walletAddress: wallet, recipient: resolvedRecipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
       setTxid(result.txid); setStealthPrincipal(result.stealthPrincipal); setStage("done");
       notify({ kind: "success", message: `Private payment accepted by the relayer. Transaction ${short(result.txid, 10, 8)} was broadcast.` });
     } catch (error) { setStage("review"); notify({ kind: "error", message: message(error) }); }
@@ -547,11 +584,11 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
           {usdQuote && asset.id === "sbtc" && <div className="fiat-tools"><div><FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /><span>CoinGecko estimate</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={funding !== null}>${usd}</button>)}</div></div>}
           <div className={`transfer-maximum ${exceedsAvailable ? "invalid" : ""}`}><span>{availableBalance === null ? "Checking available balance…" : <>{formatUnits(availableBalance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={availableBalance} asset={asset} /> available across your wallet and Privara balance</>}</span><button type="button" onClick={() => maximumAmount !== null && setAmount(formatUnits(maximumAmount, asset.decimals, asset.decimals))} disabled={maximumAmount === null || maximumAmount === 0n || funding !== null}>Use max · {maximumAmount === null ? "—" : formatUnits(maximumAmount, asset.decimals, asset.decimals)} {asset.symbol}</button></div>
           <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")} disabled={funding !== null}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")} disabled={funding !== null}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
-          {shortfall > 0n && wallet && <div className="funding-note"><Wallet size={16} /><p><strong>One funding approval needed</strong><span>Privara will request exactly {format(shortfall)} {asset.symbol}, wait for confirmation, and continue automatically.</span></p></div>}
+          {shortfall > 0n && wallet && <div className="funding-note"><Wallet size={16} /><p><strong>One router funding approval needed</strong><span>Privara will request exactly {format(shortfall)} {asset.symbol}, wait for confirmation, and continue automatically.</span></p></div>}
           <button className="primary-wide" disabled={!quote || route !== "found" || !config || funding !== null || exceedsAvailable || balancePending} onClick={continueToReview}>{funding === "payment" ? <><RefreshCw className="spin" size={16} /> Waiting for payment funding…</> : !wallet ? <>Connect wallet <ArrowRight size={16} /></> : balancePending ? <><RefreshCw className="spin" size={16} /> Checking available balance…</> : exceedsAvailable ? <>Amount exceeds available balance</> : shortfall > 0n ? <>Fund {format(shortfall)} {asset.symbol} & continue <ArrowRight size={16} /></> : <>Review payment <ArrowRight size={16} /></>}</button>
-        </> : <div className="review-block"><button className="back-link" onClick={() => setStage("edit")}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>Derived after signing</small><strong>Fresh one-time address</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol} <FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /></strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol} <FiatEstimate amount={quote?.settlementFee ?? 0n} asset={asset} /></strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol} <FiatEstimate amount={quote?.totalAmount ?? 0n} asset={asset} /></strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer then submits the settlement. USD values are live estimates and are not signed.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing"}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet and relayer…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
+        </> : <div className="review-block"><button className="back-link" onClick={() => { setStage("edit"); setReviewedStx(null); }}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>{resolvedRecipient?.bnsName ? `${resolvedRecipient.bnsName} → ${short(resolvedRecipient.address, 9, 7)}` : "Cryptographically derived"}</small><strong>Fresh one-time address</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol} <FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /></strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol} <FiatEstimate amount={quote?.settlementFee ?? 0n} asset={asset} /></strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol} <FiatEstimate amount={quote?.totalAmount ?? 0n} asset={asset} /></strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer submits a separate settlement from the {asset.symbol} router. USD values are estimates and are not signed.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing" || (asset.kind === "stx" && !reviewedStx)}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
-      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>{NETWORK === "testnet" ? "Testnet tools & advanced details" : "Advanced details"}</summary><p>Available Privara balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{NETWORK === "testnet" && asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Relayer</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
+      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>{NETWORK === "testnet" ? "Testnet tools & advanced details" : "Advanced details"}</summary><p>Available Privara router balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{NETWORK === "testnet" && asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Submission</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
     </div>
   </>;
 }
@@ -703,7 +740,9 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
     // Discovery is client-side and reads public chain data directly. A relayer outage
     // must not prevent a recipient from finding an existing MOCK payment.
     const scanConfig = config ?? { router: FALLBACK_LIVE_ROUTER, asset: FALLBACK_LIVE_ASSET };
-    try { setBusy("scan"); const result = await scanPrivatePayments(scanConfig, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` }); }
+    try { setBusy("scan"); const result = asset.kind === "stx"
+      ? await scanPrivateStxPayments(config?.stxRouter ?? assetContract(asset)!, identity)
+      : await scanPrivatePayments(scanConfig, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` }); }
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
   };
 
@@ -747,8 +786,53 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
     </section>}
-    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><span className="zero-stx">0 STX</span><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
+    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><span className="zero-stx">{asset.kind === "stx" ? "Fee balance" : "0 STX"}</span><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
   </>;
+}
+
+function StxSpend({ asset, payment, payments, close, notify, onComplete }: {
+  asset: Sip010Asset; payment: LivePayment; payments: LivePayment[];
+  close: () => void; notify: (notice: Notice) => void; onComplete: (source: LivePayment, result: SpendResult) => void;
+}) {
+  const [kind, setKind] = useState<"send" | "withdraw">("send");
+  const [sourceId, setSourceId] = useState(payment.transactionId);
+  const [destination, setDestination] = useState("");
+  const [amount, setAmount] = useState("0.1");
+  const [approved, setApproved] = useState<PreparedPrivateStxSpend | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<SpendResult | null>(null);
+  const activePayment = payments.find((item) => item.transactionId === sourceId) ?? payment;
+  const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
+
+  const review = async () => {
+    try {
+      setReviewing(true);
+      const resolved = await resolveMainnetRecipient(destination);
+      const prepared = await preparePrivateStxSpend({
+        payment: activePayment,
+        destination: resolved.address,
+        amount: kind === "send" ? paymentAmount : undefined,
+        fullBalance: kind === "withdraw",
+      });
+      setApproved(prepared);
+      notify({ kind: "info", message: `Network fee pinned at ${formatUnits(prepared.networkFee, 6)} STX. Move all leaves no fee dust.` });
+    } catch (error) { notify({ kind: "error", message: message(error) }); }
+    finally { setReviewing(false); }
+  };
+  const submit = async () => {
+    if (!approved) return;
+    try {
+      setSubmitting(true);
+      const response = await submitPreparedPrivateStxSpend(activePayment, approved);
+      const normalized: SpendResult = { ...response, tokenSponsorFee: "0" };
+      setResult(normalized);
+      onComplete(activePayment, normalized);
+      notify({ kind: "success", message: `STX transfer broadcast as ${short(response.txid, 10, 8)}.` });
+    } catch (error) { notify({ kind: "error", message: message(error) }); }
+    finally { setSubmitting(false); }
+  };
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !submitting && close()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="stx-spend-title"><button className="close-button" onClick={close} disabled={submitting}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), 6, 6)} tx={result.txid} detail={`One-time address paid ${result.networkFeePaid} µSTX network fee`} action={close} compact /> : <><span className="eyebrow">Native STX spend</span><h2 id="stx-spend-title">Move private balance</h2><p className="drawer-copy">The one-time key signs locally. This address already holds STX, so no sponsor is required.</p>{!approved ? <><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2}>{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, 6, 6)} STX</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, 6, 6)}</strong><small>STX available</small></span></div><div className="segmented spend-actions"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Move all</button></div><label className="field-label">Destination address or BNS name</label><div className="address-input compact"><input value={destination} onChange={(event) => setDestination(event.target.value.trim())} placeholder="SP… or name.btc" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${paymentAmount > activePayment.balance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} /><span className="amount-asset"><AssetIcon asset={asset} small /> STX</span></div></>}<div className="info-box"><Info size={16} /><p>{kind === "withdraw" ? "Privara estimates and subtracts the network fee before signing, so the rest can move without an insufficient-balance error." : "The network fee is paid from this one-time STX balance and shown before signing."}</p></div><button className="primary-wide" onClick={review} disabled={reviewing || !destination || (kind === "send" && (paymentAmount <= 0n || paymentAmount >= activePayment.balance))}>{reviewing ? <><RefreshCw className="spin" size={16} /> Estimating network fee…</> : <><ArrowRight size={16} /> Review exact fee</>}</button></> : <><button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button><div className="review-lines"><div><span>Recipient receives</span><strong>{formatUnits(approved.paymentAmount, 6, 6)} STX</strong></div><div><span>Exact network fee</span><strong>{formatUnits(approved.networkFee, 6, 6)} STX</strong></div><div><span>Destination</span><strong>{short(approved.destination, 9, 7)}</strong></div><div className="total"><span>Total signed outflow</span><strong>{formatUnits(approved.paymentAmount + approved.networkFee, 6, 6)} STX</strong></div></div><div className="info-box"><Info size={16} /><p>This fee and destination are pinned. No sponsor or Privara relayer can change them after approval.</p></div><button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={16} /> Broadcasting…</> : <><Zap size={16} /> Sign locally & broadcast</>}</button></>}</>}</section></div>;
 }
 
 function SponsoredSpend({ asset, config, payment, payments, close, notify, onComplete }: {
@@ -1127,11 +1211,11 @@ function PrivaraGuide({ asset, config }: { asset: Sip010Asset; config: PublicRel
     <div className="guide-layout">
       <aside className="panel guide-contents"><span className="eyebrow">On this page</span><a href="#guide-overview">Overview</a><a href="#guide-receive">Receive privately</a><a href="#guide-send">Send privately</a><a href="#guide-dao">DAO payouts</a><a href="#guide-fees">Fees and approvals</a><a href="#guide-keys">Keys and recovery</a><a href="#guide-chain">Onchain visibility</a><a href="#guide-limits">Wallet hygiene</a></aside>
       <article className="panel guide-document">
-        <section id="guide-overview"><span className="guide-number">01</span><div><h2>What Privara does</h2><p>Privara routes a SIP-010 token payment to a fresh one-time Stacks address derived for a registered recipient. The settlement destination does not reveal that recipient’s long-term wallet address.</p><div className="guide-callout"><LockKeyhole size={18} /><p><strong>Recipient privacy by default.</strong> Every private payment uses a fresh settlement address, keeping the recipient’s long-term wallet out of the payment destination. Good wallet habits help preserve that separation when the funds are later spent.</p></div></div></section>
+        <section id="guide-overview"><span className="guide-number">01</span><div><h2>What Privara does</h2><p>Privara routes sBTC or native STX to a fresh one-time Stacks address derived for a registered recipient. The settlement destination does not reveal that recipient’s long-term wallet address.</p><div className="guide-callout"><LockKeyhole size={18} /><p><strong>Recipient privacy by default.</strong> Every private payment uses a fresh settlement address, keeping the recipient’s long-term wallet out of the payment destination. Good wallet habits help preserve that separation when the funds are later spent.</p></div></div></section>
         <section id="guide-receive"><span className="guide-number">02</span><div><h2>Receive privately</h2><ol><li>Create an independent Privara privacy identity.</li><li>Download its encrypted JSON backup and successfully restore-verify that exact backup.</li><li>Use your connected wallet to register only the public spending and viewing keys—P and V—onchain.</li><li>Share your normal registered Stacks address with the sender.</li><li>Unlock your backup and scan announcements to discover balances belonging to your one-time addresses.</li></ol><p>Your privacy seed, private spending key, private viewing key, and derived one-time private keys stay in your browser session. Leather, Xverse, and hardware wallets cannot recover them.</p></div></section>
-        <section id="guide-send"><span className="guide-number">03</span><div><h2>Send privately</h2><ol><li>Enter the recipient’s registered Stacks address. Privara checks its public P/V registration.</li><li>Enter what the recipient should receive and choose whether the settlement fee is added on top or included in that amount.</li><li>If your Privara router balance is short, approve the exact funding difference from your connected wallet.</li><li>Review the recipient amount, fee, and total, then sign the exact SIP-018 intent.</li><li>The relayer submits settlement to a newly derived one-time address and publishes its encrypted announcement.</li></ol></div></section>
+        <section id="guide-send"><span className="guide-number">03</span><div><h2>Send privately</h2><ol><li>Enter the recipient’s registered Stacks address or BNS name. A BNS name is resolved to an exact mainnet address before Privara checks its public P/V registration.</li><li>Enter what the recipient should receive and choose whether the settlement fee is added on top or included in that amount.</li><li>For either sBTC or STX, Privara funds only the exact shortfall in that asset’s router.</li><li>Review the resolved address, recipient amount, fee, and total. A BNS ownership change before signing cancels the payment and requires a fresh review.</li><li>The relayer settlement pays the newly derived one-time address and publishes its encrypted announcement atomically.</li></ol></div></section>
         <section id="guide-dao"><span className="guide-number">04</span><div><h2>DAO and contributor payouts</h2><p>Add contributors manually or import a CSV with <code>name,address,amount</code>. Each address is checked independently for registered P/V keys. Privara presents aggregate totals, requests at most one combined funding transaction, and then requests one exact signature per contributor.</p><p>Each payout remains an independent settlement with its own nonce, encrypted announcement, one-time address, fee, and transaction ID. Processing stops after an uncertain failure so the treasury can inspect the transaction before attempting another payment.</p></div></section>
-        <section id="guide-fees"><span className="guide-number">05</span><div><h2>Fees and wallet approvals</h2><dl><div><dt>Settlement fee</dt><dd>{settlementFee} for the currently connected relayer. The sender chooses whether it is added to or deducted from the entered amount.</dd></div><div><dt>Sponsored spending fee</dt><dd>Currently {sponsoredFee}. It is quoted before confirmation and signed with the destination and payment amount.</dd></div><div><dt>Stacks network fee</dt><dd>The relayer pays STX for sponsored spending. The token sponsorship fee compensates Privara for that network cost and service.</dd></div></dl><p>A normal private payment can require one router-funding approval and one structured-message signature. A DAO batch uses at most one funding approval followed by one signature for every payout.</p></div></section>
+        <section id="guide-fees"><span className="guide-number">05</span><div><h2>Fees and wallet approvals</h2><dl><div><dt>Settlement fee</dt><dd>{settlementFee}. The sender chooses whether it is added to or deducted from the entered amount.</dd></div><div><dt>sBTC sponsored spending</dt><dd>Currently {sponsoredFee}. It is quoted before confirmation and signed with the destination and payment amount.</dd></div><div><dt>Native STX spending</dt><dd>The one-time address already holds the network fee asset, so it pays its own exact network fee. No sponsor fee is charged. Move all subtracts the approved network fee automatically.</dd></div></dl><p>Both sBTC and STX private payments use separate routers and relayer-submitted settlements. The sender pays the router-funding transaction fee; the relayer pays the settlement network fee.</p></div></section>
         <section id="guide-keys"><span className="guide-number">06</span><div><h2>Keys and recovery</h2><dl><div><dt>P and V</dt><dd>Public spending and viewing keys registered to your normal wallet so senders can derive payments.</dd></div><div><dt>p and v</dt><dd>Private keys derived from the independent privacy seed. They are not published or shown during normal use.</dd></div><div><dt>Ephemeral public key</dt><dd>A sender-generated public key published with one encrypted announcement so the recipient can detect that payment.</dd></div><div><dt>One-time key</dt><dd>The private key derived locally by the recipient for spending from one particular stealth address.</dd></div></dl><div className="guide-callout warning"><TriangleAlert size={18} /><p><strong>The encrypted backup is essential.</strong> Losing both the backup or its password can permanently remove access to stealth funds. A connected wallet seed cannot reconstruct the Privara privacy identity.</p></div></div></section>
         <section id="guide-chain"><span className="guide-number">07</span><div><h2>What goes onchain</h2><ul><li>The recipient’s public P/V registration.</li><li>Router funding transactions and the payer’s interaction with Privara.</li><li>The token, amount, relayer fee, fresh settlement destination, nonce, and expiry.</li><li>The ephemeral public key and encrypted payment announcement.</li><li>Later transfers or withdrawals from one-time addresses.</li></ul><p>The privacy seed, p, v, backup password, decrypted note, and one-time private spending key do not go onchain.</p></div></section>
         <section id="guide-limits"><span className="guide-number">08</span><div><h2>Spending, withdrawals, and wallet hygiene</h2><p>Privara creates the one-time address automatically. How you use its balance afterward also matters:</p><ul><li><strong>Pay directly when possible.</strong> A one-time address is already a spendable Stacks account. Paying the intended person or merchant from it avoids an unnecessary intermediate transfer.</li><li><strong>Move to another Stacks address when needed.</strong> A fresh self-custody address can help with wallet access or operational separation, but it is not a privacy reset. The transfer remains visible and may be correlated through timing, amounts, consolidation, or later activity.</li><li><strong>Do not default to your public wallet.</strong> Moving funds to the long-term wallet registered with Privara creates a direct onchain link and is discouraged when separation matters.</li><li><strong>BTC conversion is coming.</strong> Privara plans to integrate the official sBTC withdrawal protocol so a one-time key can authorize conversion to BTC for a chosen Bitcoin destination, including a compatible exchange deposit address. The key will continue to sign locally; Privara will facilitate the request rather than take custody of the funds.</li><li>Until that integration is available, this app accepts only Stacks <code>SP…</code> destinations for spending. Do not enter a Bitcoin <code>bc1…</code> address or send sBTC to an exchange unless it explicitly supports the official token on the Stacks network.</li><li>Treat every one-time address as a separate balance and do not deliberately reuse it for another private payment.</li><li>Avoid combining several one-time balances into one transaction or destination, because consolidation can suggest common ownership.</li><li>Be mindful of distinctive amounts and immediate withdrawals. Changing timing or amounts may reduce simple correlation, but it is not a cryptographic guarantee.</li><li>Keep your encrypted privacy backup separate from your everyday wallet backup and store its password safely. Leather, Xverse, and hardware wallets cannot recover it.</li></ul><div className="guide-callout"><Info size={18} /><p><strong>Planned Bitcoin off-ramp.</strong> Direct sBTC deposits are not broadly supported by centralized exchanges today. The planned flow will use the official sBTC peg-out to deliver BTC to a user-selected Bitcoin address instead.</p></div><p>Privara protects the recipient’s long-term wallet from appearing as the settlement destination. Amounts and payer activity remain visible onchain, while RPC providers, relayers, browsers, and network observers may still observe connection metadata.</p><p>This application operates on Stacks {NETWORK}. {NETWORK === "testnet" ? "Testnet assets have no real monetary value, but backups and transaction habits should still be treated carefully." : "Mainnet transactions use real assets and are irreversible; verify every address, amount, and fee before signing."}</p></div></section>

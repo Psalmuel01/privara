@@ -90,6 +90,7 @@ export const ROUTER_M2_NAME = "privara-router-m2";
 export const REGISTRY_NAME = "privara-registry";
 export const STEALTH_REGISTRY_NAME = "privara-stealth-registry";
 export const SPONSORED_SPEND_NAME = "privara-sponsored-spend-v2";
+export const STX_ROUTER_NAME = "privara-stx-router-v1";
 export const SIP010_TRAIT_NAME = "sip010-ft-trait";
 
 export function routerId(): string {

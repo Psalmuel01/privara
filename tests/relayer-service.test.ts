@@ -25,6 +25,7 @@ import {
 const CORE = "ST000000000000000000002AMW42H";
 const ASSET = `${CORE}.mock-token`;
 const ROUTER = `${CORE}.privara-router-m2-sbtc`;
+const STX_ROUTER = `${CORE}.privara-stx-router-v1`;
 const RELAYER_KEY = "530d9f61984c888536871c6573073bdfc0058896dc1adfe9a6a10dfacadc209101";
 const USER_KEY = "4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f01";
 const ORIGIN_KEY = "0101010101010101010101010101010101010101010101010101010101010101";
@@ -37,6 +38,7 @@ const config: RelayerConfig = {
   network: "testnet",
   coreAddress: CORE,
   routerContract: ROUTER,
+  stxRouterContract: STX_ROUTER,
   relayerPrivateKey: RELAYER_KEY,
   sponsorPrivateKey: RELAYER_KEY,
   assetContract: ASSET,
@@ -197,6 +199,32 @@ describe("reference relayer service", () => {
       .resolves.toMatchObject({ status: "broadcast", txid: "ab".repeat(32) });
     expect(dependencies.broadcast).toHaveBeenCalledOnce();
   }, 10_000);
+
+  it("binds native STX settlement to its separate router, amount, and destination", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/fees/transaction")) return { ok: true, json: async () => ({ estimations: [{ fee: 500, fee_rate: 1 }, { fee: 1_000, fee_rate: 2 }, { fee: 2_000, fee_rate: 4 }] }) } as Response;
+      if (url.includes("/nonces")) return { ok: true, json: async () => ({ possible_next_nonce: 0 }) } as Response;
+      throw new Error(`unexpected fetch in STX relayer test: ${url}`);
+    }));
+    const identity = identityFromSeed(new Uint8Array(32).fill(12));
+    const created = await createPrivateIntent({
+      registry: `${CORE}.privara-stealth-registry`, recipient: DESTINATION,
+      recipientKeys: { spendingPublicKey: identity.spendingPublicKey, viewingPublicKey: identity.viewingPublicKey, epoch: 3n },
+      network: "testnet", router: STX_ROUTER, asset: STX_ROUTER,
+      relayer: getAddressFromPrivateKey(RELAYER_KEY, "testnet"), enteredAmount: 50_000n,
+      settlementFeeBps: 100n, feeMode: "added", expiry: 999_999, nonce: 88n,
+      payerPrivateKey: USER_KEY, ephemeralPrivateKey: new Uint8Array(32).fill(11),
+    });
+    const envelope = privateIntentEnvelope(created, "testnet");
+    expect(validateStealthSettlementEnvelope(envelope, config, STX_ROUTER, STX_ROUTER).intent.amount).toBe(50_500n);
+    expect(() => validateStealthSettlementEnvelope({ ...envelope, amount: "50501" }, config, STX_ROUTER, STX_ROUTER)).toThrow("intentHash does not match");
+    expect(() => validateStealthSettlementEnvelope({ ...envelope, recipient: TREASURY }, config, STX_ROUTER, STX_ROUTER)).toThrow("announcement does not match");
+    expect(() => validateStealthSettlementEnvelope({ ...envelope, relayerFee: "501" }, config, STX_ROUTER, STX_ROUTER)).toThrow("intentHash does not match");
+    const dependencies = fakeDependencies();
+    await expect(new PrivaraRelayerService(config, dependencies).settleStxIntent(envelope)).resolves.toMatchObject({ status: "broadcast" });
+    expect(dependencies.broadcast).toHaveBeenCalledOnce();
+  });
 
   it("validates, sponsors, and broadcasts an origin-signed sweep", async () => {
     const originSigned = await buildSponsoredSpend({

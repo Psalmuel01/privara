@@ -1,6 +1,7 @@
 export type AssetTone = "bitcoin" | "mint" | "violet";
 
 export interface Sip010Asset {
+  kind: "sip010" | "stx";
   id: string;
   symbol: string;
   name: string;
@@ -18,6 +19,7 @@ export interface Sip010Asset {
 // future SIP-010 asset here, configure its relayer policy, and the same flows can render it.
 export const SUPPORTED_ASSETS: Sip010Asset[] = [
   {
+    kind: "sip010",
     id: "sbtc",
     symbol: "sBTC",
     name: "Stacks Bitcoin",
@@ -34,6 +36,7 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     liveTestnet: true,
   },
   {
+    kind: "sip010",
     id: "mock",
     symbol: "MOCK",
     name: "Privara Mock Token",
@@ -45,6 +48,22 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     },
     sponsorFeeAtomic: 200n,
     demoBalanceAtomic: 2_500_000n,
+    liveTestnet: false,
+  },
+  {
+    kind: "stx",
+    id: "stx",
+    symbol: "STX",
+    name: "Stacks",
+    decimals: 6,
+    icon: "S",
+    tone: "violet",
+    contract: {
+      testnet: "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.privara-stx-router-v1",
+      mainnet: "SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1",
+    },
+    sponsorFeeAtomic: 0n,
+    demoBalanceAtomic: 0n,
     liveTestnet: false,
   },
 ];

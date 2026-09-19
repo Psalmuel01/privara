@@ -2,7 +2,9 @@
 
 ## Overview
 
-Privara provides privacy-aware SIP-010 payments on Stacks using signed SIP-018 payment intents, relayer-submitted settlement, one-time stealth recipient addresses, encrypted announcements, local recipient scanning, and sponsored stealth spending.
+Privara provides one-time-address payments with encrypted announcements and local
+recipient scanning. The live sBTC path and the pending native-STX path both use signed
+SIP-018 intents, asset-specific router custody, and relayer-submitted settlement.
 
 Repository:
 
@@ -41,6 +43,7 @@ npm --prefix sdk run build
 | Registry | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stealth-registry` |
 | Router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc` |
 | Sponsored spend | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2` |
+| Native STX router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1` |
 | Asset | `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` |
 | Relayer | `https://privara-production.up.railway.app` |
 
@@ -75,7 +78,10 @@ The recipient's normal wallet remains the lookup identity used by senders.
 
 ## Sender Flow
 
-The sender enters the recipient's normal Stacks address.
+The sender enters the recipient's normal Stacks address or BNS name. On mainnet, a
+BNS name is resolved through BNSv2 to an exact address before the registry lookup. The
+review shows that address, and the app re-resolves the name before signing; an ownership
+change stops submission.
 
 The application:
 
@@ -88,11 +94,18 @@ The application:
 7. creates M2 payment intent using stealth principal as recipient
 8. shows human-readable payment summary
 9. obtains SIP-018 signature
+
+For native STX the same intent sequence is used, but `asset` and the SIP-018 domain
+both identify `privara-stx-router-v1`. The sender first funds that separate router,
+then submits the exact signed envelope to the relayer. The relayer pays the settlement
+network fee. A one-time STX address pays its own later transfer fee; the full-withdrawal
+path estimates and subtracts that fee before signing.
+
 10. submits signed envelope to relayer
 
 ## Just-In-Time Router Funding
 
-The protocol requires sender funds in the router before relayer settlement.
+The protocol requires sender funds in the asset-specific router before relayer settlement.
 
 The normal UI should not expose router balance as a primary concept.
 

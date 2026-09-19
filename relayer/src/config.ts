@@ -48,6 +48,11 @@ export function relayerConfigFromEnv(): RelayerConfig {
     process.env.PRIVARA_SPEND_CONTRACT ?? `${coreAddress}.privara-sponsored-spend-v2`,
     network
   );
+  const stxRouterContract = principalForNetwork(
+    "PRIVARA_STX_ROUTER",
+    process.env.PRIVARA_STX_ROUTER ?? `${coreAddress}.privara-stx-router-v1`,
+    network
+  );
   return {
     network,
     coreAddress,
@@ -57,6 +62,7 @@ export function relayerConfigFromEnv(): RelayerConfig {
     assetContract,
     tokenName: process.env.PRIVARA_TOKEN_NAME ?? "mock",
     spendContract,
+    stxRouterContract,
     // The token-fee treasury is intentionally configured separately from the private
     // sponsor key that pays STX; production deployments can isolate those roles.
     feeRecipient: principalForNetwork(

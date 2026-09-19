@@ -390,6 +390,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .bitcoin-coming-soon .info-box { margin-bottom: 0; background: #eaf4e6; }
 .asset-usdcx .spend-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .asset-usdcx .spend-actions .future-action { display: none; }
+.asset-stx .spend-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .coming-soon-badge { display: inline-flex; padding: 5px 8px; color: #355d43; border-radius: 999px; background: #e3f3dc; font-size: 7px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
 .amount-error { color: #9a4d35; }
 .amount-input.invalid { border-color: #d98b72; box-shadow: 0 0 0 3px rgb(154 77 53 / 8%); }

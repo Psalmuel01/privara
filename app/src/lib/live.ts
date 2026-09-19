@@ -6,6 +6,7 @@ import {
   Pc,
   broadcastTransaction,
   fetchCallReadOnlyFunction,
+  fetchFeeEstimateTransfer,
   makeSTXTokenTransfer,
   type ContractIdString,
 } from "@stacks/transactions";
@@ -699,16 +700,37 @@ export async function preparePrivateStxSpend(options: {
 }): Promise<PreparedPrivateStxSpend> {
   const key = `${bytesToHex(options.payment.stealthPrivateKey)}01`;
   const network = mainnetClient();
-  const probe = await makeSTXTokenTransfer({
-    recipient: options.destination,
-    amount: 1n,
-    senderKey: key,
-    network,
-    memo: "Privara",
-  });
+  let probe: Awaited<ReturnType<typeof makeSTXTokenTransfer>>;
+  let fallbackNetworkFee: bigint | null = null;
+  try {
+    probe = await makeSTXTokenTransfer({
+      recipient: options.destination,
+      amount: 1n,
+      senderKey: key,
+      network,
+      memo: "Privara",
+    });
+  } catch (primaryError) {
+    try {
+      // Hiro's richer transaction-fee estimator can be temporarily unavailable.
+      // Build the same signed shape with a zero placeholder, then price its exact byte
+      // length through the standard transfer-fee endpoint before showing the review.
+      probe = await makeSTXTokenTransfer({
+        recipient: options.destination,
+        amount: 1n,
+        senderKey: key,
+        network,
+        memo: "Privara",
+        fee: 0n,
+      });
+      fallbackNetworkFee = await fetchFeeEstimateTransfer({ transaction: probe, network });
+    } catch {
+      throw primaryError;
+    }
+  }
   const condition = probe.auth.spendingCondition;
   if (!condition) throw new Error("Unable to estimate the STX network fee");
-  const networkFee = BigInt(condition.fee);
+  const networkFee = fallbackNetworkFee ?? BigInt(condition.fee);
   const paymentAmount = options.fullBalance
     ? options.payment.balance - networkFee
     : options.amount ?? 0n;

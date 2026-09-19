@@ -92,6 +92,13 @@ export {
   type PrivateIntentEnvelope,
 } from "./private-intent";
 export {
+  BNS_V2_API_URL,
+  isBnsName,
+  resolveMainnetRecipient,
+  assertBnsResolutionUnchanged,
+  type ResolvedRecipient,
+} from "./bns";
+export {
   parseStealthSettlementLog,
   fetchAnnouncementPage,
   MemoryAnnouncementStore,

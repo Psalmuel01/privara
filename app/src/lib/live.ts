@@ -8,6 +8,7 @@ import {
   type ContractIdString,
 } from "@stacks/transactions";
 import {
+  assertBnsResolutionUnchanged,
   attachStealthIntentSignature,
   buildStealthKeyArgs,
   fetchAnnouncementPage,
@@ -23,6 +24,8 @@ import {
   type PreparedSponsoredSpend,
   type PrivacyIdentity,
   type SettlementFeeMode,
+  type ResolvedRecipient,
+  resolveMainnetRecipient,
 } from "@privara-stacks/sdk";
 import {
   assertPrivacyBackupVerified,
@@ -143,8 +146,19 @@ export async function waitForTransaction(
   throw new Error("Transaction is still pending. Check the explorer before retrying");
 }
 
-export async function resolveRecipient(config: PublicRelayerConfig, recipient: string) {
-  return fetchStealthKeys({ registry: config.registry, user: recipient, network: NETWORK });
+export interface ResolvedPrivateRecipient extends ResolvedRecipient {
+  keys: NonNullable<Awaited<ReturnType<typeof fetchStealthKeys>>> | null;
+}
+
+export async function resolveRecipient(
+  config: PublicRelayerConfig,
+  recipient: string
+): Promise<ResolvedPrivateRecipient> {
+  const resolved = NETWORK === "mainnet"
+    ? await resolveMainnetRecipient(recipient)
+    : { identifier: recipient.trim(), address: recipient.trim() };
+  const keys = await fetchStealthKeys({ registry: config.registry, user: resolved.address, network: NETWORK });
+  return { ...resolved, keys };
 }
 
 export function storedWalletAddress(): string | null {
@@ -381,15 +395,22 @@ export async function depositAsset(
 export async function submitPrivatePayment(options: {
   config: PublicRelayerConfig;
   walletAddress: string;
-  recipient: string;
+  recipient: string | ResolvedPrivateRecipient;
   enteredAmount: bigint;
   feeMode: SettlementFeeMode;
 }): Promise<{ txid: string; recipientAmount: bigint; stealthPrincipal: string }> {
+  // A reviewed BNS alias is resolved again immediately before the wallet prompt.
+  // Ownership changes never silently redirect a payment.
+  const recipient = typeof options.recipient === "string"
+    ? { identifier: options.recipient, address: options.recipient, keys: null }
+    : options.recipient;
+  await assertBnsResolutionUnchanged(recipient);
   const tipResponse = await fetch(`${STACKS_API_URL}/v2/info`);
   const tip = await responseJson<{ stacks_tip_height: number }>(tipResponse);
   const prepared = await preparePrivateIntent({
     registry: options.config.registry,
-    recipient: options.recipient,
+    recipient: recipient.address,
+    recipientKeys: recipient.keys ?? undefined,
     network: NETWORK,
     router: options.config.router,
     asset: options.config.asset,

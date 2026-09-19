@@ -75,6 +75,7 @@ import {
   waitForTransaction,
   type LivePayment,
   type PublicRelayerConfig,
+  type ResolvedPrivateRecipient,
 } from "./lib/live";
 import { PrivacyBackupConflictError } from "./lib/privacy-backup";
 import {
@@ -423,6 +424,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
   const [feeMode, setFeeMode] = useState<FeeMode>("added");
   const [stage, setStage] = useState<"edit" | "review" | "signing" | "done">("edit");
   const [route, setRoute] = useState<"idle" | "checking" | "found" | "missing">("idle");
+  const [resolvedRecipient, setResolvedRecipient] = useState<ResolvedPrivateRecipient | null>(null);
   const [funding, setFunding] = useState<"mint" | "payment" | null>(null);
   const [walletAssetBalance, setWalletAssetBalance] = useState<bigint | null>(null);
   const [txid, setTxid] = useState("");
@@ -467,10 +469,14 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
 
   useEffect(() => {
     setRoute("idle");
-    if (!config || recipient.length < 20) return;
+    setResolvedRecipient(null);
+    if (!config || recipient.length < 3) return;
     const timer = window.setTimeout(() => {
       setRoute("checking");
-      void resolveRecipient(config, recipient).then((record) => setRoute(record ? "found" : "missing")).catch(() => setRoute("missing"));
+      void resolveRecipient(config, recipient).then((resolved) => {
+        setResolvedRecipient(resolved);
+        setRoute(resolved.keys ? "found" : "missing");
+      }).catch(() => setRoute("missing"));
     }, 450);
     return () => window.clearTimeout(timer);
   }, [config, recipient]);
@@ -491,7 +497,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
 
   const continueToReview = async () => {
     if (!wallet) return connect();
-    if (!config || !quote || route !== "found") return;
+    if (!config || !quote || route !== "found" || !resolvedRecipient) return;
     try {
       setFunding("payment");
       // Refresh immediately before funding so concurrent deposits never cause us to
@@ -521,10 +527,10 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
 
   const submit = async () => {
     if (!wallet) return connect();
-    if (!config || !quote) return;
+    if (!config || !quote || !resolvedRecipient) return;
     setStage("signing");
     try {
-      const result = await submitPrivatePayment({ config, walletAddress: wallet, recipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
+      const result = await submitPrivatePayment({ config, walletAddress: wallet, recipient: resolvedRecipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
       setTxid(result.txid); setStealthPrincipal(result.stealthPrincipal); setStage("done");
       notify({ kind: "success", message: `Private payment accepted by the relayer. Transaction ${short(result.txid, 10, 8)} was broadcast.` });
     } catch (error) { setStage("review"); notify({ kind: "error", message: message(error) }); }
@@ -536,7 +542,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     <div className="flow-layout">
       <section className="flow-card">
         {stage === "edit" ? <>
-          <label className="field-label">Recipient’s Stacks {NETWORK} address</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder={NETWORK === "mainnet" ? "SP…" : "ST…"} disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>
+          <label className="field-label">Recipient’s Stacks address or BNS name</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder={NETWORK === "mainnet" ? "SP… or name.btc" : "ST…"} disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>{resolvedRecipient?.bnsName && route === "found" && <small className="field-help">{resolvedRecipient.bnsName} resolves to {short(resolvedRecipient.address, 10, 8)}. This exact address will be pinned for review.</small>}
           <label className="field-label">Amount recipient should receive</label><div className={`amount-input ${exceedsAvailable ? "invalid" : ""}`}><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={funding !== null} aria-invalid={exceedsAvailable} /><span className="amount-asset"><AssetIcon asset={asset} small /> {asset.symbol}</span></div>
           {usdQuote && asset.id === "sbtc" && <div className="fiat-tools"><div><FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /><span>CoinGecko estimate</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={funding !== null}>${usd}</button>)}</div></div>}
           <div className={`transfer-maximum ${exceedsAvailable ? "invalid" : ""}`}><span>{availableBalance === null ? "Checking available balance…" : <>{formatUnits(availableBalance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={availableBalance} asset={asset} /> available across your wallet and Privara balance</>}</span><button type="button" onClick={() => maximumAmount !== null && setAmount(formatUnits(maximumAmount, asset.decimals, asset.decimals))} disabled={maximumAmount === null || maximumAmount === 0n || funding !== null}>Use max · {maximumAmount === null ? "—" : formatUnits(maximumAmount, asset.decimals, asset.decimals)} {asset.symbol}</button></div>

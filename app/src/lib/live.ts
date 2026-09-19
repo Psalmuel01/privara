@@ -7,6 +7,7 @@ import {
   broadcastTransaction,
   fetchCallReadOnlyFunction,
   fetchFeeEstimateTransfer,
+  getAddressFromPrivateKey,
   makeSTXTokenTransfer,
   type ContractIdString,
 } from "@stacks/transactions";
@@ -684,6 +685,18 @@ function mainnetClient() {
   return { ...STACKS_MAINNET, client: { baseUrl: STACKS_API_URL } } as typeof STACKS_MAINNET;
 }
 
+// Stealth principals intentionally hash the uncompressed one-time public key. A bare
+// 32-byte private key reproduces that address; appending the usual `01` compression
+// marker would sign from a different, empty account.
+function privateStxSenderKey(payment: LivePayment): string {
+  const key = bytesToHex(payment.stealthPrivateKey);
+  const origin = getAddressFromPrivateKey(key, "mainnet");
+  if (origin !== payment.stealthPrincipal) {
+    throw new Error("The derived one-time key does not match this STX payment address");
+  }
+  return key;
+}
+
 /** A native-STX stealth address already owns fee currency, so it signs and broadcasts directly. */
 export interface PreparedPrivateStxSpend {
   destination: string;
@@ -698,7 +711,7 @@ export async function preparePrivateStxSpend(options: {
   amount?: bigint;
   fullBalance: boolean;
 }): Promise<PreparedPrivateStxSpend> {
-  const key = `${bytesToHex(options.payment.stealthPrivateKey)}01`;
+  const key = privateStxSenderKey(options.payment);
   const network = mainnetClient();
   let probe: Awaited<ReturnType<typeof makeSTXTokenTransfer>>;
   let fallbackNetworkFee: bigint | null = null;
@@ -749,7 +762,7 @@ export async function submitPreparedPrivateStxSpend(
   payment: LivePayment,
   approved: PreparedPrivateStxSpend
 ): Promise<{ txid: string; paymentAmount: string; networkFeePaid: string }> {
-  const key = `${bytesToHex(payment.stealthPrivateKey)}01`;
+  const key = privateStxSenderKey(payment);
   const network = mainnetClient();
   const transaction = await makeSTXTokenTransfer({
     recipient: approved.destination,

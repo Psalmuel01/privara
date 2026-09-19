@@ -49,9 +49,9 @@ fee split, seed custody, and privacy limits inside the app. It is directly share
 `https://www.useprivara.xyz/guide`. The included `vercel.json` rewrites that
 single-page route to the React entry point.
 
-sBTC is the live asset served by `privara-router-m2-sbtc`. The earlier MOCK router and
-its transaction history remain on testnet, but the production relayer config serves one
-exact router/asset pair at a time.
+Privara supports sBTC, USDCx, and native STX through independently pinned router
+policies. The asset menu enables only policies advertised by the relayer and pinned by
+the app build.
 
 Wallet and live-chain approvals cannot be automated by the test suite. Always inspect
 the contract, arguments, amount, fee mode, and network displayed by the wallet.

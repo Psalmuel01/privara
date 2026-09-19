@@ -60,7 +60,6 @@ import {
   fetchPublicConfig,
   hasPrivacyBackup,
   importPrivacyIdentity,
-  mintMock,
   prepareStxWalletPayment,
   preparePrivateSpend,
   preparePrivateStxSpend,
@@ -219,8 +218,8 @@ export default function App() {
     const loadConfig = () => void fetchPublicConfig()
       .then((value) => {
         setConfig(value);
-        // The relayer is authoritative for the one asset/router pair it serves.
-        // This avoids ever labelling a MOCK-configured server as an sBTC payment flow.
+        // The relayer is authoritative for the exact asset/router policy it serves.
+        // This prevents the UI from labelling one configured policy as another asset.
         setConfigError(null);
         configErrorNotified.current = false;
       })
@@ -451,13 +450,12 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
   const usdQuote = useContext(UsdQuoteContext);
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState(() => defaultTransferAmount(asset));
-  const [fundAmount, setFundAmount] = useState("10");
   const [feeMode, setFeeMode] = useState<FeeMode>("added");
   const [stage, setStage] = useState<"edit" | "review" | "signing" | "done">("edit");
   const [route, setRoute] = useState<"idle" | "checking" | "found" | "missing">("idle");
   const [resolvedRecipient, setResolvedRecipient] = useState<ResolvedPrivateRecipient | null>(null);
   const [reviewedStx, setReviewedStx] = useState<PreparedStxWalletPayment | null>(null);
-  const [funding, setFunding] = useState<"mint" | "payment" | null>(null);
+  const [funding, setFunding] = useState<"payment" | null>(null);
   const [walletAssetBalance, setWalletAssetBalance] = useState<bigint | null>(null);
   const [txid, setTxid] = useState("");
   const [stealthPrincipal, setStealthPrincipal] = useState("");
@@ -519,20 +517,6 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
     return () => window.clearTimeout(timer);
   }, [config, recipient]);
 
-  const mintTestTokens = async () => {
-    if (!wallet) return connect();
-    if (!config) return notify({ kind: "error", message: "Relayer configuration is unavailable." });
-    try {
-      setFunding("mint");
-      const atomic = parseUnits(fundAmount, asset.decimals);
-      const id = await mintMock(config, wallet, atomic);
-      notify({ kind: "info", message: `Test MOCK mint broadcast: ${short(id, 10, 8)}. Waiting for confirmation…` });
-      await waitForTransaction(id);
-      setWalletAssetBalance(await readWalletAssetBalance(config, wallet));
-      notify({ kind: "success", message: `${formatUnits(atomic, asset.decimals)} MOCK minted to your testnet wallet. You can now fund the payment.` });
-    } catch (error) { notify({ kind: "error", message: message(error) }); } finally { setFunding(null); }
-  };
-
   const continueToReview = async () => {
     if (!wallet) return connect();
     if (!config || !quote || route !== "found" || !resolvedRecipient) return;
@@ -562,7 +546,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
       }
       setStage("review");
     } catch (error) {
-      notify({ kind: "error", message: `${message(error)}${asset.id === "mock" && NETWORK === "testnet" ? " Testnet users can mint MOCK under Testnet tools if their wallet balance is insufficient." : ` Make sure your wallet has enough ${NETWORK} ${asset.symbol}.`}` });
+      notify({ kind: "error", message: `${message(error)} Make sure your wallet has enough ${NETWORK} ${asset.symbol}.` });
     } finally { setFunding(null); }
   };
 
@@ -594,7 +578,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
           <button className="primary-wide" disabled={!quote || route !== "found" || !config || funding !== null || exceedsAvailable || balancePending} onClick={continueToReview}>{funding === "payment" ? <><RefreshCw className="spin" size={16} /> Waiting for payment funding…</> : !wallet ? <>Connect wallet <ArrowRight size={16} /></> : balancePending ? <><RefreshCw className="spin" size={16} /> Checking available balance…</> : exceedsAvailable ? <>Amount exceeds available balance</> : shortfall > 0n ? <>Fund {format(shortfall)} {asset.symbol} & continue <ArrowRight size={16} /></> : <>Review payment <ArrowRight size={16} /></>}</button>
         </> : <div className="review-block"><button className="back-link" onClick={() => { setStage("edit"); setReviewedStx(null); }}>← Edit payment</button><div className="route-visual"><div><span className="route-avatar">A</span><small>Your funded payment</small></div><ArrowRight /><div className="stealth-destination"><span><LockKeyhole size={20} /></span><small>{resolvedRecipient?.bnsName ? `${resolvedRecipient.bnsName} → ${short(resolvedRecipient.address, 9, 7)}` : "Cryptographically derived"}</small><strong>Fresh one-time address</strong></div></div><div className="review-lines"><div><span>Recipient receives</span><strong>{format(quote?.recipientAmount)} {asset.symbol} <FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /></strong></div><div><span>Privara settlement fee</span><strong>{format(quote?.settlementFee)} {asset.symbol} <FiatEstimate amount={quote?.settlementFee ?? 0n} asset={asset} /></strong></div><div className="total"><span>Total authorized</span><strong>{format(quote?.totalAmount)} {asset.symbol} <FiatEstimate amount={quote?.totalAmount ?? 0n} asset={asset} /></strong></div></div><div className="info-box"><Info size={16} /><p>Your wallet signs the exact recipient, amount, fee, nonce, and expiry. The relayer submits a separate settlement from the {asset.symbol} router. USD values are estimates and are not signed.</p></div><button className="primary-wide" onClick={submit} disabled={stage === "signing" || (asset.kind === "stx" && !reviewedStx)}>{stage === "signing" ? <><RefreshCw className="spin" size={16} /> Waiting for wallet…</> : <><Wallet size={16} /> Sign and submit</>}</button></div>}
       </section>
-      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>{NETWORK === "testnet" ? "Testnet tools & advanced details" : "Advanced details"}</summary><p>Available Privara router balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p>{NETWORK === "testnet" && asset.id === "mock" && <div className="testnet-mint"><input aria-label="Test MOCK amount" value={fundAmount} onChange={(event) => setFundAmount(event.target.value)} inputMode="decimal" disabled={funding !== null} /><button className="light-button" onClick={mintTestTokens} disabled={funding !== null}>{funding === "mint" ? <RefreshCw className="spin" size={14} /> : null} Mint test MOCK</button></div>}<dl><div><dt>Submission</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
+      <aside className="summary-card"><span className="eyebrow">Payment details</span><h3>Summary</h3><dl><div><dt>Recipient receives</dt><dd>{format(quote?.recipientAmount)} {asset.symbol}</dd></div><div><dt>Settlement fee</dt><dd>{format(quote?.settlementFee)} {asset.symbol}</dd></div><div><dt>Total</dt><dd>{format(quote?.totalAmount)} {asset.symbol}</dd></div><div><dt>Funding approval</dt><dd>{shortfall > 0n ? `${format(shortfall)} ${asset.symbol}` : "Not needed"}</dd></div></dl><details className="testnet-tools"><summary>{NETWORK === "testnet" ? "Testnet tools & advanced details" : "Advanced details"}</summary><p>Available Privara router balance: <strong>{formatUnits(deposit, asset.decimals)} {asset.symbol}</strong>.</p><dl><div><dt>Submission</dt><dd>{config ? short(config.relayerAddress, 8, 6) : "Offline"}</dd></div><div><dt>Expiry</dt><dd>≈ 200 blocks</dd></div><div><dt>Nonce</dt><dd>Unordered random</dd></div></dl></details></aside>
     </div>
   </>;
 }
@@ -744,7 +728,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
     if (!backupVerified || registration !== "matched") return notify({ kind: "error", message: "Complete recovery verification and enable private receiving before scanning." });
     if (!identity) return notify({ kind: "error", message: "Enter your backup password and unlock the verified privacy identity before scanning." });
     // Discovery is client-side and reads public chain data directly. A relayer outage
-    // must not prevent a recipient from finding an existing MOCK payment.
+    // must not prevent a recipient from finding an existing payment.
     const scanConfig = config ?? { router: FALLBACK_LIVE_ROUTER, asset: FALLBACK_LIVE_ASSET };
     try { setBusy("scan"); const result = asset.kind === "stx"
       ? await scanPrivateStxPayments(config?.stxRouter ?? assetContract(asset)!, identity)

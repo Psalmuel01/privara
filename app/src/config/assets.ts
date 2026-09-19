@@ -1,4 +1,4 @@
-export type AssetTone = "bitcoin" | "dollar" | "mint" | "violet";
+export type AssetTone = "bitcoin" | "dollar" | "violet";
 
 export interface Sip010Asset {
   kind: "sip010" | "stx";
@@ -11,8 +11,6 @@ export interface Sip010Asset {
   contract: { testnet: string; mainnet?: string };
   sponsorFeeAtomic: bigint;
   demoBalanceAtomic: bigint;
-  /** True only when the currently deployed testnet router explicitly whitelists it. */
-  liveTestnet: boolean;
 }
 
 // UI and fee math consume this registry instead of branching on token symbols. Add a
@@ -33,7 +31,6 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     sponsorFeeAtomic: 200n,
     // Canonical public testnet sBTC contract used by the deployed sBTC router.
     demoBalanceAtomic: 250_000_000n,
-    liveTestnet: true,
   },
   {
     kind: "sip010",
@@ -50,22 +47,6 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     // The relayer's signed sponsor-policy response remains authoritative.
     sponsorFeeAtomic: 200_000n,
     demoBalanceAtomic: 2_500_000n,
-    liveTestnet: false,
-  },
-  {
-    kind: "sip010",
-    id: "mock",
-    symbol: "MOCK",
-    name: "Privara Mock Token",
-    decimals: 6,
-    icon: "M",
-    tone: "mint",
-    contract: {
-      testnet: "STXB1YYJ4253QA0N20F12ZEQVX02HN7QRW2TJXT0.mock-token",
-    },
-    sponsorFeeAtomic: 200n,
-    demoBalanceAtomic: 2_500_000n,
-    liveTestnet: false,
   },
   {
     kind: "stx",
@@ -81,7 +62,6 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     },
     sponsorFeeAtomic: 0n,
     demoBalanceAtomic: 0n,
-    liveTestnet: false,
   },
 ];
 

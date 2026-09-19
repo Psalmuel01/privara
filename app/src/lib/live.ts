@@ -421,24 +421,6 @@ export async function readStxBalance(address: string): Promise<bigint> {
   return BigInt(balances.stx.balance);
 }
 
-/** Testnet-only faucet call. MOCK's unrestricted mint function is never used on mainnet. */
-export async function mintMock(
-  config: PublicRelayerConfig,
-  address: string,
-  amount: bigint
-): Promise<string> {
-  if (NETWORK !== "testnet") throw new Error("MOCK minting is disabled on mainnet");
-  const result = await request("stx_callContract", {
-    address,
-    network: NETWORK,
-    contract: config.asset as `${string}.${string}`,
-    functionName: "mint",
-    functionArgs: [Cl.uint(amount), Cl.principal(address)],
-    postConditionMode: "allow",
-  });
-  return transactionId(result);
-}
-
 /** Fund exactly the configured router/asset pair before the signed settlement. */
 export async function depositAsset(
   config: PublicRelayerConfig,

@@ -8,13 +8,11 @@ import {
 } from "../app/src/lib/usd-price";
 
 const sbtc = SUPPORTED_ASSETS.find((asset) => asset.id === "sbtc")!;
-const mock = SUPPORTED_ASSETS.find((asset) => asset.id === "mock")!;
 const usdcx = SUPPORTED_ASSETS.find((asset) => asset.id === "usdcx")!;
 
 describe("sBTC USD display helpers", () => {
   it("uses an affordable sBTC default without depending on frontend network config", () => {
     expect(defaultTransferAmount(sbtc)).toBe("0.0001");
-    expect(defaultTransferAmount(mock)).toBe("1");
     expect(defaultTransferAmount(usdcx)).toBe("5");
   });
 
@@ -31,8 +29,7 @@ describe("sBTC USD display helpers", () => {
     expect(formatUsd(10)).toBe("$10.00");
   });
 
-  it("does not invent USD values for unsupported assets or absent prices", () => {
-    expect(atomicToUsd(1_000_000n, mock, 100_000)).toBeNull();
+  it("does not invent USD values when the Bitcoin price is absent", () => {
     expect(atomicToUsd(10_000n, sbtc, null)).toBeNull();
     expect(usdToAtomic(10, sbtc, null)).toBeNull();
   });

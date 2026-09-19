@@ -9,11 +9,18 @@ import {
 
 const sbtc = SUPPORTED_ASSETS.find((asset) => asset.id === "sbtc")!;
 const mock = SUPPORTED_ASSETS.find((asset) => asset.id === "mock")!;
+const usdcx = SUPPORTED_ASSETS.find((asset) => asset.id === "usdcx")!;
 
 describe("sBTC USD display helpers", () => {
   it("uses an affordable sBTC default without depending on frontend network config", () => {
     expect(defaultTransferAmount(sbtc)).toBe("0.0001");
     expect(defaultTransferAmount(mock)).toBe("1");
+    expect(defaultTransferAmount(usdcx)).toBe("5");
+  });
+
+  it("uses USDCx's nominal one-dollar unit without a market-data request", () => {
+    expect(atomicToUsd(12_500_000n, usdcx, null)).toBe(12.5);
+    expect(usdToAtomic(25, usdcx, null)).toBe(25_000_000n);
   });
 
   it("converts between exact sats and indicative USD values", () => {

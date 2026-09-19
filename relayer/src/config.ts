@@ -53,6 +53,10 @@ export function relayerConfigFromEnv(): RelayerConfig {
     process.env.PRIVARA_STX_ROUTER ?? `${coreAddress}.privara-stx-router-v1`,
     network
   );
+  const usdcxRouter = process.env.PRIVARA_USDCX_ROUTER?.trim();
+  const usdcxAsset = network === "mainnet"
+    ? "SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx"
+    : "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.usdcx";
   return {
     network,
     coreAddress,
@@ -79,5 +83,20 @@ export function relayerConfigFromEnv(): RelayerConfig {
     sponsorshipsPerWindow: positiveInteger("PRIVARA_SPONSOR_RATE_LIMIT", "10"),
     sponsorshipWindowMs: positiveInteger("PRIVARA_SPONSOR_RATE_WINDOW_MS", "60000"),
     stacksApiUrl: process.env.STACKS_API_URL,
+    // USDCx is opt-in until its dedicated router is deployed. Merely shipping this
+    // code never advertises or accepts USDCx against an unconfirmed contract.
+    additionalSip010Assets: usdcxRouter ? [{
+      id: "usdcx",
+      symbol: "USDCx",
+      decimals: 6,
+      routerContract: principalForNetwork("PRIVARA_USDCX_ROUTER", usdcxRouter, network),
+      assetContract: principalForNetwork("PRIVARA_USDCX_ASSET", process.env.PRIVARA_USDCX_ASSET ?? usdcxAsset, network),
+      tokenName: process.env.PRIVARA_USDCX_TOKEN_NAME ?? "usdcx-token",
+      // 0.20 USDCx is the provisional analogue of the current 200-sat sBTC fee;
+      // production can change this independently without changing either contract.
+      exactTokenSponsorFee: positiveBigInt("PRIVARA_USDCX_TOKEN_SPONSOR_FEE", "200000"),
+      maxIntentAmount: positiveBigInt("PRIVARA_USDCX_MAX_INTENT_AMOUNT", "1000000000000"),
+      maxSweepAmount: positiveBigInt("PRIVARA_USDCX_MAX_SWEEP_AMOUNT", "1000000000000"),
+    }] : [],
   };
 }

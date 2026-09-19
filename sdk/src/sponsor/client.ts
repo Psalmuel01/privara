@@ -92,10 +92,14 @@ async function responseJson<T>(response: Response): Promise<T> {
 
 export async function fetchSponsorPolicy(
   relayerEndpoint: string,
-  fetchFn: typeof fetch = fetch
+  fetchFn: typeof fetch = fetch,
+  assetContract?: string
 ): Promise<SponsorPolicyQuote> {
+  const path = assetContract
+    ? `/v1/stealth/sponsor-policy?asset=${encodeURIComponent(assetContract)}`
+    : "/v1/stealth/sponsor-policy";
   return responseJson<SponsorPolicyQuote>(
-    await fetchFn(endpoint(relayerEndpoint, "/v1/stealth/sponsor-policy"))
+    await fetchFn(endpoint(relayerEndpoint, path))
   );
 }
 
@@ -139,7 +143,7 @@ export async function prepareSponsoredSpend(
   options: SweepStealthOptions
 ): Promise<PreparedSponsoredSpend> {
   const fetchFn = options.fetchFn ?? fetch;
-  const policy = await fetchSponsorPolicy(options.endpoint, fetchFn);
+  const policy = await fetchSponsorPolicy(options.endpoint, fetchFn, options.assetContract);
   validatePolicy(options, policy);
   const sponsorFee = BigInt(policy.sponsorFee);
   const origin = getAddressFromPrivateKey(options.stealthPrivateKey, options.network);

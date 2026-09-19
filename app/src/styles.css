@@ -69,7 +69,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .coming-soon { display: flex; gap: 6px; align-items: center; margin-top: 5px; padding: 9px; border-top: 1px solid #edf0ed; color: #7d8782; font-size: 9px; }
 .asset-icon { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; color: white; background: var(--orange); font-size: 19px; font-weight: 700; }
 .asset-icon.small { width: 25px; height: 25px; font-size: 12px; }
-.asset-icon.mint { color: #17392c; background: var(--mint); }.asset-icon.violet { background: #7567d9; }
+.asset-icon.mint { color: #17392c; background: var(--mint); }.asset-icon.dollar { color: white; background: #2775ca; }.asset-icon.violet { background: #7567d9; }
 
 .page-title { display: flex; justify-content: space-between; align-items: flex-end; gap: 25px; padding: 44px 0 31px; }
 .page-title h1 { max-width: 710px; margin: 0; font-size: clamp(32px, 4.2vw, 52px); line-height: 1.03; letter-spacing: -.06em; }
@@ -388,6 +388,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .bitcoin-coming-soon h3 { margin: 13px 0 7px; font-size: 18px; letter-spacing: -.035em; }
 .bitcoin-coming-soon > p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
 .bitcoin-coming-soon .info-box { margin-bottom: 0; background: #eaf4e6; }
+.asset-usdcx .spend-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.asset-usdcx .spend-actions .future-action { display: none; }
 .coming-soon-badge { display: inline-flex; padding: 5px 8px; color: #355d43; border-radius: 999px; background: #e3f3dc; font-size: 7px; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
 .amount-error { color: #9a4d35; }
 .amount-input.invalid { border-color: #d98b72; box-shadow: 0 0 0 3px rgb(154 77 53 / 8%); }

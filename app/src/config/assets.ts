@@ -1,4 +1,4 @@
-export type AssetTone = "bitcoin" | "mint" | "violet";
+export type AssetTone = "bitcoin" | "dollar" | "mint" | "violet";
 
 export interface Sip010Asset {
   kind: "sip010" | "stx";
@@ -34,6 +34,23 @@ export const SUPPORTED_ASSETS: Sip010Asset[] = [
     // Canonical public testnet sBTC contract used by the deployed sBTC router.
     demoBalanceAtomic: 250_000_000n,
     liveTestnet: true,
+  },
+  {
+    kind: "sip010",
+    id: "usdcx",
+    symbol: "USDCx",
+    name: "USD Coin on Stacks",
+    decimals: 6,
+    icon: "$",
+    tone: "dollar",
+    contract: {
+      testnet: "ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM.usdcx",
+      mainnet: "SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx",
+    },
+    // The relayer's signed sponsor-policy response remains authoritative.
+    sponsorFeeAtomic: 200_000n,
+    demoBalanceAtomic: 2_500_000n,
+    liveTestnet: false,
   },
   {
     kind: "sip010",

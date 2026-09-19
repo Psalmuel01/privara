@@ -56,6 +56,44 @@ export interface RelayerConfig {
   sponsorshipsPerWindow: number;
   sponsorshipWindowMs: number;
   stacksApiUrl?: string;
+  /** Additional SIP-010 assets served by this process. The legacy top-level fields
+   * remain the primary policy so existing deployments and clients stay compatible. */
+  additionalSip010Assets?: Sip010AssetPolicy[];
+}
+
+export interface Sip010AssetPolicy {
+  id: string;
+  symbol: string;
+  decimals: number;
+  routerContract: string;
+  assetContract: string;
+  tokenName: string;
+  exactTokenSponsorFee: bigint;
+  maxIntentAmount: bigint;
+  maxSweepAmount: bigint;
+}
+
+export function sip010AssetPolicies(config: RelayerConfig): Sip010AssetPolicy[] {
+  return [
+    {
+      id: config.assetContract.endsWith(".sbtc-token") ? "sbtc" : "primary",
+      symbol: config.assetContract.endsWith(".sbtc-token") ? "sBTC" : config.tokenName,
+      decimals: config.assetContract.endsWith(".sbtc-token") ? 8 : 6,
+      routerContract: config.routerContract,
+      assetContract: config.assetContract,
+      tokenName: config.tokenName,
+      exactTokenSponsorFee: config.exactTokenSponsorFee,
+      maxIntentAmount: config.maxIntentAmount,
+      maxSweepAmount: config.maxSweepAmount,
+    },
+    ...(config.additionalSip010Assets ?? []),
+  ];
+}
+
+function policyForAsset(config: RelayerConfig, asset: string): Sip010AssetPolicy {
+  const policy = sip010AssetPolicies(config).find((candidate) => candidate.assetContract === asset);
+  if (!policy) throw new RelayerError("intent asset is not allowed");
+  return policy;
 }
 
 export interface SettlementEnvelope {
@@ -145,11 +183,12 @@ export async function findKnownStealthOrigin(
   onInvalid: Parameters<typeof fetchAnnouncementPage>[0]["onInvalid"] = (metadata) =>
     console.warn("Skipped invalid public announcement", metadata)
 ): Promise<boolean> {
+  const policy = policyForAsset(config, asset);
   let cursor: string | undefined;
   for (let pageNumber = 0; pageNumber < 100; pageNumber++) {
     const page = await fetchAnnouncementPage({
       apiUrl: networkFor(config).client.baseUrl,
-      router: config.routerContract,
+      router: policy.routerContract,
       cursor,
       limit: 100,
       fetcher,
@@ -279,7 +318,8 @@ export function validateStealthSettlementEnvelope(
   envelope: PrivateIntentEnvelope,
   config: RelayerConfig,
   expectedAsset = config.assetContract,
-  signingRouter = config.routerContract
+  signingRouter = config.routerContract,
+  maxIntentAmount = config.maxIntentAmount
 ): ValidatedStealthSettlement {
   if (!envelope || envelope.kind !== "stealth") {
     throw new RelayerError("stealth settlement envelope is required");
@@ -296,8 +336,8 @@ export function validateStealthSettlementEnvelope(
   const amount = integer(envelope.amount, "amount");
   const relayerFee = integer(envelope.relayerFee, "relayerFee");
   const nonce = integer(envelope.nonce, "nonce");
-  if (amount <= 0n || amount > config.maxIntentAmount) {
-    throw new RelayerError(`amount exceeds relayer maximum ${config.maxIntentAmount}`);
+  if (amount <= 0n || amount > maxIntentAmount) {
+    throw new RelayerError(`amount exceeds relayer maximum ${maxIntentAmount}`);
   }
   if (relayerFee >= amount) throw new RelayerError("relayerFee must be less than amount");
   if (relayerFee > maximumFee(amount, config.maxRelayerFeeBps)) {
@@ -466,7 +506,14 @@ export class PrivaraRelayerService {
   private async settleStealthIntent(
     envelope: PrivateIntentEnvelope
   ): Promise<RelayerResult> {
-    const validated = validateStealthSettlementEnvelope(envelope, this.config);
+    const policy = policyForAsset(this.config, envelope.asset);
+    const validated = validateStealthSettlementEnvelope(
+      envelope,
+      this.config,
+      policy.assetContract,
+      policy.routerContract,
+      policy.maxIntentAmount
+    );
     let tip: number;
     try {
       tip = await this.dependencies.blockHeight(networkFor(this.config).client.baseUrl);
@@ -477,7 +524,7 @@ export class PrivaraRelayerService {
       throw new RelayerError("intent has expired", 409, "intent_expired");
     }
     const { intent, announcement } = validated;
-    const [routerAddress, routerName] = splitContractPrincipal(this.config.routerContract);
+    const [routerAddress, routerName] = splitContractPrincipal(policy.routerContract);
     const transaction = await makeContractCall({
       contractAddress: routerAddress,
       contractName: routerName,
@@ -577,24 +624,37 @@ export class PrivaraRelayerService {
     } catch {
       throw new RelayerError("originSignedTransaction could not be decoded");
     }
-    let validated: ReturnType<typeof validateSponsoredSpend>;
-    try {
-      validated = validateSponsoredSpend(transaction, {
-        network: this.config.network,
-        spendContract: this.config.spendContract,
-        assetContract: this.config.assetContract,
-        tokenName: this.config.tokenName,
-        feeRecipient: this.config.feeRecipient,
-        exactSponsorFee: this.config.exactTokenSponsorFee,
-        sponsorAddress: getAddressFromPrivateKey(
-          this.config.sponsorPrivateKey,
-          this.config.network
-        ),
-        maxPaymentAmount: this.config.maxSweepAmount,
-        maxTransactionBytes: this.config.maxTransactionBytes,
-      });
-    } catch (error) {
-      throw new RelayerError(error instanceof Error ? error.message : "sweep policy rejected");
+    let validated: ReturnType<typeof validateSponsoredSpend> | undefined;
+    let lastPolicyError: unknown;
+    for (const policy of sip010AssetPolicies(this.config)) {
+      try {
+        validated = validateSponsoredSpend(transaction, {
+          network: this.config.network,
+          spendContract: this.config.spendContract,
+          assetContract: policy.assetContract,
+          tokenName: policy.tokenName,
+          feeRecipient: this.config.feeRecipient,
+          exactSponsorFee: policy.exactTokenSponsorFee,
+          sponsorAddress: getAddressFromPrivateKey(
+            this.config.sponsorPrivateKey,
+            this.config.network
+          ),
+          maxPaymentAmount: policy.maxSweepAmount,
+          maxTransactionBytes: this.config.maxTransactionBytes,
+        });
+        break;
+      } catch (error) {
+        // Keep the informative error from the policy matching the transaction asset;
+        // later non-matching policies should not replace it with a generic asset error.
+        if (
+          !(error instanceof Error) ||
+          error.message !== "spend asset is not allowed" ||
+          lastPolicyError === undefined
+        ) lastPolicyError = error;
+      }
+    }
+    if (!validated) {
+      throw new RelayerError(lastPolicyError instanceof Error ? lastPolicyError.message : "sweep policy rejected");
     }
     // Sponsorship is reserved for addresses created by confirmed Privara settlements;
     // otherwise this endpoint would become a public free-STX relay for arbitrary users.
@@ -661,20 +721,21 @@ export class PrivaraRelayerService {
     }
   }
 
-  sponsorPolicy() {
+  sponsorPolicy(asset = this.config.assetContract) {
+    const policy = policyForAsset(this.config, asset);
     return {
       version: 1,
       network: this.config.network,
       spendContract: this.config.spendContract,
-      asset: this.config.assetContract,
-      tokenName: this.config.tokenName,
+      asset: policy.assetContract,
+      tokenName: policy.tokenName,
       feeRecipient: this.config.feeRecipient,
       sponsorAddress: getAddressFromPrivateKey(
         this.config.sponsorPrivateKey,
         this.config.network
       ),
-      sponsorFee: this.config.exactTokenSponsorFee.toString(),
-      maxPaymentAmount: this.config.maxSweepAmount.toString(),
+      sponsorFee: policy.exactTokenSponsorFee.toString(),
+      maxPaymentAmount: policy.maxSweepAmount.toString(),
       maxStacksNetworkFee: this.config.maxSponsorFee.toString(),
     };
   }

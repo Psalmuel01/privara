@@ -6,8 +6,8 @@ The reference service exposes the two Milestone 2 relayer operations:
   announcement-bound M2 private intent (`kind: "stealth"`).
 - `POST /v1/stealth/sponsor` validates an origin-signed stealth transfer, adds the
   sponsor authorization, and broadcasts it.
-- `GET /v1/stealth/sponsor-policy` returns the exact token fee and treasury the client
-  must display and sign.
+- `GET /v1/stealth/sponsor-policy?asset=<contract>` returns the exact fee and treasury
+  for the selected SIP-010 asset; the client must display and sign that exact quote.
 - `GET /v1/config` returns the public network, contracts, relayer address, asset, and
   settlement fee configuration consumed by the React app.
 
@@ -121,6 +121,10 @@ without interrupting exact sBTC payment and sponsored-spend endpoints.
 | `PRIVARA_SPEND_CONTRACT` | `<core>.privara-sponsored-spend-v2` | Sponsor-bound atomic payment + fee helper |
 | `PRIVARA_SPONSOR_FEE_RECIPIENT` | required | Token-fee treasury; separate from signer |
 | `PRIVARA_TOKEN_SPONSOR_FEE` | `200` | Exact token service fee in atomic units |
+| `PRIVARA_USDCX_ROUTER` | unset | Enables the separately deployed USDCx router/policy |
+| `PRIVARA_USDCX_ASSET` | canonical network USDCx | Exact official SIP-010 contract |
+| `PRIVARA_USDCX_TOKEN_SPONSOR_FEE` | `200000` | Provisional `0.20 USDCx` sponsored-spend fee |
+| `PRIVARA_USDCX_MAX_INTENT_AMOUNT` | `1000000000000` | Maximum USDCx settlement amount (6 decimals) |
 | `PRIVARA_MAX_SPONSOR_TX_BYTES` | `4096` | Serialized sponsored-request limit |
 | `PRIVARA_SPONSOR_RATE_LIMIT` | `10` | Sponsorships per one-time origin per window |
 | `PRIVARA_SPONSOR_RATE_WINDOW_MS` | `60000` | In-memory rate-limit window |

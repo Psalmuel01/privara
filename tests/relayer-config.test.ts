@@ -31,4 +31,19 @@ describe("relayer network isolation", () => {
     vi.stubEnv("PRIVARA_ASSET", "ST000000000000000000002AMW42H.mock-token");
     expect(() => relayerConfigFromEnv()).toThrow("not a Stacks mainnet principal");
   });
+
+  it("enables canonical USDCx only when its dedicated router is configured", () => {
+    mainnetEnv();
+    expect(relayerConfigFromEnv().additionalSip010Assets).toEqual([]);
+    vi.stubEnv("PRIVARA_USDCX_ROUTER", `${MAINNET_CORE}.privara-router-m2-usdcx`);
+    const [usdcx] = relayerConfigFromEnv().additionalSip010Assets!;
+    expect(usdcx).toMatchObject({
+      id: "usdcx",
+      routerContract: `${MAINNET_CORE}.privara-router-m2-usdcx`,
+      assetContract: "SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx",
+      tokenName: "usdcx-token",
+      decimals: 6,
+      exactTokenSponsorFee: 200_000n,
+    });
+  });
 });

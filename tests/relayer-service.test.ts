@@ -31,6 +31,8 @@ const USER_KEY = "4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f3f2f1f0f9f8f7f6f5f4f
 const ORIGIN_KEY = "0101010101010101010101010101010101010101010101010101010101010101";
 const DESTINATION = "ST1SJ3DTE5DN7X54YDH5D64R3BCB6A2AG2ZQ8YPD5";
 const TREASURY = "ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG";
+const USDCX = `${CORE}.usdcx`;
+const USDCX_ROUTER = `${CORE}.privara-router-m2-usdcx`;
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -106,6 +108,25 @@ describe("reference relayer service", () => {
       feeRecipient: TREASURY,
       sponsorFee: "100",
       maxStacksNetworkFee: "10000",
+    });
+  });
+
+  it("selects an independent sponsor policy for an additional SIP-010 asset", () => {
+    const multiAsset = {
+      ...config,
+      additionalSip010Assets: [{
+        id: "usdcx", symbol: "USDCx", decimals: 6,
+        routerContract: USDCX_ROUTER, assetContract: USDCX, tokenName: "usdcx-token",
+        exactTokenSponsorFee: 1_000n, maxIntentAmount: 1_000_000_000n,
+        maxSweepAmount: 1_000_000_000n,
+      }],
+    };
+    const policy = new PrivaraRelayerService(multiAsset, fakeDependencies()).sponsorPolicy(USDCX);
+    expect(policy).toMatchObject({
+      asset: USDCX,
+      tokenName: "usdcx-token",
+      sponsorFee: "1000",
+      maxPaymentAmount: "1000000000",
     });
   });
 
@@ -224,6 +245,40 @@ describe("reference relayer service", () => {
     const dependencies = fakeDependencies();
     await expect(new PrivaraRelayerService(config, dependencies).settleStxIntent(envelope)).resolves.toMatchObject({ status: "broadcast" });
     expect(dependencies.broadcast).toHaveBeenCalledOnce();
+  });
+
+  it("validates an additional SIP-010 intent against that asset's own router domain", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/fees/transaction")) return { ok: true, json: async () => ({ estimations: [{ fee: 500, fee_rate: 1 }, { fee: 1_000, fee_rate: 2 }, { fee: 2_000, fee_rate: 4 }] }) } as Response;
+      if (url.includes("/nonces")) return { ok: true, json: async () => ({ possible_next_nonce: 0 }) } as Response;
+      throw new Error(`unexpected fetch in USDCx relayer test: ${url}`);
+    }));
+    const multiAsset = {
+      ...config,
+      additionalSip010Assets: [{
+        id: "usdcx", symbol: "USDCx", decimals: 6,
+        routerContract: USDCX_ROUTER, assetContract: USDCX, tokenName: "usdcx-token",
+        exactTokenSponsorFee: 1_000n, maxIntentAmount: 1_000_000_000n,
+        maxSweepAmount: 1_000_000_000n,
+      }],
+    };
+    const identity = identityFromSeed(new Uint8Array(32).fill(13));
+    const created = await createPrivateIntent({
+      registry: `${CORE}.privara-stealth-registry`, recipient: DESTINATION,
+      recipientKeys: { spendingPublicKey: identity.spendingPublicKey, viewingPublicKey: identity.viewingPublicKey, epoch: 4n },
+      network: "testnet", router: USDCX_ROUTER, asset: USDCX,
+      relayer: getAddressFromPrivateKey(RELAYER_KEY, "testnet"), enteredAmount: 5_000_000n,
+      settlementFeeBps: 100n, feeMode: "added", expiry: 999_999, nonce: 99n,
+      payerPrivateKey: USER_KEY, ephemeralPrivateKey: new Uint8Array(32).fill(14),
+    });
+    const envelope = privateIntentEnvelope(created, "testnet");
+    const dependencies = fakeDependencies();
+    await expect(new PrivaraRelayerService(multiAsset, dependencies).settleIntent(envelope))
+      .resolves.toMatchObject({ status: "broadcast" });
+    expect(dependencies.broadcast).toHaveBeenCalledOnce();
+    await expect(new PrivaraRelayerService(config, fakeDependencies()).settleIntent(envelope))
+      .rejects.toThrow("intent asset is not allowed");
   });
 
   it("validates, sponsors, and broadcasts an origin-signed sweep", async () => {

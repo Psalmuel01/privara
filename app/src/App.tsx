@@ -52,6 +52,7 @@ import {
   RELAYER_URL,
   STACKS_API_URL,
   connectWallet,
+  configForSip010Asset,
   createPrivacyIdentity,
   depositAsset,
   disconnectWallet,
@@ -131,7 +132,9 @@ function FiatEstimate({ amount, asset, className = "" }: {
   if (value === null) return null;
   return <span
     className={`fiat-estimate ${className}`.trim()}
-    title={`Indicative ${quote!.source} BTC/USD price; display only`}
+    title={asset.id === "usdcx"
+      ? "Nominal USDCx dollar value; market value may vary"
+      : `Indicative ${quote!.source} BTC/USD price; display only`}
   >≈ {formatUsd(value)}</span>;
 }
 
@@ -175,6 +178,9 @@ export default function App() {
   const [usdQuote, setUsdQuote] = useState<BitcoinUsdQuote | null>(null);
   const configErrorNotified = useRef(false);
   const asset = SUPPORTED_ASSETS.find((item) => item.id === assetId)!;
+  const activeConfig = useMemo(() => config && asset.kind === "sip010"
+    ? configForSip010Asset(config, assetContract(asset)!)
+    : config, [config, asset]);
 
   // Keep the public guide shareable without introducing a routing dependency for this
   // small single-page app. Vercel rewrites /guide to index.html, and history handles
@@ -237,10 +243,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!config || !walletAddress) return;
-    const balance = readRouterDeposit(config, walletAddress, asset.kind === "stx");
+    if (!activeConfig || !walletAddress) return;
+    const balance = readRouterDeposit(activeConfig, walletAddress, asset.kind === "stx");
     void balance.then(setDeposit).catch(() => setDeposit(0n));
-  }, [config, walletAddress, asset.kind]);
+  }, [activeConfig, walletAddress, asset.kind]);
 
   useEffect(() => {
     setPayments([]);
@@ -276,7 +282,7 @@ export default function App() {
 
   return (
     <UsdQuoteContext.Provider value={usdQuote}>
-    <div className="app-shell">
+    <div className={`app-shell asset-${asset.id}`}>
       <aside className="sidebar">
         <button className="brand" onClick={() => navigate("overview")} aria-label="Privara overview" disabled={batchProcessing}>
           <span className="brand-mark">P</span><span>privara</span>
@@ -310,9 +316,9 @@ export default function App() {
               {assetMenu && <div className="asset-menu">
                 <span className="menu-label">Private payment assets</span>
                 {SUPPORTED_ASSETS.map((item) => (
-                  <button key={item.id} disabled={item.kind !== "stx" && assetContract(item) !== config?.asset} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
+                  <button key={item.id} disabled={item.kind !== "stx" && (!config || !configForSip010Asset(config, assetContract(item)!))} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
                     <AssetIcon asset={item} small />
-                    <span><strong>{item.symbol}</strong><small>{item.kind === "stx" ? "Native STX router" : assetContract(item) === config?.asset ? "Live on current router" : "Not served by this relayer"}</small></span>
+                    <span><strong>{item.symbol}</strong><small>{item.kind === "stx" ? "Native STX router" : config && configForSip010Asset(config, assetContract(item)!) ? "Live on current router" : "Not served by this relayer"}</small></span>
                     {assetId === item.id && <Check size={15} />}
                   </button>
                 ))}
@@ -333,16 +339,16 @@ export default function App() {
         {(notice || configError) && <NoticeBar notice={notice ?? { kind: "error", message: `Relayer unavailable: ${configError}` }} clear={() => notice ? setNotice(null) : setConfigError(null)} />}
 
         {view === "overview" && <Overview asset={asset} wallet={walletAddress} identity={identity} deposit={deposit} payments={payments} go={navigate} openSpend={(payment) => setSelectedPayment(payment)} connect={connect} />}
-        {view === "send" && <SendPrivate asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onDone={() => setView("activity")} />}
-        {view === "receive" && <ReceiveAndScan asset={asset} config={config} wallet={walletAddress} identity={identity} setIdentity={setIdentity} payments={payments} setPayments={setPayments} notify={setNotice} connect={connect} openSpend={setSelectedPayment} />}
+        {view === "send" && <SendPrivate asset={asset} config={activeConfig} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onDone={() => setView("activity")} />}
+        {view === "receive" && <ReceiveAndScan asset={asset} config={activeConfig} wallet={walletAddress} identity={identity} setIdentity={setIdentity} payments={payments} setPayments={setPayments} notify={setNotice} connect={connect} openSpend={setSelectedPayment} />}
         {view === "activity" && <ActivityView asset={asset} payments={payments} />}
         {view === "payouts" && (asset.kind === "stx"
           ? <><PageTitle eyebrow="Teams & DAOs" title="STX batch payouts are not enabled yet." copy="The native STX router supports individual private sends only. Switch to sBTC for the existing contributor batch workflow." /><section className="panel empty-state"><Users size={28} /><h2>Use individual private STX payments</h2><p>This release adds no new batch protocol. Send each STX payment from Send privately, or select sBTC for DAO payouts.</p><button className="primary-action" onClick={() => navigate("send")}>Send STX privately</button></section></>
-          : <Payouts asset={asset} config={config} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onProcessingChange={setBatchProcessing} />)}
-        {view === "guide" && <PrivaraGuide asset={asset} config={config} />}
+          : <Payouts asset={asset} config={activeConfig} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onProcessingChange={setBatchProcessing} />)}
+        {view === "guide" && <PrivaraGuide asset={asset} config={activeConfig} />}
       </main>
 
-      {selectedPayment && config && walletAddress && (asset.kind === "stx" ?
+      {selectedPayment && activeConfig && walletAddress && (asset.kind === "stx" ?
         <StxSpend
           asset={asset}
           payment={selectedPayment}
@@ -357,7 +363,7 @@ export default function App() {
           }}
         /> : <SponsoredSpend
           asset={asset}
-          config={config}
+          config={activeConfig}
           payment={selectedPayment}
           payments={payments.filter((payment) => payment.balance > 0n)}
           close={() => setSelectedPayment(null)}
@@ -581,7 +587,7 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
         {stage === "edit" ? <>
           <label className="field-label">Recipient’s Stacks address or BNS name</label><div className="address-input"><input value={recipient} onChange={(event) => setRecipient(event.target.value.trim())} placeholder={NETWORK === "mainnet" ? "SP… or name.btc" : "ST…"} disabled={funding !== null} />{route !== "idle" && <span className={`resolved ${route === "missing" ? "missing" : ""}`}>{route === "checking" ? "Checking…" : route === "found" ? <><CircleCheck size={14} /> Ready to receive</> : "Not registered"}</span>}</div>{resolvedRecipient?.bnsName && route === "found" && <small className="field-help">{resolvedRecipient.bnsName} resolves to {short(resolvedRecipient.address, 10, 8)}. This exact address will be pinned for review.</small>}
           <label className="field-label">Amount recipient should receive</label><div className={`amount-input ${exceedsAvailable ? "invalid" : ""}`}><input inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} disabled={funding !== null} aria-invalid={exceedsAvailable} /><span className="amount-asset"><AssetIcon asset={asset} small /> {asset.symbol}</span></div>
-          {usdQuote && asset.id === "sbtc" && <div className="fiat-tools"><div><FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /><span>CoinGecko estimate</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={funding !== null}>${usd}</button>)}</div></div>}
+          {(asset.id === "usdcx" || (usdQuote && asset.id === "sbtc")) && <div className="fiat-tools"><div><FiatEstimate amount={quote?.recipientAmount ?? 0n} asset={asset} /><span>{asset.id === "usdcx" ? "USDCx nominal value" : "CoinGecko estimate"}</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={funding !== null}>${usd}</button>)}</div></div>}
           <div className={`transfer-maximum ${exceedsAvailable ? "invalid" : ""}`}><span>{availableBalance === null ? "Checking available balance…" : <>{formatUnits(availableBalance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={availableBalance} asset={asset} /> available across your wallet and Privara balance</>}</span><button type="button" onClick={() => maximumAmount !== null && setAmount(formatUnits(maximumAmount, asset.decimals, asset.decimals))} disabled={maximumAmount === null || maximumAmount === 0n || funding !== null}>Use max · {maximumAmount === null ? "—" : formatUnits(maximumAmount, asset.decimals, asset.decimals)} {asset.symbol}</button></div>
           <div className="fee-choice"><button className={feeMode === "added" ? "selected" : ""} onClick={() => setFeeMode("added")} disabled={funding !== null}><span>{feeMode === "added" && <Check size={12} />}</span><div><strong>Add fee on top</strong><small>Recipient receives exactly {amount || "0"} {asset.symbol}</small></div><em>Recommended</em></button><button className={feeMode === "included" ? "selected" : ""} onClick={() => setFeeMode("included")} disabled={funding !== null}><span>{feeMode === "included" && <Check size={12} />}</span><div><strong>Include fee in amount</strong><small>Settlement fee comes out of the entered amount</small></div></button></div>
           {shortfall > 0n && wallet && <div className="funding-note"><Wallet size={16} /><p><strong>One router funding approval needed</strong><span>Privara will request exactly {format(shortfall)} {asset.symbol}, wait for confirmation, and continue automatically.</span></p></div>}
@@ -1211,11 +1217,11 @@ function PrivaraGuide({ asset, config }: { asset: Sip010Asset; config: PublicRel
     <div className="guide-layout">
       <aside className="panel guide-contents"><span className="eyebrow">On this page</span><a href="#guide-overview">Overview</a><a href="#guide-receive">Receive privately</a><a href="#guide-send">Send privately</a><a href="#guide-dao">DAO payouts</a><a href="#guide-fees">Fees and approvals</a><a href="#guide-keys">Keys and recovery</a><a href="#guide-chain">Onchain visibility</a><a href="#guide-limits">Wallet hygiene</a></aside>
       <article className="panel guide-document">
-        <section id="guide-overview"><span className="guide-number">01</span><div><h2>What Privara does</h2><p>Privara routes sBTC or native STX to a fresh one-time Stacks address derived for a registered recipient. The settlement destination does not reveal that recipient’s long-term wallet address.</p><div className="guide-callout"><LockKeyhole size={18} /><p><strong>Recipient privacy by default.</strong> Every private payment uses a fresh settlement address, keeping the recipient’s long-term wallet out of the payment destination. Good wallet habits help preserve that separation when the funds are later spent.</p></div></div></section>
+        <section id="guide-overview"><span className="guide-number">01</span><div><h2>What Privara does</h2><p>Privara routes supported SIP-010 assets or native STX to a fresh one-time Stacks address derived for a registered recipient. sBTC is live; USDCx appears only after its dedicated router and relayer policy are enabled. The settlement destination does not reveal that recipient’s long-term wallet address.</p><div className="guide-callout"><LockKeyhole size={18} /><p><strong>Recipient privacy by default.</strong> Every private payment uses a fresh settlement address, keeping the recipient’s long-term wallet out of the payment destination. Good wallet habits help preserve that separation when the funds are later spent.</p></div></div></section>
         <section id="guide-receive"><span className="guide-number">02</span><div><h2>Receive privately</h2><ol><li>Create an independent Privara privacy identity.</li><li>Download its encrypted JSON backup and successfully restore-verify that exact backup.</li><li>Use your connected wallet to register only the public spending and viewing keys—P and V—onchain.</li><li>Share your normal registered Stacks address with the sender.</li><li>Unlock your backup and scan announcements to discover balances belonging to your one-time addresses.</li></ol><p>Your privacy seed, private spending key, private viewing key, and derived one-time private keys stay in your browser session. Leather, Xverse, and hardware wallets cannot recover them.</p></div></section>
         <section id="guide-send"><span className="guide-number">03</span><div><h2>Send privately</h2><ol><li>Enter the recipient’s registered Stacks address or BNS name. A BNS name is resolved to an exact mainnet address before Privara checks its public P/V registration.</li><li>Enter what the recipient should receive and choose whether the settlement fee is added on top or included in that amount.</li><li>For either sBTC or STX, Privara funds only the exact shortfall in that asset’s router.</li><li>Review the resolved address, recipient amount, fee, and total. A BNS ownership change before signing cancels the payment and requires a fresh review.</li><li>The relayer settlement pays the newly derived one-time address and publishes its encrypted announcement atomically.</li></ol></div></section>
         <section id="guide-dao"><span className="guide-number">04</span><div><h2>DAO and contributor payouts</h2><p>Add contributors manually or import a CSV with <code>name,address,amount</code>. Each address is checked independently for registered P/V keys. Privara presents aggregate totals, requests at most one combined funding transaction, and then requests one exact signature per contributor.</p><p>Each payout remains an independent settlement with its own nonce, encrypted announcement, one-time address, fee, and transaction ID. Processing stops after an uncertain failure so the treasury can inspect the transaction before attempting another payment.</p></div></section>
-        <section id="guide-fees"><span className="guide-number">05</span><div><h2>Fees and wallet approvals</h2><dl><div><dt>Settlement fee</dt><dd>{settlementFee}. The sender chooses whether it is added to or deducted from the entered amount.</dd></div><div><dt>sBTC sponsored spending</dt><dd>Currently {sponsoredFee}. It is quoted before confirmation and signed with the destination and payment amount.</dd></div><div><dt>Native STX spending</dt><dd>The one-time address already holds the network fee asset, so it pays its own exact network fee. No sponsor fee is charged. Move all subtracts the approved network fee automatically.</dd></div></dl><p>Both sBTC and STX private payments use separate routers and relayer-submitted settlements. The sender pays the router-funding transaction fee; the relayer pays the settlement network fee.</p></div></section>
+        <section id="guide-fees"><span className="guide-number">05</span><div><h2>Fees and wallet approvals</h2><dl><div><dt>Settlement fee</dt><dd>{settlementFee}. The sender chooses whether it is added to or deducted from the entered amount.</dd></div><div><dt>{asset.symbol} sponsored spending</dt><dd>Currently {sponsoredFee}. It is quoted before confirmation and signed with the destination and payment amount.</dd></div><div><dt>Native STX spending</dt><dd>The one-time address already holds the network fee asset, so it pays its own exact network fee. No sponsor fee is charged. Move all subtracts the approved network fee automatically.</dd></div></dl><p>Each asset uses its own router policy and relayer-submitted settlement. The sender pays the router-funding transaction fee; the relayer pays the settlement network fee.</p></div></section>
         <section id="guide-keys"><span className="guide-number">06</span><div><h2>Keys and recovery</h2><dl><div><dt>P and V</dt><dd>Public spending and viewing keys registered to your normal wallet so senders can derive payments.</dd></div><div><dt>p and v</dt><dd>Private keys derived from the independent privacy seed. They are not published or shown during normal use.</dd></div><div><dt>Ephemeral public key</dt><dd>A sender-generated public key published with one encrypted announcement so the recipient can detect that payment.</dd></div><div><dt>One-time key</dt><dd>The private key derived locally by the recipient for spending from one particular stealth address.</dd></div></dl><div className="guide-callout warning"><TriangleAlert size={18} /><p><strong>The encrypted backup is essential.</strong> Losing both the backup or its password can permanently remove access to stealth funds. A connected wallet seed cannot reconstruct the Privara privacy identity.</p></div></div></section>
         <section id="guide-chain"><span className="guide-number">07</span><div><h2>What goes onchain</h2><ul><li>The recipient’s public P/V registration.</li><li>Router funding transactions and the payer’s interaction with Privara.</li><li>The token, amount, relayer fee, fresh settlement destination, nonce, and expiry.</li><li>The ephemeral public key and encrypted payment announcement.</li><li>Later transfers or withdrawals from one-time addresses.</li></ul><p>The privacy seed, p, v, backup password, decrypted note, and one-time private spending key do not go onchain.</p></div></section>
         <section id="guide-limits"><span className="guide-number">08</span><div><h2>Spending, withdrawals, and wallet hygiene</h2><p>Privara creates the one-time address automatically. How you use its balance afterward also matters:</p><ul><li><strong>Pay directly when possible.</strong> A one-time address is already a spendable Stacks account. Paying the intended person or merchant from it avoids an unnecessary intermediate transfer.</li><li><strong>Move to another Stacks address when needed.</strong> A fresh self-custody address can help with wallet access or operational separation, but it is not a privacy reset. The transfer remains visible and may be correlated through timing, amounts, consolidation, or later activity.</li><li><strong>Do not default to your public wallet.</strong> Moving funds to the long-term wallet registered with Privara creates a direct onchain link and is discouraged when separation matters.</li><li><strong>BTC conversion is coming.</strong> Privara plans to integrate the official sBTC withdrawal protocol so a one-time key can authorize conversion to BTC for a chosen Bitcoin destination, including a compatible exchange deposit address. The key will continue to sign locally; Privara will facilitate the request rather than take custody of the funds.</li><li>Until that integration is available, this app accepts only Stacks <code>SP…</code> destinations for spending. Do not enter a Bitcoin <code>bc1…</code> address or send sBTC to an exchange unless it explicitly supports the official token on the Stacks network.</li><li>Treat every one-time address as a separate balance and do not deliberately reuse it for another private payment.</li><li>Avoid combining several one-time balances into one transaction or destination, because consolidation can suggest common ownership.</li><li>Be mindful of distinctive amounts and immediate withdrawals. Changing timing or amounts may reduce simple correlation, but it is not a cryptographic guarantee.</li><li>Keep your encrypted privacy backup separate from your everyday wallet backup and store its password safely. Leather, Xverse, and hardware wallets cannot recover it.</li></ul><div className="guide-callout"><Info size={18} /><p><strong>Planned Bitcoin off-ramp.</strong> Direct sBTC deposits are not broadly supported by centralized exchanges today. The planned flow will use the official sBTC peg-out to deliver BTC to a user-selected Bitcoin address instead.</p></div><p>Privara protects the recipient’s long-term wallet from appearing as the settlement destination. Amounts and payer activity remain visible onchain, while RPC providers, relayers, browsers, and network observers may still observe connection metadata.</p><p>This application operates on Stacks {NETWORK}. {NETWORK === "testnet" ? "Testnet assets have no real monetary value, but backups and transaction habits should still be treated carefully." : "Mainnet transactions use real assets and are irreversible; verify every address, amount, and fee before signing."}</p></div></section>

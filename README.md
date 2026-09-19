@@ -251,9 +251,11 @@ Milestone 2 completion gate. Use only small amounts while validation continues.
 | Deployer | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE` |
 | Stealth registry | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stealth-registry` |
 | sBTC router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc` |
+| USDCx router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-usdcx` |
 | Sponsored-spend helper | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2` |
 | Native-STX router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1` |
 | Official sBTC | `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` |
+| Official USDCx | `SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx` |
 | Relayer | `SP25K47CGNDNT2KYNS1WB10ZFFRQBY0KDSV11PNW9` |
 | Sponsor and fee recipient | `SP2EN3FBV0VY4SMYH0JXE3N6QE9ASAHGD2YNJRMXX` |
 

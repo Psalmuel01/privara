@@ -6,6 +6,7 @@ import { relayerConfigFromEnv } from "./config";
 import {
   PrivaraRelayerService,
   RelayerError,
+  sip010AssetPolicies,
   type SettlementEnvelope,
   type SweepRequest,
 } from "./service";
@@ -83,7 +84,8 @@ export function createRelayerHttpServer(
         respond(response, 200, { ok: true, network: service.config.network }, corsOrigin);
         return;
       }
-      if (request.method === "GET" && request.url === "/v1/config") {
+      const requestUrl = new URL(request.url ?? "/", "http://relayer.local");
+      if (request.method === "GET" && requestUrl.pathname === "/v1/config") {
         respond(response, 200, {
           version: 1,
           network: service.config.network,
@@ -101,10 +103,20 @@ export function createRelayerHttpServer(
           sponsorFee: service.config.exactTokenSponsorFee.toString(),
           feeRecipient: service.config.feeRecipient,
           stxRouter: service.config.stxRouterContract ?? `${service.config.coreAddress}.privara-stx-router-v1`,
+          assets: sip010AssetPolicies(service.config).map((policy) => ({
+            id: policy.id,
+            symbol: policy.symbol,
+            decimals: policy.decimals,
+            router: policy.routerContract,
+            asset: policy.assetContract,
+            tokenName: policy.tokenName,
+            sponsorFee: policy.exactTokenSponsorFee.toString(),
+            maxIntentAmount: policy.maxIntentAmount.toString(),
+          })),
         }, corsOrigin);
         return;
       }
-      if (request.method === "GET" && request.url === "/v1/market/btc-usd") {
+      if (request.method === "GET" && requestUrl.pathname === "/v1/market/btc-usd") {
         try {
           respond(response, 200, await fetchBitcoinUsdPrice(), corsOrigin);
         } catch {
@@ -116,21 +128,21 @@ export function createRelayerHttpServer(
         }
         return;
       }
-      if (request.method === "GET" && request.url === "/v1/stealth/sponsor-policy") {
-        respond(response, 200, service.sponsorPolicy(), corsOrigin);
+      if (request.method === "GET" && requestUrl.pathname === "/v1/stealth/sponsor-policy") {
+        respond(response, 200, service.sponsorPolicy(requestUrl.searchParams.get("asset") ?? undefined), corsOrigin);
         return;
       }
       if (request.method !== "POST") throw new RelayerError("route not found", 404, "not_found");
       const body = await jsonBody(request);
-      if (request.url === "/v1/intents/settle") {
+      if (requestUrl.pathname === "/v1/intents/settle") {
         respond(response, 202, await service.settleIntent(body as SettlementEnvelope), corsOrigin);
         return;
       }
-      if (request.url === "/v1/intents/settle-stx") {
+      if (requestUrl.pathname === "/v1/intents/settle-stx") {
         respond(response, 202, await service.settleStxIntent(body as import("../../sdk/src").PrivateIntentEnvelope), corsOrigin);
         return;
       }
-      if (request.url === "/v1/stealth/sponsor") {
+      if (requestUrl.pathname === "/v1/stealth/sponsor") {
         respond(response, 202, await service.sponsorSweep(body as SweepRequest), corsOrigin);
         return;
       }

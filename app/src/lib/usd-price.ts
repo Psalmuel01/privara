@@ -10,7 +10,7 @@ export interface BitcoinUsdQuote {
 
 /** Keep real-value sBTC inputs affordable regardless of the frontend network setting. */
 export function defaultTransferAmount(asset: Sip010Asset): string {
-  return asset.id === "sbtc" ? "0.0001" : asset.id === "stx" ? "0.1" : "1";
+  return asset.id === "sbtc" ? "0.0001" : asset.id === "stx" ? "0.1" : asset.id === "usdcx" ? "5" : "1";
 }
 
 export async function fetchBitcoinUsdQuote(relayerUrl: string): Promise<BitcoinUsdQuote> {
@@ -34,6 +34,7 @@ export function atomicToUsd(
   asset: Sip010Asset,
   bitcoinUsdPrice: number | null
 ): number | null {
+  if (asset.id === "usdcx") return Number(amount) / 10 ** asset.decimals;
   if (asset.id !== "sbtc" || bitcoinUsdPrice === null || bitcoinUsdPrice <= 0) return null;
   return Number(amount) / 10 ** asset.decimals * bitcoinUsdPrice;
 }
@@ -44,6 +45,9 @@ export function usdToAtomic(
   asset: Sip010Asset,
   bitcoinUsdPrice: number | null
 ): bigint | null {
+  if (asset.id === "usdcx" && Number.isFinite(usd) && usd > 0) {
+    return BigInt(Math.round(usd * 10 ** asset.decimals));
+  }
   if (
     asset.id !== "sbtc" ||
     bitcoinUsdPrice === null ||

@@ -8,6 +8,7 @@ interface ImportMetaEnv {
   readonly VITE_PRIVARA_FALLBACK_ROUTER?: string;
   readonly VITE_PRIVARA_FALLBACK_ASSET?: string;
   readonly VITE_PRIVARA_STX_ROUTER?: string;
+  readonly VITE_PRIVARA_USDCX_ROUTER?: string;
 }
 
 interface ImportMeta {

@@ -66,6 +66,8 @@ export const FALLBACK_LIVE_ASSET = requiredNetworkContract(
 // working. Set the env only if this contract is ever deployed from another account.
 export const STX_ROUTER_CONTRACT = import.meta.env.VITE_PRIVARA_STX_ROUTER?.trim()
   || `${FALLBACK_STEALTH_REGISTRY.split(".")[0]}.privara-stx-router-v1`;
+/** Optional until the dedicated USDCx router has been deployed and confirmed. */
+export const USDCX_ROUTER_CONTRACT = import.meta.env.VITE_PRIVARA_USDCX_ROUTER?.trim() || "";
 export const STACKS_API_URL =
   import.meta.env.VITE_STACKS_API_URL?.replace(/\/$/, "") || defaultStacksApiUrl(NETWORK);
 export const RELAYER_URL = (() => {
@@ -93,6 +95,39 @@ export interface PublicRelayerConfig {
   feeRecipient: string;
   /** Native-STX custody and stealth-settlement router. */
   stxRouter: string;
+  /** Every SIP-010 router/asset pair this relayer explicitly serves. */
+  assets?: PublicSip010AssetConfig[];
+}
+
+export interface PublicSip010AssetConfig {
+  id: string;
+  symbol: string;
+  decimals: number;
+  router: string;
+  asset: string;
+  tokenName: string;
+  sponsorFee: string;
+  maxIntentAmount: string;
+}
+
+/** Return a compatibility-shaped config pinned to one advertised SIP-010 policy. */
+export function configForSip010Asset(
+  config: PublicRelayerConfig,
+  assetContract: string
+): PublicRelayerConfig | null {
+  const advertised = config.assets?.find((candidate) => candidate.asset === assetContract);
+  if (!advertised) {
+    return config.asset === assetContract ? config : null;
+  }
+  if (advertised.id === "usdcx" && advertised.router !== USDCX_ROUTER_CONTRACT) return null;
+  return {
+    ...config,
+    router: advertised.router,
+    asset: advertised.asset,
+    tokenName: advertised.tokenName,
+    sponsorFee: advertised.sponsorFee,
+    maxIntentAmount: advertised.maxIntentAmount,
+  };
 }
 
 function requiredNetworkContract(name: keyof ImportMetaEnv, testnetDefault: string): string {
@@ -137,6 +172,14 @@ export async function fetchPublicConfig(): Promise<PublicRelayerConfig> {
   }
   if (config.stxRouter !== STX_ROUTER_CONTRACT) {
     throw new Error("The relayer STX router does not match this app build");
+  }
+  for (const advertised of config.assets ?? []) {
+    if (!advertised.router.includes(".") || !advertised.asset.includes(".")) {
+      throw new Error("The relayer advertised an invalid SIP-010 asset policy");
+    }
+    if (!/^\d+$/.test(advertised.sponsorFee) || !/^\d+$/.test(advertised.maxIntentAmount)) {
+      throw new Error("The relayer advertised invalid SIP-010 limits");
+    }
   }
   return config;
 }

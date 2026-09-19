@@ -64,6 +64,19 @@ SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1
 tx: 0x703a3af4b31943ddc6bea28cf6ddafd11f9f1f307ac6a4bb6b8dd537d72dfcc5
 ```
 
+M2 USDCx Router:
+
+```text
+SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-usdcx
+tx: 0x23c9ce90d6204c8c9c4b34a3c3d16990fd4ce71139c206ef89f0ee174a5e99dc
+confirmed at block: 9025644
+```
+
+The USDCx router is bound to the official mainnet contract
+`SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx`. Production exposure remains
+disabled until the matching Railway and Vercel variables are released and a small-value
+end-to-end USDCx acceptance flow succeeds.
+
 The deployment confirmed successfully on Stacks mainnet. Railway production stores
 `PRIVARA_STX_ROUTER` and Vercel production stores `VITE_PRIVARA_STX_ROUTER` with this
 exact principal. The code revision that consumes these variables must still be released
@@ -83,6 +96,10 @@ sBTC
 Native STX support is implemented and its router is deployed. It remains pending the
 application/relayer code release and a small-value production acceptance flow.
 
+USDCx support is implemented and its dedicated router is deployed. It remains pending
+the application/relayer code release, service configuration, and a small-value production
+acceptance flow.
+
 Mainnet token contract:
 
 ```text
@@ -96,6 +113,14 @@ sbtc-token
 ```
 
 Source of truth: [Stacks sBTC Clarity contracts](https://docs.stacks.co/learn/sbtc/clarity-contracts).
+
+Official USDCx token contract:
+
+```text
+SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx
+```
+
+USDCx uses six decimal places and the SIP-010 fungible-token name `usdcx-token`.
 
 Native STX has no SIP-010 token contract. It uses a separate STX router because native
 STX custody and transfer functions differ from SIP-010 trait calls. The sender funds

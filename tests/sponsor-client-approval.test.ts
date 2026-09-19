@@ -42,7 +42,8 @@ describe("explicit sponsored-spend approval", () => {
     let posted = "";
     const fetchFn = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/v1/stealth/sponsor-policy")) {
+      if (new URL(url).pathname === "/v1/stealth/sponsor-policy") {
+        expect(new URL(url).searchParams.get("asset")).toBe(ASSET);
         policyFetches++;
         return Response.json(policy(policyFetches === 1 ? "100" : "999"));
       }

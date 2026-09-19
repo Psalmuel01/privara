@@ -67,6 +67,7 @@ describe("relayer HTTP production adapter", () => {
       router: ROUTER,
       settlementFeeBps: 100,
       sponsorFee: "100",
+      assets: [{ asset: `${CORE}.mock-token`, router: ROUTER, sponsorFee: "100" }],
     });
   });
 

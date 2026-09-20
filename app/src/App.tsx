@@ -780,7 +780,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
     </section>}
-    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><span className="zero-stx">{asset.kind === "stx" ? "Fee balance" : "0 STX"}</span><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
+    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
   </>;
 }
 
@@ -816,19 +816,21 @@ function StxSpend({ asset, wallet, payment, payments, close, notify, onComplete 
   const [resolvedLongTermDestination, setResolvedLongTermDestination] = useState(false);
   const activePayment = payments.find((item) => item.transactionId === sourceId) ?? payment;
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
-  const longTermDestination = kind === "withdraw" && destination.trim().toUpperCase() === wallet.toUpperCase();
+  const longTermDestination = destination.trim().toUpperCase() === wallet.toUpperCase();
   const requiresLongTermConfirmation = longTermDestination || resolvedLongTermDestination;
 
+  // A resolved BNS match remains sensitive when switching between Pay someone
+  // and Move all. Reset the acknowledgement only when the destination changes.
   useEffect(() => {
     setLongTermConfirmed(false);
     setResolvedLongTermDestination(false);
-  }, [kind, destination]);
+  }, [destination]);
 
   const review = async () => {
     try {
       setReviewing(true);
       const resolved = await resolveMainnetRecipient(destination);
-      if (kind === "withdraw" && resolved.address.toUpperCase() === wallet.toUpperCase() && !longTermConfirmed) {
+      if (resolved.address.toUpperCase() === wallet.toUpperCase() && !longTermConfirmed) {
         setResolvedLongTermDestination(true);
         throw new Error("This destination is your connected long-term wallet. Confirm the privacy warning before continuing.");
       }
@@ -900,9 +902,11 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
   const activePayment = payments.find((item) => item.transactionId === sourceId) ?? payment;
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
   const exceedsBalance = kind === "send" && paymentAmount > activePayment.balance;
-  const longTermDestination = kind === "withdraw" && destination.trim().toUpperCase() === wallet.toUpperCase();
+  const longTermDestination = kind !== "bitcoin" && destination.trim().toUpperCase() === wallet.toUpperCase();
 
-  useEffect(() => setLongTermConfirmed(false), [kind, destination]);
+  // The same connected-wallet destination has the same privacy consequence in
+  // either payment mode, so changing tabs must not make its warning disappear.
+  useEffect(() => setLongTermConfirmed(false), [destination]);
   // Both direct payments and full-balance moves use the Stacks destination the user reviewed.
   // We deliberately do not default to the connected wallet because that creates an
   // obvious public link between the one-time address and the user's long-term identity.
@@ -985,8 +989,8 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
 <label className="field-label">Amount recipient receives</label>
 <div className={`amount-input ${exceedsBalance ? "invalid" : ""}`}>
 <input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={reviewing} aria-invalid={exceedsBalance} />
-<button>
-<AssetIcon asset={asset} small /> {asset.symbol}</button>
+<span className="amount-asset">
+<AssetIcon asset={asset} small /> {asset.symbol}</span>
 </div>{usdQuote && asset.id === "sbtc" && <div className="fiat-tools compact">
 <div>
 <FiatEstimate amount={paymentAmount} asset={asset} />

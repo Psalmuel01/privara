@@ -413,6 +413,14 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .review-lines strong .fiat-estimate, .activity-live-row > strong .fiat-estimate, .dao-metrics strong .fiat-estimate { display: block; margin-top: 4px; font-size: 9px; }
 .private-payment strong .fiat-estimate { display: inline; margin-left: 6px; font-size: 9px; }
 
+.long-term-wallet-warning { color: #753626; border: 1px solid #efc7b8; background: #fff0e9; }
+.long-term-wallet-warning strong { display: block; margin-bottom: 3px; color: #662b20; }
+.risk-confirmation { display: flex; align-items: flex-start; gap: 10px; margin: -7px 0 17px; padding: 12px; color: #5f3b31; border: 1px solid #e4c4b8; border-radius: 9px; background: #fffaf7; cursor: pointer; }
+.risk-confirmation input { flex: 0 0 auto; width: 15px; height: 15px; margin: 1px 0 0; accent-color: #753626; }
+.risk-confirmation span, .risk-confirmation strong, .risk-confirmation small { display: block; }
+.risk-confirmation strong { font-size: 10px; }
+.risk-confirmation small { margin-top: 3px; color: #76594f; font-size: 9px; line-height: 1.45; }
+
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(.98); } }
 
 @media (max-width: 760px) {

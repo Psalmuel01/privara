@@ -317,7 +317,7 @@ export default function App() {
                   {SUPPORTED_ASSETS.map((item) => (
                     <button key={item.id} disabled={item.kind !== "stx" && (!config || !configForSip010Asset(config, assetContract(item)!))} onClick={() => { setAssetId(item.id); setAssetMenu(false); }}>
                       <AssetIcon asset={item} small />
-                      <span><strong>{item.symbol}</strong><small>{item.kind === "stx" ? "Native STX router" : config && configForSip010Asset(config, assetContract(item)!) ? "Live on current router" : "Not served by this relayer"}</small></span>
+                      <span><strong>{item.symbol}</strong></span>
                       {assetId === item.id && <Check size={15} />}
                     </button>
                   ))}
@@ -350,6 +350,7 @@ export default function App() {
         {selectedPayment && activeConfig && walletAddress && (asset.kind === "stx" ?
           <StxSpend
             asset={asset}
+            wallet={walletAddress}
             payment={selectedPayment}
             payments={payments.filter((payment) => payment.balance > 0n)}
             close={() => setSelectedPayment(null)}
@@ -362,6 +363,7 @@ export default function App() {
             }}
           /> : <SponsoredSpend
             asset={asset}
+            wallet={walletAddress}
             config={activeConfig}
             payment={selectedPayment}
             payments={payments.filter((payment) => payment.balance > 0n)}
@@ -782,8 +784,24 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
   </>;
 }
 
-function StxSpend({ asset, payment, payments, close, notify, onComplete }: {
-  asset: Sip010Asset; payment: LivePayment; payments: LivePayment[];
+function LongTermWalletWarning({ confirmed, setConfirmed }: {
+  confirmed: boolean;
+  setConfirmed: (confirmed: boolean) => void;
+}) {
+  return <>
+    <div className="warning-box long-term-wallet-warning" role="alert">
+      <TriangleAlert size={18} />
+      <p><strong>Connected long-term wallet detected.</strong> Moving this private balance to the wallet registered with Privara creates a direct public link between the one-time address and your known identity. Use a different destination when preserving separation matters.</p>
+    </div>
+    <label className="risk-confirmation">
+      <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
+      <span><strong>I understand and still want to use this address</strong><small>This acknowledgement is required before Privara will prepare the transaction.</small></span>
+    </label>
+  </>;
+}
+
+function StxSpend({ asset, wallet, payment, payments, close, notify, onComplete }: {
+  asset: Sip010Asset; wallet: string; payment: LivePayment; payments: LivePayment[];
   close: () => void; notify: (notice: Notice) => void; onComplete: (source: LivePayment, result: SpendResult) => void;
 }) {
   const [kind, setKind] = useState<"send" | "withdraw">("send");
@@ -794,13 +812,26 @@ function StxSpend({ asset, payment, payments, close, notify, onComplete }: {
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SpendResult | null>(null);
+  const [longTermConfirmed, setLongTermConfirmed] = useState(false);
+  const [resolvedLongTermDestination, setResolvedLongTermDestination] = useState(false);
   const activePayment = payments.find((item) => item.transactionId === sourceId) ?? payment;
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
+  const longTermDestination = kind === "withdraw" && destination.trim().toUpperCase() === wallet.toUpperCase();
+  const requiresLongTermConfirmation = longTermDestination || resolvedLongTermDestination;
+
+  useEffect(() => {
+    setLongTermConfirmed(false);
+    setResolvedLongTermDestination(false);
+  }, [kind, destination]);
 
   const review = async () => {
     try {
       setReviewing(true);
       const resolved = await resolveMainnetRecipient(destination);
+      if (kind === "withdraw" && resolved.address.toUpperCase() === wallet.toUpperCase() && !longTermConfirmed) {
+        setResolvedLongTermDestination(true);
+        throw new Error("This destination is your connected long-term wallet. Confirm the privacy warning before continuing.");
+      }
       const prepared = await preparePrivateStxSpend({
         payment: activePayment,
         destination: resolved.address,
@@ -824,11 +855,36 @@ function StxSpend({ asset, payment, payments, close, notify, onComplete }: {
     } catch (error) { notify({ kind: "error", message: message(error) }); }
     finally { setSubmitting(false); }
   };
-  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !submitting && close()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="stx-spend-title"><button className="close-button" onClick={close} disabled={submitting}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), 6, 6)} tx={result.txid} detail={`One-time address paid ${result.networkFeePaid} µSTX network fee`} action={close} compact /> : <><span className="eyebrow">Native STX spend</span><h2 id="stx-spend-title">Move private balance</h2><p className="drawer-copy">The one-time key signs locally. This address already holds STX, so no sponsor is required.</p>{!approved ? <><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2}>{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, 6, 6)} STX</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, 6, 6)}</strong><small>STX available</small></span></div><div className="segmented spend-actions"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Move all</button></div><label className="field-label">Destination address or BNS name</label><div className="address-input compact"><input value={destination} onChange={(event) => setDestination(event.target.value.trim())} placeholder="SP… or name.btc" /></div>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${paymentAmount > activePayment.balance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} /><span className="amount-asset"><AssetIcon asset={asset} small /> STX</span></div></>}<div className="info-box"><Info size={16} /><p>{kind === "withdraw" ? "Privara estimates and subtracts the network fee before signing, so the rest can move without an insufficient-balance error." : "The network fee is paid from this one-time STX balance and shown before signing."}</p></div><button className="primary-wide" onClick={review} disabled={reviewing || !destination || (kind === "send" && (paymentAmount <= 0n || paymentAmount >= activePayment.balance))}>{reviewing ? <><RefreshCw className="spin" size={16} /> Estimating network fee…</> : <><ArrowRight size={16} /> Review exact fee</>}</button></> : <><button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button><div className="review-lines"><div><span>Recipient receives</span><strong>{formatUnits(approved.paymentAmount, 6, 6)} STX</strong></div><div><span>Exact network fee</span><strong>{formatUnits(approved.networkFee, 6, 6)} STX</strong></div><div><span>Destination</span><strong>{short(approved.destination, 9, 7)}</strong></div><div className="total"><span>Total signed outflow</span><strong>{formatUnits(approved.paymentAmount + approved.networkFee, 6, 6)} STX</strong></div></div><div className="info-box"><Info size={16} /><p>This fee and destination are pinned. No sponsor or Privara relayer can change them after approval.</p></div><button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={16} /> Broadcasting…</> : <><Zap size={16} /> Sign locally & broadcast</>}</button></>}</>}</section></div>;
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !submitting && close()}>
+    <section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="stx-spend-title">
+      <button className="close-button" onClick={close} disabled={submitting}><X /></button>
+      {result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), 6, 6)} tx={result.txid} detail={`One-time address paid ${result.networkFeePaid} µSTX network fee`} action={close} compact /> : <>
+        <span className="eyebrow">Native STX spend</span>
+        <h2 id="stx-spend-title">Move private balance</h2>
+        <p className="drawer-copy">The one-time key signs locally. This address already holds STX, so no sponsor is required.</p>
+        {!approved ? <>
+          <div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2}>{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, 6, 6)} STX</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, 6, 6)}</strong><small>STX available</small></span></div>
+          <div className="segmented spend-actions"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")}>Move all</button></div>
+          <label className="field-label">Destination address or BNS name</label>
+          <div className="address-input compact"><input value={destination} onChange={(event) => setDestination(event.target.value.trim())} placeholder="SP… or name.btc" /></div>
+          {requiresLongTermConfirmation && <LongTermWalletWarning confirmed={longTermConfirmed} setConfirmed={setLongTermConfirmed} />}
+          {kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${paymentAmount > activePayment.balance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} /><span className="amount-asset"><AssetIcon asset={asset} small /> STX</span></div></>}
+          <div className="info-box"><Info size={16} /><p>{kind === "withdraw" ? "Privara estimates and subtracts the network fee before signing, so the rest can move without an insufficient-balance error." : "The network fee is paid from this one-time STX balance and shown before signing."}</p></div>
+          <button className="primary-wide" onClick={review} disabled={reviewing || !destination || (requiresLongTermConfirmation && !longTermConfirmed) || (kind === "send" && (paymentAmount <= 0n || paymentAmount >= activePayment.balance))}>{reviewing ? <><RefreshCw className="spin" size={16} /> Estimating network fee…</> : requiresLongTermConfirmation && !longTermConfirmed ? <>Confirm the privacy warning</> : <><ArrowRight size={16} /> Review exact fee</>}</button>
+        </> : <>
+          <button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button>
+          <div className="review-lines"><div><span>Recipient receives</span><strong>{formatUnits(approved.paymentAmount, 6, 6)} STX</strong></div><div><span>Exact network fee</span><strong>{formatUnits(approved.networkFee, 6, 6)} STX</strong></div><div><span>Destination</span><strong>{short(approved.destination, 9, 7)}</strong></div><div className="total"><span>Total signed outflow</span><strong>{formatUnits(approved.paymentAmount + approved.networkFee, 6, 6)} STX</strong></div></div>
+          {approved.destination.toUpperCase() === wallet.toUpperCase() && <div className="warning-box long-term-wallet-warning" role="alert"><TriangleAlert size={18} /><p><strong>Direct long-term-wallet link.</strong> Signing this transaction publicly links the one-time address to your connected wallet.</p></div>}
+          <div className="info-box"><Info size={16} /><p>This fee and destination are pinned. No sponsor or Privara relayer can change them after approval.</p></div>
+          <button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={16} /> Broadcasting…</> : <><Zap size={16} /> Sign locally & broadcast</>}</button>
+        </>}
+      </>}
+    </section>
+  </div>;
 }
 
-function SponsoredSpend({ asset, config, payment, payments, close, notify, onComplete }: {
-  asset: Sip010Asset; config: PublicRelayerConfig; payment: LivePayment; payments: LivePayment[];
+function SponsoredSpend({ asset, config, wallet, payment, payments, close, notify, onComplete }: {
+  asset: Sip010Asset; config: PublicRelayerConfig; wallet: string; payment: LivePayment; payments: LivePayment[];
   close: () => void; notify: (notice: Notice) => void; onComplete: (source: LivePayment, result: SpendResult) => void;
 }) {
   const usdQuote = useContext(UsdQuoteContext);
@@ -840,9 +896,13 @@ function SponsoredSpend({ asset, config, payment, payments, close, notify, onCom
   const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SpendResult | null>(null);
+  const [longTermConfirmed, setLongTermConfirmed] = useState(false);
   const activePayment = payments.find((item) => item.transactionId === sourceId) ?? payment;
   const paymentAmount = (() => { try { return parseUnits(amount, asset.decimals); } catch { return 0n; } })();
   const exceedsBalance = kind === "send" && paymentAmount > activePayment.balance;
+  const longTermDestination = kind === "withdraw" && destination.trim().toUpperCase() === wallet.toUpperCase();
+
+  useEffect(() => setLongTermConfirmed(false), [kind, destination]);
   // Both direct payments and full-balance moves use the Stacks destination the user reviewed.
   // We deliberately do not default to the connected wallet because that creates an
   // obvious public link between the one-time address and the user's long-term identity.
@@ -854,6 +914,9 @@ function SponsoredSpend({ asset, config, payment, payments, close, notify, onCom
   const review = async () => {
     try {
       setReviewing(true);
+      if (longTermDestination && !longTermConfirmed) {
+        throw new Error("This destination is your connected long-term wallet. Confirm the privacy warning before continuing.");
+      }
       const prepared = await preparePrivateSpend(request());
       setApproved(prepared);
       notify({ kind: "info", message: `Quote locked: ${formatUnits(prepared.sponsorFee, asset.decimals)} ${asset.symbol} sponsorship fee. It will not refresh during confirmation.` });
@@ -873,7 +936,106 @@ function SponsoredSpend({ asset, config, payment, payments, close, notify, onCom
     catch (error) { notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
   };
   const closeSafely = () => { if (!submitting) close(); };
-  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}><section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting || reviewing}><button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}><X /></button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <><span className="eyebrow">Live sponsored spend</span><h2 id="spend-title">Move private balance</h2><p className="drawer-copy">Choose one spendable address. Its one-time key signs locally, and balances are never combined automatically.</p>{!approved ? <><div className="source-account"><div><span className="source-lock"><LockKeyhole size={18} /></span><div className="source-details"><small>Spend from one-time address</small><span className="source-picker"><select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2} aria-label="Spend from one-time address">{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, asset.decimals, asset.decimals)} {asset.symbol}</option>)}</select><ChevronDown size={15} /></span></div></div><span><strong>{formatUnits(activePayment.balance, asset.decimals, asset.decimals)}</strong><small>{asset.symbol} available · <FiatEstimate amount={activePayment.balance} asset={asset} /></small></span></div>{payments.length > 1 && <p className="source-help">This payment uses only the selected address. Choose another balance here when needed.</p>}<div className="segmented spend-actions"><button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={reviewing}>Pay someone</button><button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")} disabled={reviewing}>Move all</button><button className={kind === "bitcoin" ? "future-action active" : "future-action"} onClick={() => setKind("bitcoin")} disabled={reviewing}>Convert to BTC <small>Coming soon</small></button></div>{kind === "bitcoin" ? <div className="bitcoin-coming-soon"><span className="coming-soon-badge">Planned exchange off-ramp</span><h3>Convert your private balance to BTC</h3><p>Privara plans to integrate the official sBTC withdrawal protocol so this one-time key can authorize a peg-out locally. The resulting BTC will go to the Bitcoin address you choose, including a compatible exchange deposit address.</p><div className="info-box"><Info size={16} /><p>Privara will facilitate the withdrawal without taking custody of your privacy seed or one-time key. Until this launches, pay someone directly or move the balance to another Stacks address you control.</p></div></div> : <><label className="field-label">Destination address</label><div className="address-input compact"><input value={destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={reviewing} placeholder="SP… Stacks mainnet address" /></div><small className="destination-help">{kind === "withdraw" ? "Move the full spendable balance to another Stacks address you control. A fresh address can separate wallet operations, but this transfer remains public and may be correlated through its amount, timing, or later activity." : "Pay the intended person or merchant directly from this one-time address when possible. This avoids creating an unnecessary intermediate transfer."}</small>{kind === "send" && <><label className="field-label">Amount recipient receives</label><div className={`amount-input ${exceedsBalance ? "invalid" : ""}`}><input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={reviewing} aria-invalid={exceedsBalance} /><button><AssetIcon asset={asset} small /> {asset.symbol}</button></div>{usdQuote && asset.id === "sbtc" && <div className="fiat-tools compact"><div><FiatEstimate amount={paymentAmount} asset={asset} /><span>CoinGecko estimate</span></div><div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={reviewing}>${usd}</button>)}</div></div>}<small className={exceedsBalance ? "amount-error" : "amount-limit"}>The exact sponsorship fee and total will be fetched before confirmation.</small></>}<div className="warning-box"><TriangleAlert size={16} /><p>{kind === "withdraw" ? "Avoid moving funds to your connected long-term wallet when preserving separation matters: that creates a direct onchain link." : "The destination and amount remain public. Choose a destination that matches the privacy context of the payment."}</p></div><button className="primary-wide" onClick={review} disabled={reviewing || !destination || activePayment.balance <= 0n || (kind === "send" && (paymentAmount <= 0n || exceedsBalance))}>{reviewing ? <><RefreshCw className="spin" size={16} /> Fetching exact sponsor quote…</> : <><ArrowRight size={16} /> Review exact fee</>}</button></>}</> : <><button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button><div className="review-lines"><div><span>Recipient receives</span><strong>{formatUnits(approved.paymentAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.paymentAmount} asset={asset} /></strong></div><div><span>Exact sponsorship fee</span><strong>{formatUnits(approved.sponsorFee, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.sponsorFee} asset={asset} /></strong></div><div><span>Fee recipient</span><strong>{short(approved.policy.feeRecipient, 9, 7)}</strong></div><div><span>Destination</span><strong>{short(approved.destination, 9, 7)}</strong></div><div className="total"><span>Total signed outflow</span><strong>{formatUnits(approved.totalAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.totalAmount} asset={asset} /></strong></div></div><div className="info-box"><Info size={16} /><p>This quote is pinned. Confirming signs exactly this destination, payment amount, fee recipient, and fee. USD values are indicative and are not signed. If relayer policy changed, submission fails and you must review a new quote.</p></div><button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <><RefreshCw className="spin" size={16} /> Relayer is validating and broadcasting…</> : <><Zap size={16} /> Approve exact fee & sign</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</>}</>}</section></div>;
+  return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}>
+<section className="spend-drawer" role="dialog" aria-modal="true" aria-labelledby="spend-title" aria-busy={submitting || reviewing}>
+<button className="close-button" onClick={closeSafely} disabled={submitting} aria-label={submitting ? "Transaction submission in progress" : "Close"}>
+<X />
+</button>{result ? <SuccessState asset={asset} amount={formatUnits(BigInt(result.paymentAmount), asset.decimals, asset.decimals)} tx={result.txid} detail={`Token service fee ${formatUnits(BigInt(result.tokenSponsorFee), asset.decimals)} ${asset.symbol}; sponsor paid ${result.networkFeePaid} µSTX`} action={close} compact /> : <>
+<span className="eyebrow">Live sponsored spend</span>
+<h2 id="spend-title">Move private balance</h2>
+<p className="drawer-copy">Choose one spendable address. Its one-time key signs locally, and balances are never combined automatically.</p>{!approved ? <>
+<div className="source-account">
+<div>
+<span className="source-lock">
+<LockKeyhole size={18} />
+</span>
+<div className="source-details">
+<small>Spend from one-time address</small>
+<span className="source-picker">
+<select value={sourceId} onChange={(event) => setSourceId(event.target.value)} disabled={reviewing || payments.length < 2} aria-label="Spend from one-time address">{payments.map((item) => <option value={item.transactionId} key={item.transactionId}>{short(item.stealthPrincipal, 10, 8)} · {formatUnits(item.balance, asset.decimals, asset.decimals)} {asset.symbol}</option>)}</select>
+<ChevronDown size={15} />
+</span>
+</div>
+</div>
+<span>
+<strong>{formatUnits(activePayment.balance, asset.decimals, asset.decimals)}</strong>
+<small>{asset.symbol} available · <FiatEstimate amount={activePayment.balance} asset={asset} />
+</small>
+</span>
+</div>{payments.length > 1 && <p className="source-help">This payment uses only the selected address. Choose another balance here when needed.</p>}<div className="segmented spend-actions">
+<button className={kind === "send" ? "active" : ""} onClick={() => setKind("send")} disabled={reviewing}>Pay someone</button>
+<button className={kind === "withdraw" ? "active" : ""} onClick={() => setKind("withdraw")} disabled={reviewing}>Move all</button>
+<button className={kind === "bitcoin" ? "future-action active" : "future-action"} onClick={() => setKind("bitcoin")} disabled={reviewing}>Convert to BTC <small>Coming soon</small>
+</button>
+</div>{kind === "bitcoin" ? <div className="bitcoin-coming-soon">
+<span className="coming-soon-badge">Planned exchange off-ramp</span>
+<h3>Convert your private balance to BTC</h3>
+<p>Privara plans to integrate the official sBTC withdrawal protocol so this one-time key can authorize a peg-out locally. The resulting BTC will go to the Bitcoin address you choose, including a compatible exchange deposit address.</p>
+<div className="info-box">
+<Info size={16} />
+<p>Privara will facilitate the withdrawal without taking custody of your privacy seed or one-time key. Until this launches, pay someone directly or move the balance to another Stacks address you control.</p>
+</div>
+</div> : <>
+<label className="field-label">Destination address</label>
+<div className="address-input compact">
+<input value={destination} onChange={(event) => setDestination(event.target.value.trim())} readOnly={reviewing} placeholder="SP… Stacks mainnet address" />
+</div>
+{longTermDestination && <LongTermWalletWarning confirmed={longTermConfirmed} setConfirmed={setLongTermConfirmed} />}
+<small className="destination-help">{kind === "withdraw" ? "Move the full spendable balance to another Stacks address you control. A fresh address can separate wallet operations, but this transfer remains public and may be correlated through its amount, timing, or later activity." : "Pay the intended person or merchant directly from this one-time address when possible. This avoids creating an unnecessary intermediate transfer."}</small>{kind === "send" && <>
+<label className="field-label">Amount recipient receives</label>
+<div className={`amount-input ${exceedsBalance ? "invalid" : ""}`}>
+<input value={amount} onChange={(event) => setAmount(event.target.value)} readOnly={reviewing} aria-invalid={exceedsBalance} />
+<button>
+<AssetIcon asset={asset} small /> {asset.symbol}</button>
+</div>{usdQuote && asset.id === "sbtc" && <div className="fiat-tools compact">
+<div>
+<FiatEstimate amount={paymentAmount} asset={asset} />
+<span>CoinGecko estimate</span>
+</div>
+<div className="fiat-presets">{USD_AMOUNT_PRESETS.map((usd) => <button type="button" key={usd} onClick={() => chooseUsdPreset(usd)} disabled={reviewing}>${usd}</button>)}</div>
+</div>}<small className={exceedsBalance ? "amount-error" : "amount-limit"}>The exact sponsorship fee and total will be fetched before confirmation.</small>
+</>}<div className="warning-box">
+<TriangleAlert size={16} />
+<p>{kind === "withdraw" ? "Avoid moving funds to your connected long-term wallet when preserving separation matters: that creates a direct onchain link." : "The destination and amount remain public. Choose a destination that matches the privacy context of the payment."}</p>
+</div>
+<button className="primary-wide" onClick={review} disabled={reviewing || !destination || activePayment.balance <= 0n || (longTermDestination && !longTermConfirmed) || (kind === "send" && (paymentAmount <= 0n || exceedsBalance))}>{reviewing ? <>
+<RefreshCw className="spin" size={16} /> Fetching exact sponsor quote…</> : longTermDestination && !longTermConfirmed ? <>Confirm the privacy warning</> : <><ArrowRight size={16} /> Review exact fee</>}</button>
+</>}</> : <>
+<button className="back-link" onClick={() => setApproved(null)} disabled={submitting}>← Change payment</button>
+<div className="review-lines">
+<div>
+<span>Recipient receives</span>
+<strong>{formatUnits(approved.paymentAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.paymentAmount} asset={asset} />
+</strong>
+</div>
+<div>
+<span>Exact sponsorship fee</span>
+<strong>{formatUnits(approved.sponsorFee, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.sponsorFee} asset={asset} />
+</strong>
+</div>
+<div>
+<span>Fee recipient</span>
+<strong>{short(approved.policy.feeRecipient, 9, 7)}</strong>
+</div>
+<div>
+<span>Destination</span>
+<strong>{short(approved.destination, 9, 7)}</strong>
+</div>
+<div className="total">
+<span>Total signed outflow</span>
+<strong>{formatUnits(approved.totalAmount, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={approved.totalAmount} asset={asset} />
+</strong>
+</div>
+</div>
+{approved.destination.toUpperCase() === wallet.toUpperCase() && <div className="warning-box long-term-wallet-warning" role="alert"><TriangleAlert size={18} /><p><strong>Direct long-term-wallet link.</strong> Signing this transaction publicly links the one-time address to your connected wallet.</p></div>}
+<div className="info-box">
+<Info size={16} />
+<p>This quote is pinned. Confirming signs exactly this destination, payment amount, fee recipient, and fee. USD values are indicative and are not signed. If relayer policy changed, submission fails and you must review a new quote.</p>
+</div>
+<button className="primary-wide" onClick={submit} disabled={submitting}>{submitting ? <>
+<RefreshCw className="spin" size={16} /> Relayer is validating and broadcasting…</> : <>
+<Zap size={16} /> Approve exact fee & sign</>}</button>{submitting && <p className="submission-note">Keep this panel open. A transaction ID and success confirmation will appear here.</p>}</>}</>}</section>
+</div>;
 }
 
 function ActivityView({ asset, payments }: { asset: Sip010Asset; payments: LivePayment[] }) {

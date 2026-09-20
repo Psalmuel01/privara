@@ -226,10 +226,28 @@ export function storedWalletAddress(): string | null {
 }
 
 export async function connectWallet(): Promise<string> {
-  const result = await connect({ network: NETWORK });
-  const address = result.addresses.find((entry) => entry.address.startsWith(ADDRESS_PREFIX))?.address;
-  if (!address) throw new Error(`The selected wallet did not return a Stacks ${NETWORK} address`);
-  return address;
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    // Let each provider use its native connection-network representation. In
+    // particular, Xverse's wallet_connect API uses Mainnet/Testnet while the
+    // SIP-030 transaction methods use mainnet/testnet. We still enforce the
+    // expected network below from the returned Stacks address prefix.
+    const result = await Promise.race([
+      connect(),
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(
+          "The wallet did not respond. Unlock the extension, check for its approval window, then try again."
+        )), 30_000);
+      }),
+    ]);
+    const address = result.addresses
+      .map((entry) => entry.address.trim().toUpperCase())
+      .find((entry) => entry.startsWith(ADDRESS_PREFIX));
+    if (!address) throw new Error(`The selected wallet did not return a Stacks ${NETWORK} address`);
+    return address;
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 export function disconnectWallet(): void {

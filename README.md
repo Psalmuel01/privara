@@ -1,10 +1,11 @@
 # Privara
 
-**One-time recipient addresses for sBTC payments on Stacks.**
+**One-time recipient addresses for private asset payments on Stacks.**
 
-Privara lets someone send sBTC to a recipient's normal Stacks identity while settling
-the payment to a fresh one-time address controlled by that recipient. The recipient's
-long-term wallet is therefore not exposed as the onchain settlement destination.
+Privara lets someone send sBTC, USDCx, or native STX to a recipient's normal Stacks
+identity while settling the payment to a fresh one-time address controlled by that
+recipient. The recipient's long-term wallet is therefore not exposed as the onchain
+settlement destination.
 
 [Open the app](https://www.useprivara.xyz/) ·
 [Read the user guide](https://www.useprivara.xyz/guide) ·
@@ -12,25 +13,29 @@ long-term wallet is therefore not exposed as the onchain settlement destination.
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
 
-> **Mainnet status:** the contracts, web application, relayer, and SDK are live.
-> Twenty-five real-sBTC intents across six long-term wallets, including four non-team
-> participants, a contributor-payout flow, and informal technical feedback from Werner
-> are recorded. A non-team tester also independently reproduced the fresh-browser
-> recovery, local scan, and sponsored-withdrawal flow. Every stated Milestone 2 adoption
-> target is now met. An independent audit is future hardening, not a Milestone 2 requirement.
+> **Mainnet status:** the contracts, web application, relayer, and SDK are live. The
+> completed Milestone 2 evidence records twenty-five real-sBTC intents across six
+> long-term wallets, including four non-team participants, a contributor-payout flow,
+> and informal technical feedback from Werner. A non-team tester also independently
+> reproduced the fresh-browser recovery, local scan, and sponsored-withdrawal flow.
+> Every stated Milestone 2 adoption target is now met. Native STX and USDCx use
+> separately deployed routers and are being validated as additional production routes.
+> An independent audit is future hardening, not a Milestone 2 requirement.
 
 ## What Privara Does
 
-A sender only needs the recipient's normal Stacks address. Privara checks whether that
-address has registered public privacy keys, derives a fresh settlement address in the
-sender's browser, and prepares an exact payment for wallet approval.
+A sender only needs the recipient's normal Stacks address or BNS name. Privara resolves
+the recipient, checks whether that address has registered public privacy keys, derives a
+fresh settlement address in the sender's browser, and prepares an exact payment for
+wallet approval. Each supported asset uses an independently pinned router policy.
 
 For recipients, Privara provides:
 
 - a separate privacy identity generated locally in the browser;
 - an encrypted recovery file that must be exported and restore-verified before use;
 - local scanning for payments sent to derived one-time addresses;
-- sponsored spending when a one-time address holds sBTC but no STX;
+- sponsored spending when a one-time address holds sBTC or USDCx but no STX;
+- direct spending from a one-time STX address using its own displayed network fee;
 - the option to pay another address directly or withdraw to a chosen wallet.
 
 For senders and treasury operators, Privara provides:
@@ -39,10 +44,22 @@ For senders and treasury operators, Privara provides:
 - a choice to add the settlement fee on top or include it in the entered amount;
 - automatic calculation of any router-funding shortfall;
 - SIP-018 signatures binding the exact recipient, amount, fee, nonce, expiry, and router;
-- individual private settlements for DAO and contributor payouts.
+- individual private settlements for SIP-010 DAO and contributor payouts.
+
+The asset selector enables only policies advertised by the live relayer and pinned by
+the application. Sending, scanning, activity, balances, decimals, and fee rules always
+follow the currently selected asset.
+
+| Asset | Private settlement | Spending from the one-time address | Validation status |
+| --- | --- | --- | --- |
+| sBTC | Dedicated SIP-010 router | Sponsored; fee paid in sBTC and network fee paid by the sponsor | Live and covered by completed M2 mainnet evidence |
+| USDCx | Dedicated SIP-010 router | Sponsored; exact USDCx fee advertised by the relayer | Implemented and undergoing small-value production acceptance |
+| STX | Dedicated native-STX router | Self-funded network fee; no sponsor fee | Implemented and undergoing small-value production acceptance |
 
 ## A Simple Payment Scenario
 
+This example uses sBTC. Native STX and enabled USDCx payments follow the same
+fresh-address settlement model, with different spending-fee behavior described below.
 Alice wants Bob to receive `0.0001 sBTC` without using Bob's everyday wallet as the
 settlement destination.
 
@@ -99,35 +116,45 @@ For each payment, the sender's browser generates a fresh ephemeral key and combi
 with the recipient's registered public keys to derive a one-time Stacks principal. The
 sender signs a router-bound SIP-018 intent with a random unordered nonce and expiry.
 
-The relayer submits the intent. The router recovers the signer, enforces the asset,
-amount, fee, expiry, and replay rules, transfers sBTC, and emits the encrypted
-announcement used for recipient discovery.
+The relayer submits the intent. The selected asset router recovers the signer, enforces
+the asset, amount, fee, expiry, and replay rules, transfers the asset, and emits the
+encrypted announcement used for recipient discovery. Router funding is handled as part
+of the payment flow: the application requests only the exact shortfall and waits for it
+to confirm rather than exposing a separate deposit workflow.
 
 ### 3. Recipient discovery and spending
 
-The recipient scans public announcements. Invalid records are skipped individually, so
-one malformed announcement cannot stop the remaining scan. Matching and one-time-key
-derivation happen locally from the privacy identity.
+The recipient selects an asset and scans that router's public announcements. Invalid
+records are skipped individually, so one malformed announcement cannot stop the
+remaining scan. Matching and one-time-key derivation happen locally from the privacy
+identity. The recipient switches assets and scans again to discover balances from a
+different router; detected Activity is rebuilt for the selected asset and browser
+session rather than stored as a private server-side history.
 
-When the recipient spends, the browser first fetches the exact sponsor quote. The
+For an sBTC or USDCx spend, the browser first fetches the exact sponsor quote. The
 displayed destination, payment amount, fee recipient, token fee, asset, and expected
 sponsor are frozen into the origin-signed transaction. The relayer rejects any mismatch
-instead of silently refreshing the quote.
+instead of silently refreshing the quote. A native STX one-time address needs no
+sponsor: it signs locally and pays its own exact network fee. Full-balance STX moves
+subtract that fee automatically.
 
 ## Fees
 
 | Fee | Paid by | Current mainnet policy | Purpose |
 | --- | --- | --- | --- |
-| Settlement fee | Sender | 1% | Relayer-assisted private settlement |
-| Sponsored-spend service fee | Recipient | 200 sats | Compensates Privara when the sponsor pays the network fee in STX |
+| Settlement fee | Sender | 1% | Relayer-assisted private settlement for the selected asset |
+| sBTC sponsored-spend fee | Recipient | 200 sats (`0.00000200 sBTC`) | Compensates Privara when the sponsor pays the network fee in STX |
+| USDCx sponsored-spend fee | Recipient | Exact relayer-advertised quote | Same sponsored SIP-010 spending model, denominated in USDCx |
+| Native STX spend fee | One-time address | Exact network fee shown before signing | No sponsorship fee is charged because the address already holds STX |
 
 The sender can choose:
 
 - **Add fee on top:** the recipient gets exactly the entered amount.
 - **Include fee in amount:** the settlement fee is deducted from the entered total.
 
-The sponsored-spend fee is fetched before confirmation, displayed exactly, and signed
-with the spend. A full withdrawal sends the available balance minus that approved fee.
+For SIP-010 assets, the sponsored-spend fee is fetched before confirmation, displayed
+exactly, and signed with the spend. A full withdrawal sends the available token balance
+minus that approved fee.
 The destination is always entered by the user; Privara does not default it to the
 connected long-term wallet. The recommended current path is to pay the intended person
 or merchant directly from the one-time address. Users can instead move the balance to a
@@ -166,8 +193,9 @@ Recommended wallet hygiene:
 
 ### Does Bob need to give Alice a special Privara address?
 
-No. Alice enters Bob's normal Stacks address. Privara reads Bob's registered public
-privacy keys and derives a fresh one-time destination automatically.
+No. Alice enters Bob's normal Stacks address or mainnet BNS name. Privara resolves it,
+reads Bob's registered public privacy keys, and derives a fresh one-time destination
+automatically.
 
 ### Do I have to deposit before making a payment?
 
@@ -214,9 +242,12 @@ another valid address. Privara never combines separate one-time balances automat
 
 ### Who pays the network fee?
 
-For a sponsored spend, Privara's sponsor pays the Stacks fee in STX and the recipient
-approves the displayed service fee in sBTC. The original payment's settlement fee is
-paid by the sender, either on top of or inside the entered amount.
+The sender pays the network fee for any router-funding transaction. The relayer pays the
+network fee for router settlement. When spending sBTC or USDCx from a one-time address,
+Privara's sponsor pays the Stacks fee in STX and the recipient approves a displayed fee
+in the token being moved. A one-time STX address instead pays its own network fee and
+incurs no sponsorship fee. The original private payment's settlement fee is paid by the
+sender, either on top of or inside the entered amount.
 
 ### Can the sponsor change the fee after I approve it?
 
@@ -226,7 +257,8 @@ sponsor, or fee changes, submission fails and the user must review a new quote.
 ### Are the dollar values exact?
 
 No. Privara shows an indicative BTC/USD estimate from CoinGecko to make small sBTC
-amounts easier to understand. The **$5, $10, $25, $50, $100, and $250** shortcuts
+amounts easier to understand. USDCx uses a nominal dollar display. The
+**$5, $10, $25, $50, $100, and $250** shortcuts
 convert the latest estimate into an exact number of sats, and that exact sBTC amount is
 what appears in the review and signed transaction. Market-price changes never alter an
 approved transaction, and private payments remain available if pricing is temporarily
@@ -271,10 +303,11 @@ Deployment transaction IDs and acceptance gates are in the
 | Relayer service | Public configuration, validation, broadcasting, sponsorship, CORS policy, and durable duplicate protection |
 | Stealth registry | Maps normal Stacks principals to public spending and viewing keys |
 | sBTC router | Holds sender-authorized deposits, verifies intents, settles sBTC, and emits announcements |
+| USDCx router | Applies the same intent and announcement model to the pinned official USDCx contract |
 | Sponsored-spend helper | Executes the exact origin-signed payment and service fee while the sponsor pays STX |
 | Native-STX router | Holds account-scoped STX deposits, verifies exact signed intents, settles through the relayer, and publishes bound announcements |
 
-Native STX payments and sBTC payments share the same registered privacy identity and
+Native STX and supported SIP-010 payments share the same registered privacy identity and
 local scanner. Senders may enter a mainnet Stacks address or a BNS name. Privara shows
 and pins the resolved address; if the name changes owners before signing, submission
 stops for a fresh review. STX one-time addresses pay their own network fees, so no
@@ -322,11 +355,11 @@ production environment files.
 
 ## Validation
 
-The current repository passes **151 automated tests across 22 test files**. Coverage
+The current repository passes **166 automated tests across 25 test files**. Coverage
 includes SIP-018 digest parity, replay handling, sponsor-quote binding,
 backup-before-registration, safe import, malformed-announcement resilience,
 fresh-session recovery, router funding, relayer validation, durable duplicate handling,
-and sponsored spending.
+native STX routing and spending, multi-asset configuration, and sponsored spending.
 
 Browser-wallet approval and real-sBTC mainnet acceptance have separate live evidence.
 The repository records informal technical feedback from Werner. This feedback was not

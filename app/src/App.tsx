@@ -780,7 +780,7 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
       </article>
       <article className="panel scan-card"><div className="scan-radar"><Radio size={28} /><i /><i /></div><span className="eyebrow">Local scanner</span><h2>{payments.length ? `${payments.length} payment(s) detected` : "Your keys, your inbox"}</h2><p>Public announcements are downloaded from the Stacks API. Matching and one-time spending-key derivation happen inside this browser.</p><div className="scan-stat"><div><strong>{checked}</strong><small>Announcements checked</small></div><div><strong>{payments.length}</strong><small>Payments detected</small></div></div></article>
     </section>}
-    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : payments.map((payment) => <div className="private-payment" key={payment.transactionId}><span className="payment-symbol"><ArrowDownLeft /></span><div><strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong><small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small></div><button onClick={() => openSpend(payment)} disabled={payment.balance === 0n}>Spend <ArrowUpRight size={14} /></button></div>)}</section>
+    <section className="panel payment-list"><div className="section-head"><div><span className="eyebrow">Detected balances</span><h2>One-time addresses</h2></div><span className="muted-label">{payments.filter((payment) => payment.balance > 0n).length} spendable</span></div>{payments.length === 0 ? <div className="inline-empty">Unlock and scan to load live balances.</div> : [...payments].sort((left, right) => Number(right.balance > 0n) - Number(left.balance > 0n)).map((payment) => <PrivatePaymentRow asset={asset} payment={payment} openSpend={openSpend} key={payment.transactionId} />)}</section>
   </>;
 }
 
@@ -798,6 +798,29 @@ function LongTermWalletWarning({ confirmed, setConfirmed }: {
       <span><strong>I understand and still want to use this address</strong><small>This acknowledgement is required before Privara will prepare the transaction.</small></span>
     </label>
   </>;
+}
+
+function PrivatePaymentRow({ asset, payment, openSpend }: {
+  asset: Sip010Asset;
+  payment: LivePayment;
+  openSpend: (payment: LivePayment) => void;
+}) {
+  const empty = payment.balance === 0n;
+  const partiallySpent = !empty && payment.balance < payment.receivedAmount;
+  const received = `${formatUnits(payment.receivedAmount, asset.decimals, asset.decimals)} ${asset.symbol}`;
+
+  return <div className={`private-payment ${empty ? "spent" : "spendable"}`}>
+    <span className="payment-symbol">{empty ? <CircleCheck /> : <ArrowDownLeft />}</span>
+    <div className="payment-balance-copy">
+      <strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong>
+      <span className="payment-balance-state">{empty ? `No spendable balance · ${received} originally received` : partiallySpent ? `${received} originally received` : "Available to spend"}</span>
+      <small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small>
+    </div>
+    {empty ? <span className="payment-status spent"><CircleCheck size={13} /> Spent</span> : <>
+      <span className="payment-status available"><CircleCheck size={13} /> Available</span>
+      <button onClick={() => openSpend(payment)}>Spend <ArrowUpRight size={14} /></button>
+    </>}
+  </div>;
 }
 
 function StxSpend({ asset, wallet, payment, payments, close, notify, onComplete }: {

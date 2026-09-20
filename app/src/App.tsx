@@ -813,7 +813,7 @@ function PrivatePaymentRow({ asset, payment, openSpend }: {
     <span className="payment-symbol">{empty ? <CircleCheck /> : <ArrowDownLeft />}</span>
     <div className="payment-balance-copy">
       <strong>{formatUnits(payment.balance, asset.decimals, asset.decimals)} {asset.symbol} <FiatEstimate amount={payment.balance} asset={asset} /></strong>
-      <span className="payment-balance-state">{empty ? `No spendable balance · ${received} originally received` : partiallySpent ? `${received} originally received` : "Available to spend"}</span>
+      {/* <span className="payment-balance-state">{empty ? `No spendable balance · ${received} originally received` : partiallySpent ? `${received} originally received` : "Available to spend"}</span> */}
       <small>{short(payment.stealthPrincipal, 10, 8)} · {short(payment.transactionId, 10, 8)}</small>
     </div>
     {empty ? <span className="payment-status spent"><CircleCheck size={13} /> Spent</span> : <>

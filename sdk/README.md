@@ -3,7 +3,7 @@
 TypeScript SDK for Privara SIP-018 payment intents and one-time stealth recipients on
 Stacks.
 
-The current release is the mainnet beta `0.1.0-beta.2`:
+The current release is the mainnet beta `0.1.0-beta.3`:
 
 ```bash
 npm install @privara-stacks/sdk@beta
@@ -12,7 +12,7 @@ npm install @privara-stacks/sdk@beta
 Pin the exact release when reproducible dependency resolution is required:
 
 ```bash
-npm install @privara-stacks/sdk@0.1.0-beta.2
+npm install @privara-stacks/sdk@0.1.0-beta.3
 ```
 
 ## M1 intent core

@@ -9,7 +9,7 @@ settlement destination.
 
 [Open the app](https://www.useprivara.xyz/) ·
 [Read the user guide](https://www.useprivara.xyz/guide) ·
-[Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk) ·
+[Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0-beta.3) ·
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
 
@@ -321,7 +321,7 @@ derived one-time address are self-custodial under the recipient's privacy seed. 
 ## SDK
 
 The reusable TypeScript SDK is published as `@privara-stacks/sdk`. The current public
-release is `0.1.0-beta.2` on npm's `beta` channel.
+release is `0.1.0-beta.3` on npm's `beta` channel.
 
 ```bash
 npm install @privara-stacks/sdk@beta

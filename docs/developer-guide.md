@@ -26,8 +26,10 @@ The reusable SDK is also published independently:
 npm install @privara-stacks/sdk@beta
 ```
 
-The current published release is `0.1.0-beta.2`. Production integrations may pin it
-exactly with `npm install @privara-stacks/sdk@0.1.0-beta.2`.
+The current published release is `0.1.0-beta.3`. Production integrations may pin it
+exactly with `npm install @privara-stacks/sdk@0.1.0-beta.3`.
+
+Package: [@privara-stacks/sdk@0.1.0-beta.3](https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0-beta.3)
 
 Useful commands:
 

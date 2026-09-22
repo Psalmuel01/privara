@@ -441,7 +441,30 @@ function Overview({ asset, wallet, identity, deposit, payments, go, openSpend, c
         <ul><li><CircleCheck /> {wallet ? `Wallet ${short(wallet)}` : `Connect a ${NETWORK} wallet`}</li><li><CircleCheck /> {identity ? "Privacy identity unlocked" : "Unlock encrypted privacy backup"}</li><li><CircleCheck /> {asset.kind === "stx" ? "Wallet balance" : "Router deposit"}: {formatUnits(deposit, asset.decimals)} {asset.symbol}</li></ul>
       </article>
     </section>
-    <section className="proof-strip"><div><span className="proof-icon"><Zap size={17} /></span><div><strong>Connected service</strong><small>{RELAYER_URL}</small></div></div><a href={`${STACKS_API_URL}/v2/info`} target="_blank" rel="noreferrer">Stacks API <ExternalLink size={13} /></a></section>
+    <section className="privacy-story" aria-label="How a Privara payment reaches a fresh one-time address">
+      <div className="privacy-story-copy">
+        <span className="eyebrow">A private route for every payment</span>
+        <h2>One recipient. A fresh destination every time.</h2>
+        <p>Privara derives a new one-time address for each payment. The recipient discovers it locally with their independent privacy identity.</p>
+        <div className="privacy-story-steps" aria-label="Resolve, route, and discover">
+          <span><i>01</i> Resolve</span>
+          <span><i>02</i> Route</span>
+          <span><i>03</i> Discover</span>
+        </div>
+      </div>
+      <div className="privacy-route-art" aria-hidden="true">
+        <div className="route-node route-node-payment"><AssetIcon asset={asset} small /><span>Payment</span></div>
+        <div className="route-track route-track-in"><i /><i /></div>
+        <div className="route-core">
+          <span className="route-ring route-ring-one" />
+          <span className="route-ring route-ring-two" />
+          <span className="route-lock"><LockKeyhole size={20} /></span>
+          <strong>privara</strong>
+        </div>
+        <div className="route-track route-track-out"><i /><i /></div>
+        <div className="route-node route-node-private"><Radio size={18} /><span>Fresh address</span></div>
+      </div>
+    </section>
   </>;
 }
 

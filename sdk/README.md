@@ -1,11 +1,18 @@
 # Privara SDK
 
-TypeScript SDK for M1 SIP-018 payment intents and M2 stealth recipients.
+TypeScript SDK for Privara SIP-018 payment intents and one-time stealth recipients on
+Stacks.
 
-The current release channel is a pre-mainnet beta:
+The current release is the mainnet beta `0.1.0-beta.2`:
 
 ```bash
 npm install @privara-stacks/sdk@beta
+```
+
+Pin the exact release when reproducible dependency resolution is required:
+
+```bash
+npm install @privara-stacks/sdk@0.1.0-beta.2
 ```
 
 ## M1 intent core
@@ -42,11 +49,17 @@ npm install @privara-stacks/sdk@beta
   the entered amount, while `added` preserves the exact amount Bob should receive.
 - `createPrivateIntent` resolves P/V from Bob's normal address, derives a fresh one-time
   address, encrypts the announcement, calculates the selected fee mode, and signs M2.
+- `resolveMainnetRecipient` accepts either a Stacks mainnet address or BNSv2 name, while
+  `assertBnsResolutionUnchanged` stops signing if a reviewed name changes owners.
+- `prepareStxPrivateIntent` prepares the same signed privacy flow for the dedicated native
+  STX router.
 - `privateIntentEnvelope` produces the JSON-safe public request for the relayer endpoint.
 - `signStealthIntent` uses the version-2, exact-router SIP-018 domain.
 - `buildStealthSettlementArgs` refuses any payload that differs from the signed commitment.
 - `fetchAnnouncementPage` reads the supported Hiro contract-log endpoint, authenticates
   canonical event hashes, and returns public candidate data for local scanning.
+- `fetchStxAnnouncementPage` and `parseStxSettlementLog` provide the equivalent event
+  path for native STX settlements.
 - `buildSponsoredSweep` creates an origin-signed SIP-010 transfer using p' with sponsored
   authorization and an exact-token post-condition.
 - `validateSponsoredSweep` enforces the relayer's network, contract, method, amount,
@@ -61,6 +74,18 @@ npm install @privara-stacks/sdk@beta
 
 `buildSponsoredSweep` remains exported only for compatibility with the first fee-free
 testnet acceptance transaction. New integrations use `buildSponsoredSpend`.
+
+## Supported asset paths
+
+The SDK is asset-parameterized rather than tied to a single SIP-010 token:
+
+- sBTC and USDCx use `preparePrivateIntent` with their exact asset and router principals;
+- native STX uses `prepareStxPrivateIntent` and the dedicated STX router;
+- sponsored SIP-010 spending fetches policy for the selected asset contract before the
+  one-time key signs the exact payment and fee payload.
+
+The connected wallet remains responsible for wallet approvals and router funding. The
+independent Privara privacy seed controls discovered one-time addresses.
 
 ## Private payment fee modes
 

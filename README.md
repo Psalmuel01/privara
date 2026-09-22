@@ -320,13 +320,17 @@ derived one-time address are self-custodial under the recipient's privacy seed. 
 
 ## SDK
 
-The reusable TypeScript SDK is published as `@privara-stacks/sdk`.
+The reusable TypeScript SDK is published as `@privara-stacks/sdk`. The current public
+release is `0.1.0-beta.2` on npm's `beta` channel.
 
 ```bash
-npm install @privara-stacks/sdk
+npm install @privara-stacks/sdk@beta
 ```
 
-See the [developer guide](docs/developer-guide.md) for integration details.
+This release includes the SIP-018 intent core, stealth-address identity and recovery,
+local announcement scanning, BNSv2 recipient resolution, native-STX intent helpers,
+generic SIP-010 routing for sBTC and USDCx, and sponsored-spend preparation and
+validation. See the [developer guide](docs/developer-guide.md) for integration details.
 
 ## Run Locally
 

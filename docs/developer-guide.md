@@ -3,8 +3,8 @@
 ## Overview
 
 Privara provides one-time-address payments with encrypted announcements and local
-recipient scanning. The live sBTC path and the pending native-STX path both use signed
-SIP-018 intents, asset-specific router custody, and relayer-submitted settlement.
+recipient scanning. The live sBTC, USDCx, and native-STX paths use signed SIP-018 intents,
+asset-specific router custody, and relayer-submitted settlement.
 
 Repository:
 
@@ -23,8 +23,11 @@ npm install
 The reusable SDK is also published independently:
 
 ```bash
-npm install @privara-stacks/sdk
+npm install @privara-stacks/sdk@beta
 ```
+
+The current published release is `0.1.0-beta.2`. Production integrations may pin it
+exactly with `npm install @privara-stacks/sdk@0.1.0-beta.2`.
 
 Useful commands:
 
@@ -41,10 +44,12 @@ npm --prefix sdk run build
 | Component | Mainnet value |
 | --- | --- |
 | Registry | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stealth-registry` |
-| Router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc` |
+| sBTC router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-sbtc` |
+| USDCx router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-router-m2-usdcx` |
 | Sponsored spend | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-sponsored-spend-v2` |
 | Native STX router | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE.privara-stx-router-v1` |
-| Asset | `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` |
+| sBTC asset | `SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token` |
+| USDCx asset | `SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE.usdcx` |
 | Relayer | `https://privara-production.up.railway.app` |
 
 ## Recipient Setup

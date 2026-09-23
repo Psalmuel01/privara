@@ -322,6 +322,9 @@ This release includes the SIP-018 intent core, stealth-address identity and reco
 local announcement scanning, BNSv2 recipient resolution, native-STX intent helpers,
 generic SIP-010 routing for sBTC and USDCx, and sponsored-spend preparation and
 validation. See the [developer guide](docs/developer-guide.md) for integration details.
+For a deliberately isolated example that consumes the published npm package rather than
+Privara's internal app helpers, run the
+[merchant-style integrator demo](examples/integrator-demo).
 
 ## Run Locally
 

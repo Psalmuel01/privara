@@ -31,6 +31,22 @@ The current stable release is `0.1.0`. Production integrations may pin it exactl
 
 Package: [@privara-stacks/sdk@0.1.0](https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0)
 
+## Standalone Integration Demo
+
+[`examples/integrator-demo`](../examples/integrator-demo) is a small merchant-style
+checkout that imports the stable npm SDK rather than code from Privara's main app. It
+covers live configuration pinning, wallet connection, address/BNS resolution, P/V
+validation, router-funding prechecks, SIP-018 signing, and relayer submission.
+
+```bash
+npm install --prefix examples/integrator-demo
+npm run demo:integrator
+```
+
+The example also calls out the work that remains with the host application: wallet UX,
+CORS/origin approval, pending transaction states, BNS revalidation, exact consent, and
+safe retry behavior.
+
 Useful commands:
 
 ```bash

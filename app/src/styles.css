@@ -307,8 +307,8 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .developer-flow-copy h3 { margin: 0; font-size: 17px; letter-spacing: -.035em; }
 .developer-flow-copy p { margin-top: 6px; }
 .developer-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 18px; }
-.developer-checklist > div { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #e0e7e1; border-radius: 10px; background: #fbfdfb; }
-.developer-checklist svg { flex: 0 0 auto; margin-top: 2px; color: #2b6a46; }
+.developer-checklist > div { display: flex; align-items: center; gap: 10px; padding: 13px; border: 1px solid #e0e7e1; border-radius: 10px; background: #fbfdfb; }
+.developer-checklist svg { flex: 0 0 auto; color: #2b6a46; }
 .developer-checklist p { margin: 0; font-size: 9px; line-height: 1.55; }
 .developer-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 17px; align-items: start; }
 .developer-document { padding: clamp(26px, 4vw, 44px); }

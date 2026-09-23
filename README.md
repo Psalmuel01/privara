@@ -13,15 +13,6 @@ settlement destination.
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
 
-> **Mainnet status:** the contracts, web application, relayer, and SDK are live. The
-> completed Milestone 2 evidence records twenty-five real-sBTC intents across six
-> long-term wallets, including four non-team participants, a contributor-payout flow,
-> and informal technical feedback from Werner. A non-team tester also independently
-> reproduced the fresh-browser recovery, local scan, and sponsored-withdrawal flow.
-> Every stated Milestone 2 adoption target is now met. Native STX and USDCx use
-> separately deployed routers and are being validated as additional production routes.
-> An independent audit is future hardening, not a Milestone 2 requirement.
-
 ## What Privara Does
 
 A sender only needs the recipient's normal Stacks address or BNS name. Privara resolves

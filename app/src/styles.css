@@ -288,6 +288,28 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .developer-capabilities article > span { color: #64806e; font: 500 9px var(--mono); }
 .developer-capabilities h3 { margin: 23px 0 7px; font-size: 17px; letter-spacing: -.04em; }
 .developer-capabilities p { margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.developer-modes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.developer-modes article { min-width: 0; padding: 17px; border: 1px solid #dfe6e1; border-radius: 12px; background: linear-gradient(145deg, #fbfdfb, #f4f8f5); }
+.developer-modes span { color: #577461; font: 600 8px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.developer-modes h3 { margin: 13px 0 6px; font-size: 14px; letter-spacing: -.035em; }
+.developer-modes p { margin: 0; font-size: 9px; line-height: 1.6; }
+.developer-config { margin-top: 18px; overflow: hidden; border: 1px solid #dfe6e1; border-radius: 12px; }
+.developer-config > div { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 18px; padding: 14px 16px; border-top: 1px solid #e6ebe7; background: #fbfcfb; }
+.developer-config > div:first-child { border-top: 0; }
+.developer-config > div > span { color: #50665a; font: 600 9px var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+.developer-config code, .developer-config small { display: block; overflow-wrap: anywhere; }
+.developer-config code { color: var(--ink); font: 500 9px/1.5 var(--mono); }
+.developer-config small { margin-top: 3px; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.developer-flow-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 18px; padding: 5px; border-radius: 11px; background: #edf1ed; }
+.developer-flow-tabs button { min-width: 0; padding: 10px 8px; color: #65736b; border: 0; border-radius: 8px; background: transparent; font: 650 9px var(--sans); cursor: pointer; }
+.developer-flow-tabs button.active { color: var(--ink); background: white; box-shadow: 0 2px 8px rgb(11 30 20 / 7%); }
+.developer-flow-copy { margin-top: 20px; }
+.developer-flow-copy h3 { margin: 0; font-size: 17px; letter-spacing: -.035em; }
+.developer-flow-copy p { margin-top: 6px; }
+.developer-checklist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 18px; }
+.developer-checklist > div { display: flex; align-items: flex-start; gap: 10px; padding: 13px; border: 1px solid #e0e7e1; border-radius: 10px; background: #fbfdfb; }
+.developer-checklist svg { flex: 0 0 auto; margin-top: 2px; color: #2b6a46; }
+.developer-checklist p { margin: 0; font-size: 9px; line-height: 1.55; }
 .developer-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 17px; align-items: start; }
 .developer-document { padding: clamp(26px, 4vw, 44px); }
 .developer-document > section { padding: 34px 0; border-top: 1px solid #e5eae6; }
@@ -328,6 +350,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .developer-hero { grid-template-columns: minmax(0, 1fr) 220px; }
   .developer-install { align-items: flex-start; flex-direction: column; }
   .developer-capabilities { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .developer-modes { grid-template-columns: 1fr; }
   .developer-layout { grid-template-columns: 1fr; }
   .developer-resources { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -384,6 +407,9 @@ button:disabled { cursor: not-allowed; opacity: .55; }
   .developer-signal { min-height: 165px; }
   .developer-capabilities, .developer-resources { grid-template-columns: 1fr; }
   .developer-capabilities article { min-height: 0; }
+  .developer-config > div { grid-template-columns: 1fr; gap: 5px; }
+  .developer-flow-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .developer-checklist { grid-template-columns: 1fr; }
   .developer-document pre { margin-inline: -8px; padding: 16px; }
   .dao-fee-choice .segmented { width: 100%; }
   .dao-total { grid-template-columns: 1fr; }

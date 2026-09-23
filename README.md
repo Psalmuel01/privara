@@ -9,18 +9,9 @@ settlement destination.
 
 [Open the app](https://www.useprivara.xyz/) ·
 [Read the user guide](https://www.useprivara.xyz/guide) ·
-[Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk) ·
+[Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0) ·
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
-
-> **Mainnet status:** the contracts, web application, relayer, and SDK are live. The
-> completed Milestone 2 evidence records twenty-five real-sBTC intents across six
-> long-term wallets, including four non-team participants, a contributor-payout flow,
-> and informal technical feedback from Werner. A non-team tester also independently
-> reproduced the fresh-browser recovery, local scan, and sponsored-withdrawal flow.
-> Every stated Milestone 2 adoption target is now met. Native STX and USDCx use
-> separately deployed routers and are being validated as additional production routes.
-> An independent audit is future hardening, not a Milestone 2 requirement.
 
 ## What Privara Does
 
@@ -320,11 +311,11 @@ derived one-time address are self-custodial under the recipient's privacy seed. 
 
 ## SDK
 
-The reusable TypeScript SDK is published as `@privara-stacks/sdk`. The current public
-release is `0.1.0-beta.2` on npm's `beta` channel.
+The reusable TypeScript SDK is published as `@privara-stacks/sdk`. The current stable
+release is `0.1.0`.
 
 ```bash
-npm install @privara-stacks/sdk@beta
+npm install @privara-stacks/sdk
 ```
 
 This release includes the SIP-018 intent core, stealth-address identity and recovery,

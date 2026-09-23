@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   CircleCheck,
+  Code2,
   Copy,
   ExternalLink,
   FileKey,
@@ -51,6 +52,8 @@ import {
   NETWORK,
   RELAYER_URL,
   STACKS_API_URL,
+  STX_ROUTER_CONTRACT,
+  USDCX_ROUTER_CONTRACT,
   connectWallet,
   configForSip010Asset,
   createPrivacyIdentity,
@@ -107,7 +110,7 @@ import {
   type BitcoinUsdQuote,
 } from "./lib/usd-price";
 
-type View = "overview" | "send" | "receive" | "activity" | "payouts" | "guide";
+type View = "overview" | "send" | "receive" | "activity" | "payouts" | "guide" | "developers";
 type FeeMode = "added" | "included";
 type Notice = { kind: "success" | "error" | "info"; message: string } | null;
 type SpendResult = { txid: string; paymentAmount: string; tokenSponsorFee: string; networkFeePaid: string };
@@ -119,9 +122,12 @@ const assetContract = (asset: Sip010Asset) => asset.contract[NETWORK];
 const networkLabel = NETWORK === "mainnet" ? "Mainnet" : "Testnet";
 const UsdQuoteContext = createContext<BitcoinUsdQuote | null>(null);
 const USD_AMOUNT_PRESETS = [5, 10, 25, 50, 100, 250] as const;
-const viewFromPath = (): View => window.location.pathname.replace(/\/+$/, "") === "/guide"
-  ? "guide"
-  : "overview";
+const viewFromPath = (): View => {
+  const path = window.location.pathname.replace(/\/+$/, "");
+  if (path === "/guide") return "guide";
+  if (path === "/developers") return "developers";
+  return "overview";
+};
 
 function FiatEstimate({ amount, asset, className = "" }: {
   amount: bigint; asset: Sip010Asset; className?: string;
@@ -181,11 +187,11 @@ export default function App() {
     ? configForSip010Asset(config, assetContract(asset)!)
     : config, [config, asset]);
 
-  // Keep the public guide shareable without introducing a routing dependency for this
-  // small single-page app. Vercel rewrites /guide to index.html, and history handles
-  // sidebar navigation plus the browser Back/Forward buttons.
+  // Keep public guides shareable without introducing a routing dependency for this
+  // small single-page app. Vercel rewrites both paths to index.html, while history
+  // handles sidebar navigation plus the browser Back/Forward buttons.
   const navigate = (nextView: View) => {
-    const nextPath = nextView === "guide" ? "/guide" : "/";
+    const nextPath = nextView === "guide" ? "/guide" : nextView === "developers" ? "/developers" : "/";
     if (window.location.pathname !== nextPath) window.history.pushState({}, "", nextPath);
     setView(nextView);
   };
@@ -296,6 +302,7 @@ export default function App() {
           </nav>
           <div className="sidebar-foot">
             <button className={`guide-link ${view === "guide" ? "active" : ""}`} onClick={() => navigate("guide")} disabled={batchProcessing}><BookOpen size={16} /><span><strong>Privara guide</strong><small>How everything works</small></span></button>
+            <button className={`guide-link developer-link ${view === "developers" ? "active" : ""}`} onClick={() => navigate("developers")} disabled={batchProcessing}><Code2 size={16} /><span><strong>Developers</strong><small>Integrate Privara</small></span></button>
             <div className="privacy-live">
               <span className={`status-dot ${identity ? "" : "inactive"}`} />
               <div><strong>{identity ? "Privacy keys unlocked" : "Privacy keys locked"}</strong><small>{identity ? "Held in this browser session" : "Unlock from Receive & scan"}</small></div>
@@ -344,7 +351,8 @@ export default function App() {
           {view === "payouts" && (asset.kind === "stx"
             ? <><PageTitle eyebrow="Teams & DAOs" title="STX batch payouts are not enabled yet." copy="The native STX router supports individual private sends only. Switch to sBTC for the existing contributor batch workflow." /><section className="panel empty-state"><Users size={28} /><h2>Use individual private STX payments</h2><p>This release adds no new batch protocol. Send each STX payment from Send privately, or select sBTC for DAO payouts.</p><button className="primary-action" onClick={() => navigate("send")}>Send STX privately</button></section></>
             : <Payouts asset={asset} config={activeConfig} wallet={walletAddress} deposit={deposit} setDeposit={setDeposit} notify={setNotice} connect={connect} onProcessingChange={setBatchProcessing} />)}
-          {view === "guide" && <PrivaraGuide config={config} />}
+          {view === "guide" && <PrivaraGuide config={config} go={navigate} />}
+          {view === "developers" && <DeveloperGuide config={config} />}
         </main>
 
         {selectedPayment && activeConfig && walletAddress && (asset.kind === "stx" ?
@@ -1405,7 +1413,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
   </>;
 }
 
-function PrivaraGuide({ config }: { config: PublicRelayerConfig | null }) {
+function PrivaraGuide({ config, go }: { config: PublicRelayerConfig | null; go: (view: View) => void }) {
   const settlementFee = config ? `${config.settlementFeeBps / 100}%` : "the fee shown at review";
   const sip010Policies = SUPPORTED_ASSETS
     .filter((candidate) => candidate.kind === "sip010")
@@ -1436,6 +1444,219 @@ function PrivaraGuide({ config }: { config: PublicRelayerConfig | null }) {
         <section id="guide-limits"><span className="guide-number">10</span><div><h2>Spending, withdrawals, and wallet hygiene</h2><p>Privara creates the one-time address automatically. How you use its balance afterward also matters:</p><ul><li><strong>Pay directly when possible.</strong> A one-time address is already a spendable Stacks account. Paying the intended person or merchant from it avoids an unnecessary intermediate transfer.</li><li><strong>Move to another Stacks address when needed.</strong> A fresh self-custody address can help with wallet access or operational separation, but it is not a privacy reset. The transfer remains visible and may be correlated through timing, amounts, consolidation, or later activity.</li><li><strong>Do not default to your public wallet.</strong> Moving funds to the long-term wallet registered with Privara creates a direct onchain link and is discouraged when separation matters.</li><li><strong>BTC conversion is coming.</strong> Privara plans to integrate the official sBTC withdrawal protocol so a one-time key can authorize conversion to BTC for a chosen Bitcoin destination, including a compatible exchange deposit address. The key will continue to sign locally; Privara will facilitate the request rather than take custody of the funds.</li><li>Until that integration is available, this app accepts only Stacks <code>SP…</code> destinations for spending. Do not enter a Bitcoin <code>bc1…</code> address or send sBTC to an exchange unless it explicitly supports the official token on the Stacks network.</li><li>Treat every one-time address as a separate balance and do not deliberately reuse it for another private payment.</li><li>Avoid combining several one-time balances into one transaction or destination, because consolidation can suggest common ownership.</li><li>Be mindful of distinctive amounts and immediate withdrawals. Changing timing or amounts may reduce simple correlation, but it is not a cryptographic guarantee.</li><li>Keep your encrypted privacy backup separate from your everyday wallet backup and store its password safely. Leather, Xverse, and hardware wallets cannot recover it.</li></ul><div className="guide-callout"><Info size={18} /><p><strong>Planned Bitcoin off-ramp.</strong> Direct sBTC deposits are not broadly supported by centralized exchanges today. The planned flow will use the official sBTC peg-out to deliver BTC to a user-selected Bitcoin address instead.</p></div><p>Privara protects the recipient's long-term wallet from appearing as the settlement destination. Amounts and payer activity remain visible onchain, while RPC providers, relayers, browsers, and network observers may still observe connection metadata.</p><p>This application operates on Stacks {NETWORK}. {NETWORK === "testnet" ? "Testnet assets have no real monetary value, but backups and transaction habits should still be treated carefully." : "Mainnet transactions use real assets and are irreversible; verify every address, amount, and fee before signing."}</p></div></section>
 
       </article>
+    </div>
+    <section className="developer-invite">
+      <div><span className="eyebrow">For builders</span><h2>Bring private settlement into your own product.</h2><p>Use the published TypeScript SDK for recipient resolution, one-time-address derivation, signed intents, local scanning, and sponsored SIP-010 spending.</p></div>
+      <button className="primary-action" onClick={() => go("developers")}><Code2 size={16} /> Open developer guide <ArrowRight size={15} /></button>
+    </section>
+  </>;
+}
+
+type DeveloperFlow = "sender" | "recipient" | "scan" | "spend";
+
+function DeveloperGuide({ config }: { config: PublicRelayerConfig | null }) {
+  const [flow, setFlow] = useState<DeveloperFlow>("sender");
+  const sbtc = SUPPORTED_ASSETS.find((asset) => asset.id === "sbtc")!;
+  const usdcx = SUPPORTED_ASSETS.find((asset) => asset.id === "usdcx")!;
+  const sbtcContract = assetContract(sbtc)!;
+  const usdcxContract = assetContract(usdcx)!;
+  const sbtcPolicy = config ? configForSip010Asset(config, sbtcContract) : null;
+  const usdcxPolicy = config ? configForSip010Asset(config, usdcxContract) : null;
+  const deploymentRows = [
+    { label: "Network", value: networkLabel, note: "Every signature is bound to this chain." },
+    { label: "Relayer", value: RELAYER_URL, note: "Read public policy from /v1/config." },
+    { label: "Registry", value: config?.registry ?? FALLBACK_STEALTH_REGISTRY, note: "Recipient P/V lookup and registration." },
+    { label: "sBTC router", value: sbtcPolicy?.router ?? FALLBACK_LIVE_ROUTER, note: sbtcContract },
+    { label: "USDCx router", value: (usdcxPolicy?.router ?? USDCX_ROUTER_CONTRACT) || "Not advertised", note: usdcxContract },
+    { label: "Native STX router", value: config?.stxRouter ?? STX_ROUTER_CONTRACT, note: "Native STX custody and settlement." },
+    { label: "Stacks API", value: STACKS_API_URL, note: "Public chain reads and announcement history." },
+  ];
+  const senderExample = `import {
+  resolveMainnetRecipient,
+  assertBnsResolutionUnchanged,
+  preparePrivateIntent,
+  stealthIntentDomainCV,
+  stealthIntentMessageCV,
+  attachStealthIntentSignature,
+  privateIntentEnvelope,
+} from "@privara-stacks/sdk";
+
+const RELAYER_URL = "https://privara-production.up.railway.app";
+const deployment = await fetch(RELAYER_URL + "/v1/config").then(r => r.json());
+const policy = deployment.assets.find((item) => item.id === "sbtc");
+if (!policy || deployment.network !== "mainnet") throw new Error("unsupported deployment");
+
+const recipient = await resolveMainnetRecipient("bob.btc");
+const prepared = await preparePrivateIntent({
+  registry: deployment.registry,
+  recipient: recipient.address,
+  network: "mainnet",
+  router: policy.router,
+  asset: policy.asset,
+  relayer: deployment.relayerAddress,
+  enteredAmount: 10_000n,
+  settlementFeeBps: BigInt(deployment.settlementFeeBps),
+  feeMode: "added",
+  expiry: currentBlockHeight + 200,
+});
+
+// A reviewed BNS name must still resolve to the same owner before signing.
+await assertBnsResolutionUnchanged(recipient);
+const signature = await wallet.signStructuredMessage({
+  domain: stealthIntentDomainCV("mainnet", policy.router),
+  message: stealthIntentMessageCV(prepared.intent),
+});
+const intent = attachStealthIntentSignature(
+  prepared.intent, signature, "mainnet", policy.router
+);
+
+await fetch(RELAYER_URL + "/v1/intents/settle", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(privateIntentEnvelope({ ...prepared, intent }, "mainnet")),
+});`;
+  const recipientExample = `import {
+  generateIdentity,
+  identityFromSeed,
+  exportPrivacySeed,
+  importPrivacySeed,
+  buildStealthKeyArgs,
+} from "@privara-stacks/sdk";
+
+const identity = generateIdentity();
+const backup = await exportPrivacySeed(identity.privacySeed, password);
+await requireUserToDownload(JSON.stringify(backup));
+
+// Restore the exported file before making this identity receivable.
+const recoveredSeed = await importPrivacySeed(backup, password);
+const recovered = identityFromSeed(recoveredSeed);
+if (!sameBytes(identity.spendingPublicKey, recovered.spendingPublicKey) ||
+    !sameBytes(identity.viewingPublicKey, recovered.viewingPublicKey)) {
+  throw new Error("backup verification failed");
+}
+
+// Adapt this contract call to the connected wallet.
+await wallet.contractCall({
+  contract: deployment.registry,
+  functionName: "register-stealth-keys",
+  functionArgs: buildStealthKeyArgs(
+    recovered.spendingPublicKey,
+    recovered.viewingPublicKey,
+  ),
+});
+
+// Keep recovered.private keys client-side. Never send them to Privara.`;
+  const scanExample = `import {
+  fetchAnnouncementPage,
+  scanAnnouncements,
+} from "@privara-stacks/sdk";
+
+const page = await fetchAnnouncementPage({
+  apiUrl: "https://api.hiro.so",
+  router: policy.router,
+  limit: 100,
+  onInvalid: ({ transactionId, eventIndex }) =>
+    console.warn("Skipped invalid public record", { transactionId, eventIndex }),
+});
+
+const candidates = page.announcements.map(item => ({
+  stealthPrincipal: item.stealthPrincipal,
+  ephemeralPublicKey: item.ephemeralPublicKey,
+  note: { version: item.version, nonce: item.nonce, ciphertext: item.ciphertext },
+  context: {
+    network: "mainnet",
+    router: policy.router,
+    stealthPrincipal: item.stealthPrincipal,
+    asset: item.asset,
+    registryEpoch: item.registryEpoch,
+    protocolVersion: item.version,
+  },
+}));
+
+const detected = await scanAnnouncements(
+  candidates,
+  identity.viewingPrivateKey,
+  identity.spendingPublicKey,
+  "mainnet",
+  identity.spendingPrivateKey,
+);
+// Matching and one-time spending-key derivation happened locally.`;
+  const spendExample = `import {
+  prepareSponsoredSpend,
+  submitPreparedSponsoredSpend,
+} from "@privara-stacks/sdk";
+
+const request = {
+  endpoint: RELAYER_URL,
+  network: "mainnet",
+  spendContract: deployment.coreAddress + ".privara-sponsored-spend-v2",
+  assetContract: policy.asset,
+  tokenName: policy.tokenName,
+  destination,
+  stealthPrivateKey,
+  stacksApiUrl: "https://api.hiro.so",
+};
+
+// Fetch once, then show every immutable field to the user.
+const approved = await prepareSponsoredSpend({ ...request, fullBalance: true });
+showConfirmation({
+  destination: approved.destination,
+  paymentAmount: approved.paymentAmount,
+  sponsorFee: approved.sponsorFee,
+  feeRecipient: approved.policy.feeRecipient,
+});
+
+// Submission consumes the approved object and does not refresh the quote.
+const result = await submitPreparedSponsoredSpend(request, approved);`;
+  const flowExamples: Record<DeveloperFlow, { label: string; title: string; copy: string; code: string }> = {
+    sender: { label: "Sender", title: "Prepare first. Sign second.", copy: "Resolve and pin the recipient, derive the fresh destination, show the exact quote, then request one structured-data signature.", code: senderExample },
+    recipient: { label: "Recipient", title: "Verify recovery before registration.", copy: "The independent privacy seed becomes receivable only after its encrypted backup has been downloaded and successfully restored.", code: recipientExample },
+    scan: { label: "Scanner", title: "Discover locally and continue safely.", copy: "Fetch public records, skip malformed candidates independently, and test them with the private viewing key only inside the user's browser.", code: scanExample },
+    spend: { label: "Spending", title: "Pin sponsorship before signing.", copy: "Fetch the exact sponsor policy once, present it for approval, and submit that same immutable quote without a silent refresh.", code: spendExample },
+  };
+  const activeFlow = flowExamples[flow];
+  return <>
+    <PageTitle
+      eyebrow="Developer integration"
+      title="Build private payments with Privara."
+      copy="Resolve a familiar Stacks identity, derive a fresh settlement destination, and let recipients discover payments locally—without your application handling their privacy keys."
+      action={<a className="primary-action" href="https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0" target="_blank" rel="noreferrer">View npm package <ExternalLink size={15} /></a>}
+    />
+
+    <section className="developer-hero">
+      <div className="developer-install">
+        <div><span className="eyebrow on-dark">Stable SDK · 0.1.0</span><h2>Start with one package.</h2><p>The SDK is framework-neutral. Wallet connection, product UI, and custody choices remain yours.</p></div>
+        <code>npm install @privara-stacks/sdk</code>
+      </div>
+      <div className="developer-signal" aria-hidden="true"><span><Code2 size={23} /></span><i /><i /><i /></div>
+    </section>
+
+    <section className="developer-capabilities" aria-label="SDK capabilities">
+      <article><span>01</span><h3>Resolve</h3><p>Accept a mainnet Stacks address or BNS name, then pin the exact resolved recipient before signing.</p></article>
+      <article><span>02</span><h3>Prepare</h3><p>Derive a one-time destination, encrypt its announcement, and create an exact SIP-018 payload.</p></article>
+      <article><span>03</span><h3>Discover</h3><p>Fetch public router events and scan locally with the recipient's independent viewing key.</p></article>
+      <article><span>04</span><h3>Spend</h3><p>Pin the sponsored SIP-010 quote before the one-time key signs the destination, amount, and fee.</p></article>
+    </section>
+
+    <div className="developer-layout">
+      <article className="panel developer-document">
+        <section><span className="eyebrow">Integration modes</span><h2>Choose how much infrastructure you own.</h2><p>All three paths use the same signed protocol. The difference is who operates the public submission and indexing services.</p><div className="developer-modes"><article><span>Fastest</span><h3>Hosted Privara</h3><p>Use the SDK, production contracts, and Privara's relayer. Your origin must be approved for browser requests.</p></article><article><span>More control</span><h3>Self-hosted relayer</h3><p>Keep the SDK and contracts, but operate the relayer, persistence, rate limits, sponsor wallet, and monitoring yourself.</p></article><article><span>Custom stack</span><h3>Protocol-native</h3><p>Use the SDK and contracts while replacing the UI, relayer, or public index with infrastructure your product controls.</p></article></div></section>
+
+        <section><span className="eyebrow">Deployment configuration</span><h2>Read policy live. Pin trust locally.</h2><p>Start with <code>{RELAYER_URL}/v1/config</code>, but verify every returned principal against the deployment your product has chosen to trust. Fees and limits are policy; private keys never belong in this response.</p><div className="developer-config">{deploymentRows.map((row) => <div key={row.label}><span>{row.label}</span><div><code>{row.value}</code><small>{row.note}</small></div></div>)}</div><div className="guide-callout"><Info size={18} /><p><strong>Hosted integrations require origin approval.</strong> Share the exact production web origin with Privara before launch so the relayer can allow it explicitly. Server-to-server clients should still authenticate, rate-limit, and validate every response.</p></div></section>
+
+        <section><span className="eyebrow">Integration model</span><h2>Keep the protocol boundary clear.</h2><ol><li><strong>Recipient setup:</strong> create an independent privacy seed, export and restore-verify its encrypted backup, then register only public P/V keys.</li><li><strong>Sender checkout:</strong> resolve the recipient, fetch P/V, prepare the intent, show the exact amount and fee, then request the wallet signature.</li><li><strong>Settlement:</strong> submit the signed public envelope to the relayer. Never send wallet keys, privacy seeds, or derived one-time private keys.</li><li><strong>Recipient inbox:</strong> fetch announcements and scan in the browser. A match derives spending authority locally.</li><li><strong>Later spending:</strong> show and pin the complete sponsor quote before signing. Never refresh the fee after approval.</li></ol></section>
+
+        <section><span className="eyebrow">Implementation flows</span><h2>Follow each key boundary end to end.</h2><p>These examples use the public SDK surface. Adapt file download, wallet calls, block-height reads, state storage, and confirmation components to your application.</p><div className="developer-flow-tabs" role="tablist" aria-label="Integration examples">{(Object.keys(flowExamples) as DeveloperFlow[]).map((key) => <button key={key} role="tab" aria-selected={flow === key} className={flow === key ? "active" : ""} onClick={() => setFlow(key)}>{flowExamples[key].label}</button>)}</div><div className="developer-flow-copy"><h3>{activeFlow.title}</h3><p>{activeFlow.copy}</p></div><pre><code>{activeFlow.code}</code></pre></section>
+
+        <section><span className="eyebrow">Asset paths</span><h2>One privacy model, asset-specific settlement.</h2><dl><div><dt>sBTC</dt><dd>Use the official sBTC contract and the pinned sBTC router. One-time spending can be sponsored in exchange for the exact displayed sBTC fee.</dd></div><div><dt>USDCx</dt><dd>Use the official USDCx contract and its dedicated router. Query sponsor policy with that exact asset contract.</dd></div><div><dt>Native STX</dt><dd>Use <code>prepareStxPrivateIntent</code> and the STX router. The one-time address owns STX and pays its later transfer fee directly.</dd></div></dl></section>
+
+        <section><span className="eyebrow">Launch checklist</span><h2>Fail closed at every mutable boundary.</h2><div className="developer-checklist"><div><Check size={15} /><p><strong>Identity:</strong> require backup download and successful restore before public P/V registration.</p></div><div><Check size={15} /><p><strong>Recipient:</strong> validate registered curve points and re-resolve reviewed BNS names before signing.</p></div><div><Check size={15} /><p><strong>Consent:</strong> show the resolved recipient, asset, amount, fee, fee recipient, router, and network.</p></div><div><Check size={15} /><p><strong>Domain:</strong> bind the chain ID and exact router principal in the SIP-018 message.</p></div><div><Check size={15} /><p><strong>Replay:</strong> use unordered random nonces and treat the signed intent digest as single-use.</p></div><div><Check size={15} /><p><strong>Scanning:</strong> isolate malformed announcements so one record cannot abort the remaining history.</p></div><div><Check size={15} /><p><strong>Secrets:</strong> keep privacy seeds, backup passwords, and derived one-time keys client-side.</p></div><div><Check size={15} /><p><strong>Failures:</strong> handle unregistered recipients, expiry, insufficient deposits, changed quotes, and unavailable services explicitly.</p></div></div><div className="guide-callout warning"><TriangleAlert size={18} /><p><strong>Do not copy configuration blindly.</strong> Pin the registry, router, asset, relayer, sponsor contract, fee recipient, network, and limits for the deployment your product intends to trust.</p></div></section>
+      </article>
+
+      <aside className="developer-resources">
+        <section className="panel"><span className="eyebrow">Reference</span><h3>Continue building</h3><a href="https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0" target="_blank" rel="noreferrer"><span><strong>npm package</strong><small>Install stable version 0.1.0</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara/blob/main/docs/developer-guide.md" target="_blank" rel="noreferrer"><span><strong>Developer guide</strong><small>Full integration notes</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara/blob/main/docs/m2-stealth-spec.md" target="_blank" rel="noreferrer"><span><strong>Protocol specification</strong><small>Cryptography and wire format</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara" target="_blank" rel="noreferrer"><span><strong>Reference implementation</strong><small>App, SDK, contracts, and relayer</small></span><ExternalLink size={14} /></a></section>
+        <section className="developer-boundary"><ShieldCheck size={22} /><h3>Your UI owns consent.</h3><p>The SDK prepares and validates protocol data. Your integration must still present the resolved recipient, exact amount, exact fee, and network before requesting a signature.</p></section>
+      </aside>
     </div>
   </>;
 }

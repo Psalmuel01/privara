@@ -1497,13 +1497,13 @@ await fetch(RELAYER_URL + "/v1/intents/settle", {
       eyebrow="Developer integration"
       title="Build private payments with Privara."
       copy="Resolve a familiar Stacks identity, derive a fresh settlement destination, and let recipients discover payments locally—without your application handling their privacy keys."
-      action={<a className="primary-action" href="https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0-beta.3" target="_blank" rel="noreferrer">View npm package <ExternalLink size={15} /></a>}
+      action={<a className="primary-action" href="https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0" target="_blank" rel="noreferrer">View npm package <ExternalLink size={15} /></a>}
     />
 
     <section className="developer-hero">
       <div className="developer-install">
-        <div><span className="eyebrow on-dark">Published SDK · 0.1.0-beta.3</span><h2>Start with one package.</h2><p>The SDK is framework-neutral. Wallet connection, product UI, and custody choices remain yours.</p></div>
-        <code>npm install @privara-stacks/sdk@beta</code>
+        <div><span className="eyebrow on-dark">Stable SDK · 0.1.0</span><h2>Start with one package.</h2><p>The SDK is framework-neutral. Wallet connection, product UI, and custody choices remain yours.</p></div>
+        <code>npm install @privara-stacks/sdk</code>
       </div>
       <div className="developer-signal" aria-hidden="true"><span><Code2 size={23} /></span><i /><i /><i /></div>
     </section>
@@ -1527,7 +1527,7 @@ await fetch(RELAYER_URL + "/v1/intents/settle", {
       </article>
 
       <aside className="developer-resources">
-        <section className="panel"><span className="eyebrow">Reference</span><h3>Continue building</h3><a href="https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0-beta.3" target="_blank" rel="noreferrer"><span><strong>npm package</strong><small>Install version 0.1.0-beta.3</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara/blob/main/docs/developer-guide.md" target="_blank" rel="noreferrer"><span><strong>Developer guide</strong><small>Full integration notes</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara/blob/main/docs/m2-stealth-spec.md" target="_blank" rel="noreferrer"><span><strong>Protocol specification</strong><small>Cryptography and wire format</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara" target="_blank" rel="noreferrer"><span><strong>Reference implementation</strong><small>App, SDK, contracts, and relayer</small></span><ExternalLink size={14} /></a></section>
+        <section className="panel"><span className="eyebrow">Reference</span><h3>Continue building</h3><a href="https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0" target="_blank" rel="noreferrer"><span><strong>npm package</strong><small>Install stable version 0.1.0</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara/blob/main/docs/developer-guide.md" target="_blank" rel="noreferrer"><span><strong>Developer guide</strong><small>Full integration notes</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara/blob/main/docs/m2-stealth-spec.md" target="_blank" rel="noreferrer"><span><strong>Protocol specification</strong><small>Cryptography and wire format</small></span><ExternalLink size={14} /></a><a href="https://github.com/Psalmuel01/privara" target="_blank" rel="noreferrer"><span><strong>Reference implementation</strong><small>App, SDK, contracts, and relayer</small></span><ExternalLink size={14} /></a></section>
         <section className="developer-boundary"><ShieldCheck size={22} /><h3>Your UI owns consent.</h3><p>The SDK prepares and validates protocol data. Your integration must still present the resolved recipient, exact amount, exact fee, and network before requesting a signature.</p></section>
       </aside>
     </div>

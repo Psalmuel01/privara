@@ -1,0 +1,44 @@
+---
+import Icon from "./Icon.astro";
+
+const features = [
+  { icon: "at", title: "Pay any address or .btc name", body: "Senders type what they already know. BNS names resolve to an exact address that is pinned for review — if ownership changes before signing, submission stops." },
+  { icon: "spark", title: "A fresh address for every payment", body: "Each payment derives a new one-time Stacks address from the recipient's public keys, so incoming funds never land on the same address twice." },
+  { icon: "scan", title: "Discovery that stays on your device", body: "Your browser scans public announcements and derives spending keys locally. The relayer and indexer never see your seed or keys." },
+  { icon: "zap", title: "Spend sBTC without holding STX", body: "A sponsor pays the Stacks network fee and you approve one exact fee in the token you're moving. The quote is frozen before you sign." },
+  { icon: "sign", title: "You sign exactly what you review", body: "SIP-018 intents bind the recipient, amount, fee, nonce, expiry, and router. Random unordered nonces mean a stuck payment never blocks the next." },
+  { icon: "shield", title: "Backups before receiving", body: "You can't register until your encrypted recovery file restores successfully, and importing a different identity can never silently replace yours." },
+  { icon: "wallet", title: "No deposit workflow", body: "Privara checks your router balance and asks for one wallet approval covering only the exact shortfall — then continues the payment automatically." },
+  { icon: "users", title: "Private payouts for teams", body: "Pay DAO contributors in sBTC as individual private settlements, each to its own fresh address, from one reviewed batch." },
+] as const;
+---
+<section class="section features" id="features" aria-labelledby="features-title">
+  <div class="container">
+    <div class="section-head" data-reveal>
+      <span class="eyebrow">Features</span>
+      <h2 id="features-title">Privacy that doesn't make payments harder.</h2>
+      <p class="lead">Every safeguard is built into the normal flow, so the private path is also the easy one.</p>
+    </div>
+    <div class="feature-grid">
+      {features.map((f, i) => (
+        <article class="feature" data-reveal style={`--delay: ${(i % 4) * 80}ms`}>
+          <span class="feature-icon"><Icon name={f.icon} size={22} /></span>
+          <h3>{f.title}</h3>
+          <p>{f.body}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--line); gap: 1px; }
+  .feature { background: var(--bg-2); padding: 32px 28px 36px; display: grid; gap: 14px; align-content: start; transition: background-color 0.35s; }
+  .feature:hover { background: var(--panel); }
+  .feature-icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; color: var(--mint); background: rgba(169, 255, 120, 0.08); border: 1px solid var(--line-2); margin-bottom: 6px; transition: transform 0.35s var(--ease), box-shadow 0.35s; }
+  .feature:hover .feature-icon { transform: translateY(-2px) rotate(-4deg); box-shadow: 0 10px 30px -10px rgba(169, 255, 120, 0.6); }
+  .feature h3 { font-size: 19px; }
+  .feature p { color: var(--muted); font-size: 15.5px; line-height: 1.6; }
+  @media (max-width: 1100px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .feature-grid { grid-template-columns: 1fr; } }
+</style>

@@ -1,0 +1,60 @@
+---
+const assets = [
+  {
+    symbol: "sBTC", name: "Bitcoin on Stacks", color: "var(--btc)", glyph: "₿",
+    status: "Live · completed mainnet acceptance",
+    rows: [["Router", "Dedicated SIP-010 router"], ["Settlement fee", "1% · paid by sender"], ["Spending", "Sponsored · 200 sats fee"], ["Network fee", "Paid by the sponsor in STX"]],
+  },
+  {
+    symbol: "USDCx", name: "Dollars on Stacks", color: "var(--usdc)", glyph: "$",
+    status: "Live · small-value acceptance",
+    rows: [["Router", "Dedicated SIP-010 router"], ["Settlement fee", "1% · paid by sender"], ["Spending", "Sponsored · exact quoted fee"], ["Network fee", "Paid by the sponsor in STX"]],
+  },
+  {
+    symbol: "STX", name: "Native Stacks", color: "var(--stx)", glyph: "S",
+    status: "Live · small-value acceptance",
+    rows: [["Router", "Dedicated native-STX router"], ["Settlement fee", "1% · paid by sender"], ["Spending", "Direct · no sponsor fee"], ["Network fee", "Self-paid in STX"]],
+  },
+];
+---
+<section class="section assets" id="assets" aria-labelledby="assets-title">
+  <div class="container">
+    <div class="section-head" data-reveal>
+      <span class="eyebrow">Assets & fees</span>
+      <h2 id="assets-title">One privacy identity. <span class="accent">Three assets.</span></h2>
+      <p class="lead">Each asset settles through its own pinned router, and every one shares the same keys and scanner. Fees are shown exactly before you sign — senders choose to add the fee on top or include it in the amount.</p>
+    </div>
+    <div class="asset-grid">
+      {assets.map((a, i) => (
+        <article class="card asset" data-reveal style={`--delay: ${i * 100}ms; --c: ${a.color}`}>
+          <div class="asset-head">
+            <span class="glyph">{a.glyph}</span>
+            <div><h3>{a.symbol}</h3><span class="asset-name">{a.name}</span></div>
+          </div>
+          <dl>
+            {a.rows.map(([k, v]) => <div><dt>{k}</dt><dd>{v}</dd></div>)}
+          </dl>
+          <p class="asset-status"><span></span>{a.status}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .asset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .asset { padding: 30px; display: grid; gap: 26px; align-content: start; position: relative; overflow: hidden; transition: transform 0.4s var(--ease), border-color 0.4s; }
+  .asset::after { content: ""; position: absolute; width: 260px; height: 260px; right: -110px; top: -130px; border-radius: 50%; background: var(--c); opacity: 0.12; filter: blur(30px); pointer-events: none; }
+  .asset:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+  .asset-head { display: flex; align-items: center; gap: 16px; }
+  .glyph { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: var(--c); color: #fff; font-weight: 800; font-size: 26px; box-shadow: 0 0 40px -6px var(--c); }
+  .asset h3 { font-size: 30px; letter-spacing: -0.04em; }
+  .asset-name { font-family: var(--mono); font-size: 13px; color: var(--c); }
+  dl { margin: 0; display: grid; }
+  dl div { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; font-weight: 700; text-align: right; }
+  .asset-status { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .asset-status span { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); }
+  @media (max-width: 960px) { .asset-grid { grid-template-columns: 1fr; } }
+</style>

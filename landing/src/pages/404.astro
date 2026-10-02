@@ -1,0 +1,27 @@
+---
+import Base from "../layouts/Base.astro";
+import Nav from "../components/Nav.astro";
+import Icon from "../components/Icon.astro";
+import { APP_URL } from "../data/site";
+---
+<Base title="Page not found — Privara" path="/404">
+  <Nav />
+  <main id="main" class="nf">
+    <div class="container">
+      <span class="eyebrow">404</span>
+      <h1>This address doesn't <span class="accent">resolve.</span></h1>
+      <p class="lead">The page you're looking for isn't here. If you were opening the app, it now lives at app.useprivara.xyz.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href={APP_URL}>Open the app <Icon name="arrow" /></a>
+        <a class="btn btn-ghost" href="/">Back home</a>
+      </div>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .nf { min-height: 70vh; display: grid; align-items: center; padding: 80px 0 120px; }
+  .nf .container { display: grid; gap: 24px; justify-items: start; }
+  .nf .lead { max-width: 560px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; }
+</style>

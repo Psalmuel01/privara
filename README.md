@@ -8,10 +8,13 @@ recipient. The recipient's long-term wallet is therefore not exposed as the onch
 settlement destination.
 
 [Open the app](https://www.useprivara.xyz/) ·
+[Watch the demo](https://youtu.be/oFFISJjOUYs) ·
 [Read the user guide](https://www.useprivara.xyz/guide) ·
 [Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0) ·
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
+
+[![Watch the Privara demo: Private Payments on Stacks](https://img.youtube.com/vi/oFFISJjOUYs/maxresdefault.jpg)](https://youtu.be/oFFISJjOUYs)
 
 ## What Privara Does
 

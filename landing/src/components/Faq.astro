@@ -1,0 +1,52 @@
+---
+// Answers adapted from the repository README's FAQ; keep them in sync.
+const faqs = [
+  { q: "Does the recipient need to share a special address?", a: "No. The sender enters the recipient's normal Stacks address or mainnet BNS name. Privara resolves it, reads their registered public privacy keys, and derives a fresh one-time destination automatically." },
+  { q: "Is the payment amount private?", a: "No. The amount, token, timing, settlement address, and transaction activity remain visible onchain. Privara protects the recipient's long-term wallet from appearing as the settlement destination." },
+  { q: "Who controls the funds at a one-time address?", a: "The recipient's independent Privara privacy seed derives its spending key. Leather, Xverse, or a hardware wallet does not control or recover those funds — keep your encrypted backup and its password safe and separate." },
+  { q: "Do I need to deposit before paying someone?", a: "There's no separate deposit step. Privara checks your router balance and asks for one wallet approval covering only the exact shortfall, waits for it to confirm, and continues." },
+  { q: "Who pays the network fees?", a: "The relayer pays for settlement. For sBTC and USDCx spends from a one-time address, Privara's sponsor pays the Stacks fee in STX and you approve a displayed fee in the token. A one-time STX address pays its own network fee with no sponsorship fee." },
+  { q: "Can the sponsor change the fee after I approve it?", a: "No. The approved quote is pinned into the transaction you sign. If the destination, amount, asset, fee recipient, sponsor, or fee changes, submission fails and you review a new quote." },
+  { q: "Does scanning expose my keys?", a: "No. The scanner reads public announcements; ownership checks and spending-key derivation happen locally in your browser. Private key material is never sent to the relayer or indexer." },
+  { q: "Is Privara audited?", a: "Not yet. Automated regression coverage, mainnet infrastructure, and small-value real-sBTC acceptance are complete, and an independent tester reproduced recovery, scanning, and sponsored withdrawal. An independent audit is recommended before larger-value use — start with small amounts." },
+];
+---
+<section class="section faq" id="faq" aria-labelledby="faq-title">
+  <div class="container faq-grid">
+    <div class="section-head" data-reveal>
+      <span class="eyebrow">FAQ</span>
+      <h2 id="faq-title">Questions, answered plainly.</h2>
+      <p class="lead">Still curious? The <a href="https://app.useprivara.xyz/guide">user guide</a> walks through every flow.</p>
+    </div>
+    <div class="faq-list" data-reveal>
+      {faqs.map((f, i) => (
+        <details open={i === 0}>
+          <summary>{f.q}<span class="plus" aria-hidden="true"></span></summary>
+          <p>{f.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(36px, 5vw, 80px); align-items: start; }
+  .faq-grid .section-head { position: sticky; top: 110px; margin-bottom: 0; }
+  .lead a { color: var(--mint); border-bottom: 1px solid var(--line-2); }
+  .faq-list { border-top: 1px solid var(--line); }
+  details { border-bottom: 1px solid var(--line); }
+  summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px 0; font-weight: 700; font-size: 18.5px; letter-spacing: -0.015em; transition: color 0.2s; }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { color: var(--mint); }
+  .plus { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-2); position: relative; transition: transform 0.35s var(--ease), background-color 0.25s; }
+  .plus::before, .plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.8px; margin: -0.9px 0 0 -6px; background: var(--mint); border-radius: 2px; }
+  .plus::after { transform: rotate(90deg); transition: transform 0.35s var(--ease); }
+  details[open] .plus { background: rgba(169, 255, 120, 0.1); }
+  details[open] .plus::after { transform: rotate(0deg); }
+  details p { padding: 0 48px 26px 0; color: var(--muted); }
+  @media (max-width: 960px) {
+    .faq-grid { grid-template-columns: 1fr; }
+    .faq-grid .section-head { position: static; }
+    details p { padding-right: 0; }
+  }
+</style>

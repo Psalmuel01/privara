@@ -1,0 +1,78 @@
+---
+import Logo from "./Logo.astro";
+import Icon from "./Icon.astro";
+import { APP_URL, REPO_URL } from "../data/site";
+
+const links = [
+  { href: "#how", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "#privacy", label: "Privacy" },
+  { href: "#developers", label: "Developers" },
+  { href: "#faq", label: "FAQ" },
+];
+---
+<header class="nav" data-nav>
+  <div class="container nav-inner">
+    <a href="/" class="nav-logo" aria-label="Privara home"><Logo /></a>
+    <nav class="nav-links" aria-label="Primary">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+    </nav>
+    <div class="nav-actions">
+      <a class="nav-icon" href={REPO_URL} target="_blank" rel="noopener" aria-label="Privara on GitHub"><Icon name="github" size={20} /></a>
+      <a class="btn btn-primary btn-sm" href={APP_URL}>Launch app <Icon name="arrow" /></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-menu" aria-label="Open menu" data-nav-toggle>
+        <Icon name="menu" />
+      </button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mobile-menu" hidden data-mobile-menu>
+    <div class="container">
+      {links.map((l) => <a href={l.href}>{l.label}</a>)}
+      <a href={REPO_URL} target="_blank" rel="noopener">GitHub</a>
+      <a class="btn btn-primary" href={APP_URL}>Launch app <Icon name="arrow" /></a>
+    </div>
+  </div>
+</header>
+
+<style>
+  .nav { position: sticky; top: 0; z-index: 50; transition: background-color 0.3s, border-color 0.3s, backdrop-filter 0.3s; border-bottom: 1px solid transparent; }
+  .nav.scrolled { background: rgba(10, 17, 14, 0.78); backdrop-filter: saturate(1.4) blur(16px); -webkit-backdrop-filter: saturate(1.4) blur(16px); border-bottom-color: var(--line); }
+  .nav-inner { height: 76px; display: flex; align-items: center; gap: 28px; }
+  .nav-links { display: flex; gap: 6px; margin-inline: auto; }
+  .nav-links a { padding: 8px 14px; border-radius: 999px; font-size: 15px; font-weight: 600; color: var(--muted); transition: color 0.2s, background-color 0.2s; }
+  .nav-links a:hover { color: var(--text); background: rgba(255, 255, 255, 0.04); }
+  .nav-actions { display: flex; align-items: center; gap: 10px; }
+  .nav-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 999px; color: var(--muted); transition: color 0.2s, background-color 0.2s; }
+  .nav-icon:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+  .nav-toggle { display: none; width: 42px; height: 42px; place-items: center; border-radius: 12px; border: 1px solid var(--line); background: transparent; cursor: pointer; }
+  .mobile-menu { border-top: 1px solid var(--line); background: rgba(10, 17, 14, 0.97); backdrop-filter: blur(16px); }
+  .mobile-menu .container { display: grid; gap: 4px; padding-block: 16px 24px; }
+  .mobile-menu a:not(.btn) { padding: 14px 4px; font-size: 18px; font-weight: 700; border-bottom: 1px solid var(--line); }
+  .mobile-menu .btn { margin-top: 16px; }
+
+  @media (max-width: 960px) {
+    .nav-links, .nav-icon { display: none; }
+    .nav-inner { justify-content: space-between; }
+    .nav-toggle { display: grid; }
+  }
+  @media (max-width: 420px) { .nav-actions .btn-sm { display: none; } }
+</style>
+
+<script>
+  const nav = document.querySelector<HTMLElement>("[data-nav]");
+  const toggle = document.querySelector<HTMLButtonElement>("[data-nav-toggle]");
+  const menu = document.querySelector<HTMLElement>("[data-mobile-menu]");
+  const onScroll = () => nav?.classList.toggle("scrolled", window.scrollY > 8);
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+  const setOpen = (open: boolean) => {
+    if (!toggle || !menu) return;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    menu.hidden = !open;
+    nav?.classList.toggle("scrolled", open || window.scrollY > 8);
+  };
+  toggle?.addEventListener("click", () => setOpen(toggle.getAttribute("aria-expanded") !== "true"));
+  menu?.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => setOpen(false)));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
+</script>

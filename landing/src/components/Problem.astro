@@ -1,0 +1,70 @@
+---
+import Icon from "./Icon.astro";
+---
+<section class="section problem" aria-labelledby="problem-title">
+  <div class="container">
+    <div class="section-head" data-reveal>
+      <span class="eyebrow">The problem</span>
+      <h2 id="problem-title">On a public chain, every payment points at <span class="accent">your wallet.</span></h2>
+      <p class="lead">Share one address to get paid and anyone can look up your balance, your history, and everyone you transact with. Privara keeps the address people know separate from the address that receives funds.</p>
+    </div>
+
+    <div class="compare">
+      <article class="card compare-col before" data-reveal>
+        <header><span class="tag tag-danger">A normal transfer</span></header>
+        <div class="flow">
+          <div class="flow-node">Sender</div>
+          <div class="flow-line danger"></div>
+          <div class="flow-node exposed"><Icon name="wallet" size={18} /> Your wallet</div>
+        </div>
+        <ul>
+          <li><Icon name="eye" size={18} /><span>Your everyday address is the onchain destination</span></li>
+          <li><Icon name="eye" size={18} /><span>Your balance and full history are one lookup away</span></li>
+          <li><Icon name="eye" size={18} /><span>Each payment links you to every other counterparty</span></li>
+        </ul>
+      </article>
+
+      <article class="card compare-col after" data-reveal style="--delay: 120ms">
+        <header><span class="tag tag-mint">With Privara</span></header>
+        <div class="flow">
+          <div class="flow-node">Sender</div>
+          <div class="flow-line mint"></div>
+          <div class="flow-node fresh"><Icon name="spark" size={18} /> Fresh address</div>
+        </div>
+        <ul>
+          <li><Icon name="check" size={18} /><span>The sender still types your normal address or .btc name</span></li>
+          <li><Icon name="check" size={18} /><span>Funds settle to a new one-time address for every payment</span></li>
+          <li><Icon name="check" size={18} /><span>Only your privacy keys can recognise and spend it</span></li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<style>
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .compare-col { padding: clamp(26px, 3.4vw, 40px); display: grid; gap: 28px; align-content: start; }
+  .compare-col.after { border-color: var(--line-2); box-shadow: 0 30px 80px -40px rgba(169, 255, 120, 0.35); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; }
+  .tag-danger { color: var(--danger); background: rgba(255, 106, 85, 0.1); border: 1px solid rgba(255, 106, 85, 0.35); }
+  .tag-mint { color: var(--mint); background: rgba(169, 255, 120, 0.08); border: 1px solid var(--line-2); }
+  .flow { display: flex; align-items: center; gap: 12px; padding: 22px; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.22); border: 1px solid var(--line); }
+  .flow-node :global(svg) { flex: none; }
+  .flow-node { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: 15px; background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
+  .flow-node.exposed { color: var(--danger); border-color: rgba(255, 106, 85, 0.45); box-shadow: 0 0 30px -6px rgba(255, 106, 85, 0.5); }
+  .flow-node.fresh { color: var(--mint); border-color: var(--line-2); box-shadow: 0 0 30px -6px rgba(169, 255, 120, 0.5); }
+  .flow-line { flex: 1; height: 2px; position: relative; overflow: hidden; border-radius: 2px; }
+  .flow-line.danger { background: rgba(255, 106, 85, 0.25); }
+  .flow-line.mint { background: rgba(169, 255, 120, 0.22); }
+  .flow-line::after { content: ""; position: absolute; top: -2px; left: -20%; width: 20%; height: 6px; border-radius: 6px; background: currentColor; animation: travel 2.4s var(--ease) infinite; }
+  .flow-line.danger::after { color: var(--danger); }
+  .flow-line.mint::after { color: var(--mint); }
+  @keyframes travel { to { left: 100%; } }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+  li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; color: var(--muted); }
+  li :global(svg) { margin-top: 3px; }
+  .before li :global(svg) { color: var(--danger); }
+  .after li :global(svg) { color: var(--mint); }
+  .after li { color: var(--text); }
+  @media (max-width: 860px) { .compare { grid-template-columns: 1fr; } }
+</style>

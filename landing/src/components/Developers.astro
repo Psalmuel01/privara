@@ -1,0 +1,125 @@
+---
+import Icon from "./Icon.astro";
+import { CONTRACTS, DEV_GUIDE_URL, NPM_URL, REPO_URL, SPEC_URL, STATS, explorerAccount, explorerContract } from "../data/site";
+
+const stats = [
+  { value: String(STATS.tests), label: "automated tests" },
+  { value: String(STATS.testFiles), label: "test files" },
+  { value: STATS.sdkVersion, label: "stable SDK · MIT" },
+  { value: String(CONTRACTS.length), label: "mainnet contracts" },
+];
+---
+<section class="section developers" id="developers" aria-labelledby="dev-title">
+  <div class="container dev-grid">
+    <div class="dev-copy" data-reveal>
+      <span class="eyebrow">For developers</span>
+      <h2 id="dev-title">Private payments, as a <span class="accent">TypeScript SDK.</span></h2>
+      <p class="lead">Add recipient privacy to your wallet, DAO tool, or payroll app. The SDK covers SIP-018 intents, stealth identities and recovery, local scanning, BNS resolution, native STX, and sponsored spending.</p>
+      <div class="install">
+        <code><span class="prompt">$</span> npm install @privara-stacks/sdk</code>
+        <button type="button" data-copy="npm install @privara-stacks/sdk" aria-label="Copy install command">
+          <span class="i-copy"><Icon name="copy" size={18} /></span><span class="i-done"><Icon name="check" size={18} /></span>
+        </button>
+      </div>
+      <div class="dev-links">
+        <a class="btn btn-ghost" href={DEV_GUIDE_URL} target="_blank" rel="noopener"><Icon name="book" size={18} /> Developer guide</a>
+        <a class="btn btn-ghost" href={REPO_URL} target="_blank" rel="noopener"><Icon name="github" size={18} /> GitHub</a>
+        <a class="link" href={NPM_URL} target="_blank" rel="noopener">npm <Icon name="external" size={14} /></a>
+        <a class="link" href={SPEC_URL} target="_blank" rel="noopener">Protocol spec <Icon name="external" size={14} /></a>
+      </div>
+    </div>
+
+    <div class="dev-side" data-reveal style="--delay: 120ms">
+      <figure class="code card">
+        <figcaption><span></span><span></span><span></span><em>recipient.ts</em></figcaption>
+<pre><code><span class="k">import</span> {"{"}
+  resolveMainnetRecipient,
+  generateIdentity,
+{"}"} <span class="k">from</span> <span class="s">"@privara-stacks/sdk"</span>;
+
+<span class="c">// Resolve a .btc name to the exact address that gets pinned</span>
+<span class="k">const</span> bob = <span class="k">await</span> <span class="f">resolveMainnetRecipient</span>(<span class="s">"bob.btc"</span>);
+bob.address; <span class="c">// "SP…"</span>
+
+<span class="c">// Create a privacy identity entirely client-side</span>
+<span class="k">const</span> identity = <span class="f">generateIdentity</span>();
+identity.spendingPublicKey; <span class="c">// P — registered publicly</span>
+identity.viewingPublicKey;  <span class="c">// V — registered publicly</span></code></pre>
+      </figure>
+      <div class="stats">
+        {stats.map((s) => <div class="stat"><strong>{s.value}</strong><span>{s.label}</span></div>)}
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="contracts card" data-reveal>
+      <div class="contracts-head">
+        <h3>Verifiable on Stacks mainnet</h3>
+        <a class="link" href={explorerAccount(CONTRACTS[0].id.split(".")[0])} target="_blank" rel="noopener">Deployer on explorer <Icon name="external" size={14} /></a>
+      </div>
+      <ul>
+        {CONTRACTS.map((c) => (
+          <li>
+            <span>{c.name}</span>
+            <a href={explorerContract(c.id)} target="_blank" rel="noopener" class="mono">{c.id.split(".")[1]} <Icon name="external" size={13} /></a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .dev-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(36px, 5vw, 72px); align-items: start; }
+  .dev-copy { display: grid; gap: 26px; justify-items: start; min-width: 0; }
+  .install { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 480px; min-width: 0; padding: 8px 8px 8px 20px; border-radius: 16px; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--line-2); font-family: var(--mono); font-size: 15.5px; }
+  .install code { flex: 1; min-width: 0; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .prompt { color: var(--mint); margin-right: 6px; }
+  .install button { width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); cursor: pointer; display: grid; place-items: center; color: var(--muted); transition: color 0.2s, border-color 0.2s; }
+  .install button:hover { color: var(--text); border-color: var(--line-2); }
+  .install .i-done { display: none; color: var(--mint); }
+  .install button.copied .i-copy { display: none; }
+  .install button.copied .i-done { display: block; }
+  .dev-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+  .link { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 700; font-size: 15px; transition: color 0.2s; }
+  .link:hover { color: var(--text); }
+  .dev-side { display: grid; gap: 16px; min-width: 0; }
+  .code { margin: 0; overflow: hidden; }
+  figcaption { display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  figcaption span { width: 11px; height: 11px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+  figcaption em { margin-left: 10px; font-style: normal; font-family: var(--mono); font-size: 13px; color: var(--dim); }
+  pre { margin: 0; padding: 22px 24px; overflow-x: auto; font-family: var(--mono); font-size: 14px; line-height: 1.75; color: var(--text); }
+  .k { color: #b8a6ff; }
+  .s { color: var(--cream); }
+  .f { color: var(--mint); }
+  .c { color: var(--dim); }
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .stat { padding: 18px 20px; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-2); display: flex; align-items: baseline; gap: 12px; }
+  .stat strong { font-size: 28px; letter-spacing: -0.04em; color: var(--mint); line-height: 1.1; }
+  .stat span { font-size: 13px; color: var(--muted); }
+  .contracts { margin-top: clamp(40px, 5vw, 64px); padding: 28px 30px; }
+  .contracts-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+  .contracts ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); column-gap: 40px; }
+  .contracts li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line); font-size: 15px; }
+  .contracts li span { color: var(--muted); }
+  .contracts li a { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+  .contracts li a:hover { color: var(--mint); }
+  @media (max-width: 960px) { .dev-grid { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 560px) { .stats { grid-template-columns: 1fr; } .contracts ul { grid-template-columns: 1fr; } .contracts li { flex-direction: column; align-items: flex-start; gap: 4px; } }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(button.dataset.copy ?? "");
+        button.classList.add("copied");
+        button.setAttribute("aria-label", "Copied");
+        setTimeout(() => { button.classList.remove("copied"); button.setAttribute("aria-label", "Copy install command"); }, 1800);
+      } catch {
+        // Clipboard can be blocked; the command stays selectable.
+      }
+    });
+  });
+</script>

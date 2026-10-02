@@ -1,0 +1,86 @@
+---
+import "../styles/global.css";
+import Analytics from "@vercel/analytics/astro";
+import { APP_URL, REPO_URL, SITE_URL, X_URL } from "../data/site";
+
+interface Props {
+  title?: string;
+  description?: string;
+  path?: string;
+}
+
+const {
+  title = "Privara — Private payments on Stacks",
+  description = "Get paid in sBTC, USDCx, or STX without exposing your wallet. Privara settles every payment to a fresh one-time address that only you can find.",
+  path = "/",
+} = Astro.props;
+
+const canonical = new URL(path, SITE_URL).toString();
+const ogImage = new URL("/og.png", SITE_URL).toString();
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Privara",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  url: SITE_URL,
+  description,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  sameAs: [REPO_URL, X_URL],
+  installUrl: APP_URL,
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#0a110e" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Privara" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Privara — Get paid privately. Your everyday wallet is never the settlement destination." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@privarahq" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    <script is:inline>document.documentElement.classList.add("js");</script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <slot />
+    <!-- Cookieless page-view counts; inactive until Web Analytics is enabled on the Vercel project. -->
+    <Analytics />
+    <script>
+      // Reveal sections as they scroll into view; everything is visible without JS.
+      const targets = document.querySelectorAll<HTMLElement>("[data-reveal]");
+      if (!("IntersectionObserver" in window)) {
+        targets.forEach((el) => el.classList.add("is-visible"));
+      } else {
+        const observer = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+        targets.forEach((el) => observer.observe(el));
+      }
+    </script>
+  </body>
+</html>

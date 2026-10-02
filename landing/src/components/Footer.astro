@@ -1,0 +1,85 @@
+---
+import Logo from "./Logo.astro";
+import Icon from "./Icon.astro";
+import { APP_URL, DEV_GUIDE_URL, DOCS_URL, FORUM_URL, NPM_URL, PRIVACY_MODEL_URL, RELAYER_HEALTH_URL, REPO_URL, SPEC_URL, X_URL, YOUTUBE_ID } from "../data/site";
+
+const columns = [
+  { title: "Product", links: [
+    { label: "Launch app", href: APP_URL },
+    { label: "User guide", href: `${APP_URL}/guide` },
+    { label: "Watch the demo", href: `https://youtu.be/${YOUTUBE_ID}` },
+    { label: "Relayer status", href: RELAYER_HEALTH_URL },
+  ] },
+  { title: "Developers", links: [
+    { label: "TypeScript SDK", href: NPM_URL },
+    { label: "Developer guide", href: DEV_GUIDE_URL },
+    { label: "Protocol spec", href: SPEC_URL },
+    { label: "Documentation", href: DOCS_URL },
+  ] },
+  { title: "Community", links: [
+    { label: "X / Twitter", href: X_URL },
+    { label: "GitHub", href: REPO_URL },
+    { label: "Stacks Forum", href: FORUM_URL },
+    { label: "Privacy model", href: PRIVACY_MODEL_URL },
+  ] },
+];
+const year = new Date().getFullYear();
+---
+<section class="cta" aria-labelledby="cta-title">
+  <div class="container">
+    <div class="cta-card" data-reveal>
+      <div class="cta-glow" aria-hidden="true"></div>
+      <h2 id="cta-title">Start getting paid <span class="accent">privately.</span></h2>
+      <p class="lead">Set up your privacy identity in a few minutes. Senders don't need to change a thing.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary" href={APP_URL}>Launch app <Icon name="arrow" /></a>
+        <a class="btn btn-ghost" href={`${APP_URL}/guide`}>Read the guide</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <Logo />
+      <p>Private payments on Stacks. Your everyday wallet is never the settlement destination.</p>
+      <div class="socials">
+        <a href={X_URL} target="_blank" rel="noopener" aria-label="Privara on X"><Icon name="xlogo" size={18} /></a>
+        <a href={REPO_URL} target="_blank" rel="noopener" aria-label="Privara on GitHub"><Icon name="github" size={18} /></a>
+      </div>
+    </div>
+    {columns.map((col) => (
+      <nav aria-label={col.title}>
+        <h3>{col.title}</h3>
+        <ul>{col.links.map((l) => <li><a href={l.href} target={l.href.startsWith(APP_URL) ? undefined : "_blank"} rel={l.href.startsWith(APP_URL) ? undefined : "noopener"}>{l.label}</a></li>)}</ul>
+      </nav>
+    ))}
+  </div>
+  <div class="container footer-bottom">
+    <span>© {year} Privara. Built on Stacks.</span>
+    <span>Use small amounts while independent review is pending.</span>
+  </div>
+</footer>
+
+<style>
+  .cta { padding: 0 0 clamp(80px, 10vw, 120px); }
+  .cta-card { position: relative; overflow: hidden; text-align: center; display: grid; justify-items: center; gap: 22px; padding: clamp(56px, 8vw, 96px) var(--gutter); border-radius: 32px; border: 1px solid var(--line-2); background: linear-gradient(160deg, #183526 0%, #0f1a15 70%); }
+  .cta-glow { position: absolute; inset: auto -20% -60% -20%; height: 120%; background: radial-gradient(closest-side, rgba(169, 255, 120, 0.25), transparent); pointer-events: none; }
+  .cta-card > * { position: relative; }
+  .cta-card .lead { max-width: 540px; }
+  .cta-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 8px; }
+  .footer { border-top: 1px solid var(--line); padding: 64px 0 36px; background: var(--bg-2); }
+  .footer-grid { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 40px; }
+  .footer-brand { display: grid; gap: 18px; align-content: start; max-width: 340px; }
+  .footer-brand p { color: var(--muted); font-size: 15px; }
+  .socials { display: flex; gap: 8px; }
+  .socials a { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); transition: color 0.2s, border-color 0.2s; }
+  .socials a:hover { color: var(--text); border-color: var(--line-2); }
+  .footer h3 { font-family: var(--mono); font-size: 12.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); margin-bottom: 18px; }
+  .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .footer ul a { color: var(--muted); font-size: 15px; font-weight: 600; transition: color 0.2s; }
+  .footer ul a:hover { color: var(--mint); }
+  .footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--dim); }
+  @media (max-width: 860px) { .footer-grid { grid-template-columns: 1fr 1fr; } .footer-brand { grid-column: 1 / -1; } }
+</style>

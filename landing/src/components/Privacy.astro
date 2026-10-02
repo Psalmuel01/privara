@@ -1,0 +1,72 @@
+---
+import Icon from "./Icon.astro";
+import { PRIVACY_MODEL_URL, THREAT_MODEL_URL } from "../data/site";
+
+const protects = [
+  "Your long-term wallet is never the onchain settlement destination",
+  "Your privacy seed and private keys never leave your browser",
+  "Every incoming payment lands at its own fresh address",
+  "Approved intents and sponsor quotes can't be changed after you sign",
+];
+const visible = [
+  "Payment amounts, the token, and timing",
+  "The payer's activity and router interactions",
+  "Relayer and network metadata",
+  "Links created by later spending or withdrawals",
+];
+---
+<section class="section privacy" id="privacy" aria-labelledby="privacy-title">
+  <div class="container">
+    <div class="section-head" data-reveal>
+      <span class="eyebrow">Privacy, stated precisely</span>
+      <h2 id="privacy-title">We tell you exactly what's private — and what isn't.</h2>
+      <p class="lead">Privara makes one specific guarantee and keeps it. Knowing the boundary is how you stay private in practice.</p>
+    </div>
+    <div class="privacy-grid">
+      <article class="card col yes" data-reveal>
+        <h3><span class="badge"><Icon name="lock" size={18} /></span>What Privara protects</h3>
+        <ul>{protects.map((p) => <li><Icon name="check" size={18} /><span>{p}</span></li>)}</ul>
+      </article>
+      <article class="card col no" data-reveal style="--delay: 120ms">
+        <h3><span class="badge"><Icon name="eye" size={18} /></span>What stays public onchain</h3>
+        <ul>{visible.map((p) => <li><Icon name="eye" size={18} /><span>{p}</span></li>)}</ul>
+      </article>
+    </div>
+    <aside class="callout" data-reveal>
+      <Icon name="shield" size={22} />
+      <p><strong>Not yet independently audited.</strong> Privara is live on mainnet with automated regression coverage and small-value acceptance. Use small amounts while validation continues.</p>
+      <div class="callout-links">
+        <a href={PRIVACY_MODEL_URL} target="_blank" rel="noopener">Privacy model <Icon name="external" size={14} /></a>
+        <a href={THREAT_MODEL_URL} target="_blank" rel="noopener">Threat model <Icon name="external" size={14} /></a>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<style>
+  .privacy { background: radial-gradient(900px 500px at 50% 0%, rgba(23, 57, 44, 0.55), transparent 70%); }
+  .privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .col { padding: clamp(28px, 3.4vw, 40px); display: grid; gap: 26px; align-content: start; }
+  .col h3 { display: flex; align-items: center; gap: 14px; font-size: 22px; }
+  .badge { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; }
+  .yes { border-color: var(--line-2); }
+  .yes .badge { background: rgba(169, 255, 120, 0.12); color: var(--mint); }
+  .no .badge { background: rgba(243, 234, 216, 0.08); color: var(--cream); }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+  li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; }
+  li :global(svg) { margin-top: 3px; }
+  .yes li :global(svg) { color: var(--mint); }
+  .no li { color: var(--muted); }
+  .no li :global(svg) { color: var(--cream); opacity: 0.7; }
+  .callout { margin-top: 20px; display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 22px 26px; border-radius: var(--radius-sm); border: 1px solid rgba(243, 234, 216, 0.2); background: rgba(243, 234, 216, 0.04); color: var(--cream); }
+  .callout p { color: var(--muted); font-size: 15.5px; }
+  .callout strong { color: var(--cream); }
+  .callout-links { display: flex; gap: 18px; }
+  .callout-links a { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; white-space: nowrap; border-bottom: 1px solid rgba(243, 234, 216, 0.3); }
+  .callout-links a:hover { color: var(--text); }
+  @media (max-width: 860px) {
+    .privacy-grid { grid-template-columns: 1fr; }
+    .callout { grid-template-columns: auto 1fr; }
+    .callout-links { grid-column: 1 / -1; }
+  }
+</style>

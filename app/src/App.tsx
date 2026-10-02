@@ -101,6 +101,7 @@ import {
   type DaoPayoutInput,
 } from "./lib/dao-payouts";
 import { explorerTransactionUrl } from "./config/network";
+import { trackProductEvent } from "./lib/analytics";
 import {
   atomicToUsd,
   defaultTransferAmount,
@@ -266,8 +267,10 @@ export default function App() {
       setWalletAddress(address);
       setIdentity(null);
       setPayments([]);
+      trackProductEvent("wallet_connected");
       setNotice({ kind: "success", message: `Wallet connected to Stacks ${NETWORK}.` });
     } catch (error) {
+      trackProductEvent("flow_failed", { stage: "connect" });
       setNotice({ kind: "error", message: message(error) });
     } finally {
       setConnecting(false);
@@ -573,12 +576,15 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
           throw new Error("Payment funding confirmed, but the available Privara balance is still insufficient");
         }
         notify({ kind: "success", message: "Payment funded. Review the exact recipient amount and settlement fee next." });
+        trackProductEvent("router_funded", { asset: asset.id as "sbtc" | "stx" | "usdcx" });
       }
       if (asset.kind === "stx") {
         setReviewedStx(await prepareStxWalletPayment({ config, recipient: resolvedRecipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode }));
       }
       setStage("review");
+      trackProductEvent("payment_reviewed", { asset: asset.id as "sbtc" | "stx" | "usdcx" });
     } catch (error) {
+      trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "fund" });
       notify({ kind: "error", message: `${message(error)} Make sure your wallet has enough ${NETWORK} ${asset.symbol}.` });
     } finally { setFunding(null); }
   };
@@ -592,8 +598,9 @@ function SendPrivate({ asset, config, wallet, deposit, setDeposit, notify, conne
         ? await submitStxWalletPayment(wallet, reviewedStx!)
         : await submitPrivatePayment({ config, walletAddress: wallet, recipient: resolvedRecipient, enteredAmount: parseUnits(amount, asset.decimals), feeMode });
       setTxid(result.txid); setStealthPrincipal(result.stealthPrincipal); setStage("done");
+      trackProductEvent("intent_signed", { asset: asset.id as "sbtc" | "stx" | "usdcx" });
       notify({ kind: "success", message: `Private payment accepted by the relayer. Transaction ${short(result.txid, 10, 8)} was broadcast.` });
-    } catch (error) { setStage("review"); notify({ kind: "error", message: message(error) }); }
+    } catch (error) { trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "settle" }); setStage("review"); notify({ kind: "error", message: message(error) }); }
   };
 
   if (stage === "done") return <SuccessState asset={asset} amount={format(quote?.recipientAmount)} tx={txid} detail={`Settling to fresh address ${short(stealthPrincipal, 9, 7)}`} action={onDone} />;
@@ -705,10 +712,11 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
           await waitForTransaction(result.txid);
         }
         setRegistration("matched");
+        if (!result.alreadyRegistered) trackProductEvent("identity_registered");
         notify({ kind: "success", message: result.alreadyRegistered ? "The registered public privacy keys match this recovery backup. Private receiving is enabled." : "Public privacy keys registered successfully. Private receiving is now enabled." });
       } else notify({ kind: "success", message: "Privacy identity unlocked for this browser session." });
       clearPasswordFields();
-    } catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
+    } catch (error) { trackProductEvent("flow_failed", { stage: "identity" }); notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
   };
 
   const importBackup = async () => {
@@ -766,9 +774,9 @@ function ReceiveAndScan({ asset, config, wallet, identity, setIdentity, payments
     try {
       setBusy("scan"); const result = asset.kind === "stx"
         ? await scanPrivateStxPayments(config?.stxRouter ?? assetContract(asset)!, identity)
-        : await scanPrivatePayments(scanConfig, identity); setChecked(result.checked); setPayments(result.payments); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` });
+        : await scanPrivatePayments(scanConfig, identity); setChecked(result.checked); setPayments(result.payments); trackProductEvent("scan_completed", { asset: asset.id as "sbtc" | "stx" | "usdcx" }); if (result.payments.length > 0) trackProductEvent("payment_detected", { asset: asset.id as "sbtc" | "stx" | "usdcx" }); notify({ kind: "success", message: `Scanned ${result.checked} announcement(s); detected ${result.payments.length} payment(s).` });
     }
-    catch (error) { notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
+    catch (error) { trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "scan" }); notify({ kind: "error", message: message(error) }); } finally { setBusy(null); }
   };
 
 
@@ -895,8 +903,9 @@ function StxSpend({ asset, wallet, payment, payments, close, notify, onComplete 
         fullBalance: kind === "withdraw",
       });
       setApproved(prepared);
+      trackProductEvent("payment_reviewed", { asset: "stx" });
       notify({ kind: "info", message: `Network fee pinned at ${formatUnits(prepared.networkFee, 6)} STX. Move all leaves no fee dust.` });
-    } catch (error) { notify({ kind: "error", message: message(error) }); }
+    } catch (error) { trackProductEvent("flow_failed", { asset: "stx", stage: "spend" }); notify({ kind: "error", message: message(error) }); }
     finally { setReviewing(false); }
   };
   const submit = async () => {
@@ -907,8 +916,9 @@ function StxSpend({ asset, wallet, payment, payments, close, notify, onComplete 
       const normalized: SpendResult = { ...response, tokenSponsorFee: "0" };
       setResult(normalized);
       onComplete(activePayment, normalized);
+      trackProductEvent("private_spend_broadcast", { asset: "stx" });
       notify({ kind: "success", message: `STX transfer broadcast as ${short(response.txid, 10, 8)}.` });
-    } catch (error) { notify({ kind: "error", message: message(error) }); }
+    } catch (error) { trackProductEvent("flow_failed", { asset: "stx", stage: "spend" }); notify({ kind: "error", message: message(error) }); }
     finally { setSubmitting(false); }
   };
   return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !submitting && close()}>
@@ -977,8 +987,9 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
       }
       const prepared = await preparePrivateSpend(request());
       setApproved(prepared);
+      trackProductEvent("payment_reviewed", { asset: asset.id as "sbtc" | "stx" | "usdcx" });
       notify({ kind: "info", message: `Quote locked: ${formatUnits(prepared.sponsorFee, asset.decimals)} ${asset.symbol} sponsorship fee. It will not refresh during confirmation.` });
-    } catch (error) { notify({ kind: "error", message: message(error) }); }
+    } catch (error) { trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "spend" }); notify({ kind: "error", message: message(error) }); }
     finally { setReviewing(false); }
   };
   const submit = async () => {
@@ -989,9 +1000,10 @@ function SponsoredSpend({ asset, config, wallet, payment, payments, close, notif
       const response = await spendPrivatePayment(request(), approved);
       setResult(response);
       onComplete(activePayment, response);
+      trackProductEvent("private_spend_broadcast", { asset: asset.id as "sbtc" | "stx" | "usdcx" });
       notify({ kind: "success", message: `Sponsored spend accepted and broadcast as ${short(response.txid, 10, 8)}.` });
     }
-    catch (error) { notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
+    catch (error) { trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "spend" }); notify({ kind: "error", message: message(error) }); } finally { setSubmitting(false); }
   };
   const closeSafely = () => { if (!submitting) close(); };
   return <div className="overlay" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && closeSafely()}>
@@ -1286,8 +1298,10 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
       // Pin both the exact quote and relayer policy used to display it. Execution never
       // silently refreshes fees after this approval screen.
       setApproved({ quote: draft.quote, config, feeMode });
+      trackProductEvent("payment_reviewed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
       setStage("review");
     } catch (error) {
+      trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
       setStage("edit");
       notify({ kind: "error", message: message(error) });
     }
@@ -1314,6 +1328,7 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
         setFundingTxid(fundingTransaction);
         await waitForTransaction(fundingTransaction);
         setDeposit(await readRouterDeposit(approved.config, wallet));
+        trackProductEvent("router_funded", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
       }
 
       for (const payout of approved.quote.payouts) {
@@ -1331,8 +1346,10 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
           });
           submittedTxid = result.txid;
           submittedStealthPrincipal = result.stealthPrincipal;
+          trackProductEvent("intent_signed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
           setResults((current) => ({ ...current, [payout.id]: { status: "confirming", txid: result.txid, stealthPrincipal: result.stealthPrincipal } }));
           await waitForTransaction(result.txid);
+          trackProductEvent("settlement_confirmed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
           setResults((current) => ({ ...current, [payout.id]: { status: "confirmed", txid: result.txid, stealthPrincipal: result.stealthPrincipal } }));
         } catch (error) {
           setResults((current) => ({ ...current, [payout.id]: { status: "failed", txid: submittedTxid, stealthPrincipal: submittedStealthPrincipal, error: message(error) } }));
@@ -1342,8 +1359,10 @@ function Payouts({ asset, config, wallet, deposit, setDeposit, notify, connect, 
       setDeposit(await readRouterDeposit(approved.config, wallet));
       await refreshWalletBalance(approved.config);
       setStage("done");
+      trackProductEvent("dao_batch_completed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
       notify({ kind: "success", message: `All ${approved.quote.payouts.length} private contributor payouts confirmed on ${NETWORK}.` });
     } catch (error) {
+      trackProductEvent("flow_failed", { asset: asset.id as "sbtc" | "stx" | "usdcx", stage: "payout" });
       setDeposit(await readRouterDeposit(approved.config, wallet).catch(() => deposit));
       setStage("done");
       notify({ kind: "error", message: message(error) });

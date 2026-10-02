@@ -42,10 +42,10 @@ const steps = [
 
 <style>
   .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; counter-reset: step; position: relative; }
-  .step { padding: 34px 30px; display: grid; gap: 14px; align-content: start; position: relative; overflow: hidden; }
+  .step { padding: 30px 28px; display: grid; gap: 14px; align-content: start; position: relative; overflow: hidden; }
   .step::before { content: ""; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, var(--mint), transparent); opacity: 0.6; }
-  .step-n { font-family: var(--mono); font-size: 14px; color: var(--ink); background: var(--mint); width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; font-weight: 500; margin-bottom: 8px; box-shadow: 0 0 30px -6px rgba(169, 255, 120, 0.6); }
-  .step p { color: var(--muted); }
-  .step-detail { margin-top: auto; padding-top: 16px; border-top: 1px dashed var(--line); font-family: var(--mono); font-size: 13.5px; color: var(--cream) !important; line-height: 1.55; }
+  .step-n { font-family: var(--mono); font-size: 13px; color: var(--ink); background: var(--mint); width: 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; font-weight: 500; margin-bottom: 8px; box-shadow: 0 0 30px -6px rgba(169, 255, 120, 0.6); }
+  .step p { color: var(--muted); font-size: 15px; }
+  .step-detail { margin-top: auto; padding-top: 16px; border-top: 1px dashed var(--line); font-family: var(--mono); font-size: 12.5px; color: var(--cream) !important; line-height: 1.55; }
   @media (max-width: 960px) { .steps { grid-template-columns: 1fr; } }
 </style>

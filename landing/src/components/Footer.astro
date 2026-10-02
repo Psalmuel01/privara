@@ -64,7 +64,7 @@ const year = new Date().getFullYear();
 
 <style>
   .cta { padding: 0 0 clamp(80px, 10vw, 120px); }
-  .cta-card { position: relative; overflow: hidden; text-align: center; display: grid; justify-items: center; gap: 22px; padding: clamp(56px, 8vw, 96px) var(--gutter); border-radius: 32px; border: 1px solid var(--line-2); background: linear-gradient(160deg, #183526 0%, #0f1a15 70%); }
+  .cta-card { position: relative; overflow: hidden; text-align: center; display: grid; justify-items: center; gap: 18px; padding: clamp(48px, 7vw, 80px) var(--gutter); border-radius: 32px; border: 1px solid var(--line-2); background: linear-gradient(160deg, #183526 0%, #0f1a15 70%); }
   .cta-glow { position: absolute; inset: auto -20% -60% -20%; height: 120%; background: radial-gradient(closest-side, rgba(169, 255, 120, 0.25), transparent); pointer-events: none; }
   .cta-card > * { position: relative; }
   .cta-card .lead { max-width: 540px; }
@@ -72,13 +72,13 @@ const year = new Date().getFullYear();
   .footer { border-top: 1px solid var(--line); padding: 64px 0 36px; background: var(--bg-2); }
   .footer-grid { display: grid; grid-template-columns: 1.6fr repeat(3, 1fr); gap: 40px; }
   .footer-brand { display: grid; gap: 18px; align-content: start; max-width: 340px; }
-  .footer-brand p { color: var(--muted); font-size: 15px; }
+  .footer-brand p { color: var(--muted); font-size: 14px; }
   .socials { display: flex; gap: 8px; }
   .socials a { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; border: 1px solid var(--line); color: var(--muted); transition: color 0.2s, border-color 0.2s; }
   .socials a:hover { color: var(--text); border-color: var(--line-2); }
   .footer h3 { font-family: var(--mono); font-size: 12.5px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim); margin-bottom: 18px; }
   .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
-  .footer ul a { color: var(--muted); font-size: 15px; font-weight: 600; transition: color 0.2s; }
+  .footer ul a { color: var(--muted); font-size: 14px; font-weight: 600; transition: color 0.2s; }
   .footer ul a:hover { color: var(--mint); }
   .footer-bottom { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 13.5px; color: var(--dim); }
   @media (max-width: 860px) { .footer-grid { grid-template-columns: 1fr 1fr; } .footer-brand { grid-column: 1 / -1; } }

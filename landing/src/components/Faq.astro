@@ -35,15 +35,15 @@ const faqs = [
   .lead a { color: var(--mint); border-bottom: 1px solid var(--line-2); }
   .faq-list { border-top: 1px solid var(--line); }
   details { border-bottom: 1px solid var(--line); }
-  summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 24px 0; font-weight: 700; font-size: 18.5px; letter-spacing: -0.015em; transition: color 0.2s; }
+  summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 20px 0; font-weight: 700; font-size: 16.5px; letter-spacing: -0.015em; transition: color 0.2s; }
   summary::-webkit-details-marker { display: none; }
   summary:hover { color: var(--mint); }
-  .plus { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-2); position: relative; transition: transform 0.35s var(--ease), background-color 0.25s; }
+  .plus { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line-2); position: relative; transition: transform 0.35s var(--ease), background-color 0.25s; }
   .plus::before, .plus::after { content: ""; position: absolute; left: 50%; top: 50%; width: 12px; height: 1.8px; margin: -0.9px 0 0 -6px; background: var(--mint); border-radius: 2px; }
   .plus::after { transform: rotate(90deg); transition: transform 0.35s var(--ease); }
   details[open] .plus { background: rgba(169, 255, 120, 0.1); }
   details[open] .plus::after { transform: rotate(0deg); }
-  details p { padding: 0 48px 26px 0; color: var(--muted); }
+  details p { padding: 0 48px 22px 0; color: var(--muted); font-size: 15px; }
   @media (max-width: 960px) {
     .faq-grid { grid-template-columns: 1fr; }
     .faq-grid .section-head { position: static; }

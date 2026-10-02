@@ -156,7 +156,13 @@ Relayer URL:
 https://privara-production.up.railway.app
 ```
 
-Demo app:
+Production app:
+
+```text
+https://app.useprivara.xyz
+```
+
+Website:
 
 ```text
 https://www.useprivara.xyz

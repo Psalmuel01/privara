@@ -1,6 +1,6 @@
 # Privara landing site
 
-The marketing site for **www.useprivara.xyz**. The web app moves to
+The marketing site for **www.useprivara.xyz**. The web app lives at
 **app.useprivara.xyz**.
 
 It's a static [Astro](https://astro.build/) site with no client framework. The few
@@ -35,45 +35,23 @@ guarantee is stated narrowly: the recipient's long-term wallet is never the sett
 destination. Amounts, timing, and later links stay public. Update `src/data/site.ts`
 and the FAQ whenever those documents change.
 
-## Cutover: landing on www, app on app.useprivara.xyz
+## Domains
 
-Do these steps in order. The app keeps working throughout.
+Live since October 2026:
 
-1. **Allow the new app origin on the relayer.** In Railway, append the new origin to
-   `PRIVARA_ALLOWED_ORIGINS` (comma-separated). Keep the old one until cutover is complete.
+| Domain | Vercel project | Serves |
+| --- | --- | --- |
+| `www.useprivara.xyz` (apex redirects here) | landing (Root Directory `landing`) | This site |
+| `app.useprivara.xyz` | app | The React app, including `/guide` and `/developers` |
 
-   ```text
-   PRIVARA_ALLOWED_ORIGINS=https://www.useprivara.xyz,https://app.useprivara.xyz
-   ```
+`vercel.json` permanently redirects the old app paths (`/guide`, `/developers`,
+`/app/*`) from www to the app subdomain, so links shared before the move still work.
 
-   Verify:
+The relayer's `PRIVARA_ALLOWED_ORIGINS` must include `https://app.useprivara.xyz`. The
+landing site never calls the relayer, so `www` does not need to be listed.
 
-   ```bash
-   curl -sI -H "Origin: https://app.useprivara.xyz" \
-     https://privara-production.up.railway.app/v1/config | grep -i access-control-allow-origin
-   ```
-
-2. **Add `app.useprivara.xyz` to the existing app project** in Vercel (Settings →
-   Domains). Add the DNS record Vercel shows (normally `CNAME app → cname.vercel-dns.com`).
-   Wait until the app loads at https://app.useprivara.xyz and can connect a wallet.
-
-3. **Create the landing project.** In Vercel, use **New Project**, pick this repository,
-   set **Root Directory** to `landing`, and confirm Node.js 22. The framework (Astro) is
-   auto-detected. Deploy it and review the preview URL.
-
-4. **Move the main domain.** Remove `www.useprivara.xyz` (and the apex
-   `useprivara.xyz`, if attached) from the app project, then add them to the landing
-   project. `vercel.json` permanently redirects the old app paths `/guide`,
-   `/developers`, and `/app/*` to the app subdomain, so existing links keep working.
-
-5. **Optional: enable Web Analytics** on the landing project. The page already
-   includes the cookieless Vercel Analytics script.
-
-6. **Clean up.** After a few days, remove `https://www.useprivara.xyz` from
-   `PRIVARA_ALLOWED_ORIGINS`. Then update the links that point to the app:
-   - the root README: "Open the app" → app.useprivara.xyz, and the guide link →
-     app.useprivara.xyz/guide
-   - `app/.env*.example` and any docs that name www.useprivara.xyz as the app
+Web Analytics is enabled per Vercel project. The landing page ships the cookieless
+script, but it only reports once Analytics is turned on for the landing project.
 
 ## Checks before shipping changes
 

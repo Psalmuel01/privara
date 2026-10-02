@@ -47,22 +47,22 @@ const visible = [
   .privacy { background: radial-gradient(900px 500px at 50% 0%, rgba(23, 57, 44, 0.55), transparent 70%); }
   .privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .col { padding: clamp(28px, 3.4vw, 40px); display: grid; gap: 26px; align-content: start; }
-  .col h3 { display: flex; align-items: center; gap: 14px; font-size: 22px; }
+  .col h3 { display: flex; align-items: center; gap: 14px; font-size: 19px; }
   .badge { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; }
   .yes { border-color: var(--line-2); }
   .yes .badge { background: rgba(169, 255, 120, 0.12); color: var(--mint); }
   .no .badge { background: rgba(243, 234, 216, 0.08); color: var(--cream); }
   ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
-  li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; }
+  li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; font-size: 15.5px; }
   li :global(svg) { margin-top: 3px; }
   .yes li :global(svg) { color: var(--mint); }
   .no li { color: var(--muted); }
   .no li :global(svg) { color: var(--cream); opacity: 0.7; }
   .callout { margin-top: 20px; display: grid; grid-template-columns: auto 1fr auto; gap: 18px; align-items: center; padding: 22px 26px; border-radius: var(--radius-sm); border: 1px solid rgba(243, 234, 216, 0.2); background: rgba(243, 234, 216, 0.04); color: var(--cream); }
-  .callout p { color: var(--muted); font-size: 15.5px; }
+  .callout p { color: var(--muted); font-size: 14.5px; }
   .callout strong { color: var(--cream); }
   .callout-links { display: flex; gap: 18px; }
-  .callout-links a { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; white-space: nowrap; border-bottom: 1px solid rgba(243, 234, 216, 0.3); }
+  .callout-links a { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; white-space: nowrap; border-bottom: 1px solid rgba(243, 234, 216, 0.3); }
   .callout-links a:hover { color: var(--text); }
   @media (max-width: 860px) {
     .privacy-grid { grid-template-columns: 1fr; }

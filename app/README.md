@@ -45,9 +45,10 @@ prefix.
 
 The **How Privara works** item near the bottom of the sidebar explains the complete flow,
 fee split, seed custody, and privacy limits inside the app. It is directly shareable at
-`/guide`; after the next deployment its URL will be
-`https://www.useprivara.xyz/guide`. The included `vercel.json` rewrites that
-single-page route to the React entry point.
+`/guide` at `https://app.useprivara.xyz/guide`. The included `vercel.json` rewrites
+that single-page route to the React entry point. The marketing site at
+`www.useprivara.xyz` lives in [`landing/`](../landing/) and redirects its old `/guide`
+and `/developers` paths here.
 
 Privara supports sBTC, USDCx, and native STX through independently pinned router
 policies. The asset menu enables only policies advertised by the relayer and pinned by

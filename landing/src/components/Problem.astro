@@ -45,12 +45,12 @@ import Icon from "./Icon.astro";
   .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .compare-col { padding: clamp(26px, 3.4vw, 40px); display: grid; gap: 28px; align-content: start; }
   .compare-col.after { border-color: var(--line-2); box-shadow: 0 30px 80px -40px rgba(169, 255, 120, 0.35); }
-  .tag { display: inline-block; font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; }
   .tag-danger { color: var(--danger); background: rgba(255, 106, 85, 0.1); border: 1px solid rgba(255, 106, 85, 0.35); }
   .tag-mint { color: var(--mint); background: rgba(169, 255, 120, 0.08); border: 1px solid var(--line-2); }
   .flow { display: flex; align-items: center; gap: 12px; padding: 22px; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.22); border: 1px solid var(--line); }
   .flow-node :global(svg) { flex: none; }
-  .flow-node { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: 15px; background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
+  .flow-node { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-weight: 700; font-size: 14px; background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
   .flow-node.exposed { color: var(--danger); border-color: rgba(255, 106, 85, 0.45); box-shadow: 0 0 30px -6px rgba(255, 106, 85, 0.5); }
   .flow-node.fresh { color: var(--mint); border-color: var(--line-2); box-shadow: 0 0 30px -6px rgba(169, 255, 120, 0.5); }
   .flow-line { flex: 1; height: 2px; position: relative; overflow: hidden; border-radius: 2px; }
@@ -61,7 +61,7 @@ import Icon from "./Icon.astro";
   .flow-line.mint::after { color: var(--mint); }
   @keyframes travel { to { left: 100%; } }
   ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
-  li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; color: var(--muted); }
+  li { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; color: var(--muted); font-size: 15.5px; }
   li :global(svg) { margin-top: 3px; }
   .before li :global(svg) { color: var(--danger); }
   .after li :global(svg) { color: var(--mint); }

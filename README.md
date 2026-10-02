@@ -7,9 +7,10 @@ identity while settling the payment to a fresh one-time address controlled by th
 recipient. The recipient's long-term wallet is therefore not exposed as the onchain
 settlement destination.
 
-[Open the app](https://www.useprivara.xyz/) ·
+[Open the app](https://app.useprivara.xyz/) ·
+[Visit the website](https://www.useprivara.xyz/) ·
 [Watch the demo](https://youtu.be/oFFISJjOUYs) ·
-[Read the user guide](https://www.useprivara.xyz/guide) ·
+[Read the user guide](https://app.useprivara.xyz/guide) ·
 [Install the SDK](https://www.npmjs.com/package/@privara-stacks/sdk/v/0.1.0) ·
 [Read the protocol specification](docs/m2-stealth-spec.md) ·
 [Read the Stacks Forum post](https://forum.stacks.org/t/privara-private-sip-010-payments-with-stealth-addresses-on-stacks/19001)
@@ -271,7 +272,8 @@ Milestone 2 completion gate. Use only small amounts while validation continues.
 
 | Component | Address or URL |
 | --- | --- |
-| Application | [www.useprivara.xyz](https://www.useprivara.xyz/) |
+| Website | [www.useprivara.xyz](https://www.useprivara.xyz/) |
+| Application | [app.useprivara.xyz](https://app.useprivara.xyz/) |
 | Relayer health | [privara-production.up.railway.app/health](https://privara-production.up.railway.app/health) |
 | Relayer configuration | [privara-production.up.railway.app/v1/config](https://privara-production.up.railway.app/v1/config) |
 | Deployer | `SP1H7G0B7BBM991P2KA77R0XHDRNYCWH8H808K7AE` |
